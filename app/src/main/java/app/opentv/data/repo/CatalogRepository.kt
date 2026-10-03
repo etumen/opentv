@@ -186,15 +186,6 @@ class CatalogRepository(
 
     suspend fun movie(id: Long): Movie? = movieDao.byId(id)
 
-    /**
-     * The IMDb id for a film, for Stremio add-on stream lookups. Resolved through the user's TMDB
-     * key (using the provider's TMDB id when present, else a title+year search). Null without a key
-     * or a match — the add-on feature stays inert rather than guessing.
-     */
-    suspend fun imdbIdFor(movie: Movie): String? = withContext(Dispatchers.IO) {
-        tmdb.imdbId(title = movie.name, year = movie.year, isMovie = true, tmdbId = movie.tmdbId)
-    }
-
     suspend fun episode(id: Long): Episode? = episodeDao.byId(id)
 
     suspend fun movieByStreamUrl(url: String): Movie? = movieDao.byStreamUrl(url)

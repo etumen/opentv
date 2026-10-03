@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Uit</string>
     <string name="settings_providers_title">Providers</string>
     <string name="settings_providers_subtitle">Voeg je IPTV-bronnen toe, verwijder ze of test ze opnieuw</string>
-    <string name="settings_addons_title">Add-ons (Stremio)</string>
-    <string name="settings_addons_subtitle">Afspelen vanuit Stremio-add-ons die je zelf hebt ingesteld</string>
-    <string name="addons_note">Voeg een Stremio-add-on toe door de manifest-URL te plakken. OpenTV wordt zonder geleverd — je voegt je eigen toe. Als de add-on debrid-ondersteund is, stel je debrid-sleutel dan in op de site van de add-on zelf en plak de gepersonaliseerde URL die je daar krijgt; je sleutel blijft daar, nooit in OpenTV.</string>
-    <string name="addons_url_label">Manifest-URL van de add-on</string>
-    <string name="addons_add">Toevoegen</string>
-    <string name="addons_checking">Controleren…</string>
-    <string name="addons_invalid">Dat lijkt geen geldige manifest-URL voor een add-on te zijn.</string>
-    <string name="addons_added">%1$s toegevoegd</string>
-    <string name="addons_empty">Nog geen add-ons. Plak hierboven een manifest-URL om er een toe te voegen.</string>
     <string name="settings_guide_title">Tv-gids</string>
     <string name="settings_guide_subtitle">Gidsbronnen en gratis XMLTV-feeds</string>
     <string name="settings_channels_subtitle">Verberg zenders of maak ze favoriet</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Categorieën</string>
     <string name="vod_watch_now">Nu kijken</string>
     <string name="vod_resume">Hervatten</string>
-    <string name="vod_addon_sources">Add-onbronnen</string>
-    <string name="vod_addon_pick_title">Kies een stream</string>
-    <string name="vod_addon_loading">Streams zoeken via je add-ons…</string>
-    <string name="vod_addon_none">Geen streams gevonden via je add-ons voor deze titel. Er is een ingestelde TMDB-sleutel nodig (voor de IMDb-match) en een add-on die deze heeft.</string>
     <string name="vod_more_like_this">Meer zoals dit</string>
     <string name="vod_synopsis">Synopsis</string>
     <string name="vod_cast">Cast</string>

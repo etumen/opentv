@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Nonaktif</string>
     <string name="settings_providers_title">Penyedia</string>
     <string name="settings_providers_subtitle">Tambah, hapus, dan uji ulang sumber IPTV Anda</string>
-    <string name="settings_addons_title">Add-on (Stremio)</string>
-    <string name="settings_addons_subtitle">Putar dari add-on Stremio yang Anda siapkan sendiri</string>
-    <string name="addons_note">Tambahkan add-on Stremio dengan menempelkan URL manifestnya. OpenTV tidak menyertakan add-on apa pun — Anda membawa milik sendiri. Jika add-on tersebut berbasis debrid, atur kunci debrid Anda di situs add-on itu sendiri lalu tempelkan URL personal yang diberikannya; kunci Anda tetap di sana, tidak pernah di OpenTV.</string>
-    <string name="addons_url_label">URL manifes add-on</string>
-    <string name="addons_add">Tambah</string>
-    <string name="addons_checking">Memeriksa…</string>
-    <string name="addons_invalid">Itu bukan URL manifes add-on yang valid.</string>
-    <string name="addons_added">%1$s ditambahkan</string>
-    <string name="addons_empty">Belum ada add-on. Tempelkan URL manifes di atas untuk menambahkannya.</string>
     <string name="settings_guide_title">Panduan TV</string>
     <string name="settings_guide_subtitle">Sumber panduan dan feed XMLTV gratis</string>
     <string name="settings_channels_subtitle">Sembunyikan atau favoritkan saluran satu per satu</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Kategori</string>
     <string name="vod_watch_now">Tonton sekarang</string>
     <string name="vod_resume">Lanjutkan</string>
-    <string name="vod_addon_sources">Sumber add-on</string>
-    <string name="vod_addon_pick_title">Pilih stream</string>
-    <string name="vod_addon_loading">Mencari stream dari add-on Anda…</string>
-    <string name="vod_addon_none">Tidak ditemukan stream dari add-on Anda untuk judul ini. Diperlukan kunci TMDB (untuk pencocokan IMDb) dan add-on yang memilikinya.</string>
     <string name="vod_more_like_this">Lainnya seperti ini</string>
     <string name="vod_synopsis">Sinopsis</string>
     <string name="vod_cast">Pemeran</string>

@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">إيقاف</string>
     <string name="settings_providers_title">مزوّدو الخدمة</string>
     <string name="settings_providers_subtitle">إضافة مصادر IPTV وإزالتها وإعادة اختبارها</string>
-    <string name="settings_addons_title">الإضافات (Stremio)</string>
-    <string name="settings_addons_subtitle">التشغيل من إضافات Stremio التي تقوم بإعدادها بنفسك</string>
-    <string name="addons_note">أضف إضافة Stremio بلصق رابط الـ manifest الخاص بها. لا يأتي OpenTV مزودًا بأي إضافات — أنت تضيف إضافاتك الخاصة. إذا كانت الإضافة تعتمد على خدمة debrid، فاضبط مفتاح debrid الخاص بك على موقع الإضافة نفسه، ثم الصق الرابط المخصص الذي يمنحك إياه؛ يبقى مفتاحك هناك ولا يصل أبدًا إلى OpenTV.</string>
-    <string name="addons_url_label">رابط manifest الإضافة</string>
-    <string name="addons_add">إضافة</string>
-    <string name="addons_checking">جارٍ التحقق…</string>
-    <string name="addons_invalid">لا يبدو أن هذا رابط manifest صالح للإضافة.</string>
-    <string name="addons_added">تمت إضافة %1$s</string>
-    <string name="addons_empty">لا توجد إضافات بعد. الصق رابط manifest أعلاه لإضافة واحدة.</string>
     <string name="settings_guide_title">دليل البرامج</string>
     <string name="settings_guide_subtitle">مصادر دليل البرامج وموجزات XMLTV المجانية</string>
     <string name="settings_channels_subtitle">إخفاء القنوات الفردية أو إضافتها إلى المفضلة</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">الفئات</string>
     <string name="vod_watch_now">مشاهدة الآن</string>
     <string name="vod_resume">استئناف</string>
-    <string name="vod_addon_sources">مصادر الإضافات</string>
-    <string name="vod_addon_pick_title">اختر بثًا</string>
-    <string name="vod_addon_loading">جارٍ البحث عن مصادر البث من إضافاتك…</string>
-    <string name="vod_addon_none">لم يتم العثور على مصادر بث لهذا العنوان من إضافاتك. يتطلب ذلك ضبط مفتاح TMDB (لمطابقة IMDb) وإضافة تدعمه.</string>
     <string name="vod_more_like_this">مشابه لهذا</string>
     <string name="vod_synopsis">الملخص</string>
     <string name="vod_cast">طاقم التمثيل</string>

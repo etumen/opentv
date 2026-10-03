@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">끄기</string>
     <string name="settings_providers_title">공급자</string>
     <string name="settings_providers_subtitle">IPTV 소스 추가, 제거 및 재테스트</string>
-    <string name="settings_addons_title">애드온(Stremio)</string>
-    <string name="settings_addons_subtitle">직접 설정한 Stremio 애드온에서 재생</string>
-    <string name="addons_note">매니페스트 URL을 붙여넣어 Stremio 애드온을 추가하세요. OpenTV에는 애드온이 기본 포함되어 있지 않습니다 - 직접 추가해야 합니다. 애드온이 디브리드(debrid) 기반이라면 해당 애드온의 웹사이트에서 디브리드 키를 설정한 뒤 제공되는 개인화된 URL을 붙여넣으세요. 키는 그곳에만 저장되며 OpenTV에는 저장되지 않습니다.</string>
-    <string name="addons_url_label">애드온 매니페스트 URL</string>
-    <string name="addons_add">추가</string>
-    <string name="addons_checking">확인 중…</string>
-    <string name="addons_invalid">올바른 애드온 매니페스트 URL이 아닌 것 같습니다.</string>
-    <string name="addons_added">%1$s 추가됨</string>
-    <string name="addons_empty">아직 애드온이 없습니다. 위에 매니페스트 URL을 붙여넣어 추가하세요.</string>
     <string name="settings_guide_title">편성표</string>
     <string name="settings_guide_subtitle">편성표 소스 및 무료 XMLTV 피드</string>
     <string name="settings_channels_subtitle">개별 채널을 숨기거나 즐겨찾기에 추가</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">카테고리</string>
     <string name="vod_watch_now">지금 시청</string>
     <string name="vod_resume">이어서 재생</string>
-    <string name="vod_addon_sources">애드온 소스</string>
-    <string name="vod_addon_pick_title">스트림 선택</string>
-    <string name="vod_addon_loading">애드온에서 스트림을 찾는 중…</string>
-    <string name="vod_addon_none">이 콘텐츠에 대해 애드온에서 스트림을 찾지 못했습니다. TMDB 키 설정(IMDb 매칭용)과 해당 콘텐츠를 제공하는 애드온이 필요합니다.</string>
     <string name="vod_more_like_this">비슷한 콘텐츠</string>
     <string name="vod_synopsis">줄거리</string>
     <string name="vod_cast">출연진</string>

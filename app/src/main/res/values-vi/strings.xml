@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Tắt</string>
     <string name="settings_providers_title">Nhà cung cấp</string>
     <string name="settings_providers_subtitle">Thêm, xóa và kiểm tra lại nguồn IPTV của bạn</string>
-    <string name="settings_addons_title">Tiện ích mở rộng (Stremio)</string>
-    <string name="settings_addons_subtitle">Phát từ các tiện ích Stremio bạn tự thiết lập</string>
-    <string name="addons_note">Thêm một tiện ích Stremio bằng cách dán URL manifest của nó. OpenTV không đi kèm sẵn tiện ích nào — bạn tự thêm. Nếu tiện ích dùng debrid, hãy thiết lập khóa debrid của bạn trên trang web của tiện ích đó và dán URL cá nhân hóa mà nó cung cấp; khóa của bạn ở lại đó, không bao giờ nằm trong OpenTV.</string>
-    <string name="addons_url_label">URL manifest của tiện ích</string>
-    <string name="addons_add">Thêm</string>
-    <string name="addons_checking">Đang kiểm tra…</string>
-    <string name="addons_invalid">URL này không giống một manifest tiện ích hợp lệ.</string>
-    <string name="addons_added">Đã thêm %1$s</string>
-    <string name="addons_empty">Chưa có tiện ích nào. Dán URL manifest ở trên để thêm.</string>
     <string name="settings_guide_title">Lịch phát TV</string>
     <string name="settings_guide_subtitle">Nguồn lịch phát và các nguồn XMLTV miễn phí</string>
     <string name="settings_channels_subtitle">Ẩn hoặc đánh dấu yêu thích từng kênh</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Danh mục</string>
     <string name="vod_watch_now">Xem ngay</string>
     <string name="vod_resume">Tiếp tục</string>
-    <string name="vod_addon_sources">Nguồn tiện ích</string>
-    <string name="vod_addon_pick_title">Chọn một luồng</string>
-    <string name="vod_addon_loading">Đang tìm luồng từ tiện ích của bạn…</string>
-    <string name="vod_addon_none">Không tìm thấy luồng nào từ tiện ích của bạn cho tựa đề này. Cần thiết lập khóa TMDB (để khớp IMDb) và một tiện ích có khóa đó.</string>
     <string name="vod_more_like_this">Nội dung tương tự</string>
     <string name="vod_synopsis">Tóm tắt</string>
     <string name="vod_cast">Diễn viên</string>

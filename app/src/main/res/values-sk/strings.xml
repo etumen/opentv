@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Vypnuté</string>
     <string name="settings_providers_title">Poskytovatelia</string>
     <string name="settings_providers_subtitle">Pridávajte, odstraňujte a znova testujte svoje zdroje IPTV</string>
-    <string name="settings_addons_title">Doplnky (Stremio)</string>
-    <string name="settings_addons_subtitle">Prehrávanie z doplnkov Stremio, ktoré si sami nastavíte</string>
-    <string name="addons_note">Doplnok Stremio pridáte vložením jeho manifest URL adresy. OpenTV neobsahuje žiadne — pridávate si vlastné. Ak doplnok využíva debrid, nastavte si svoj debrid kľúč priamo na stránke doplnku a vložte personalizovanú URL adresu, ktorú vám poskytne; váš kľúč zostáva tam, nikdy nie v OpenTV.</string>
-    <string name="addons_url_label">Manifest URL adresa doplnku</string>
-    <string name="addons_add">Pridať</string>
-    <string name="addons_checking">Kontroluje sa…</string>
-    <string name="addons_invalid">Toto nevyzerá ako platná manifest URL adresa doplnku.</string>
-    <string name="addons_added">%1$s pridaný</string>
-    <string name="addons_empty">Zatiaľ žiadne doplnky. Pridajte jeden vložením manifest URL adresy vyššie.</string>
     <string name="settings_guide_title">TV program</string>
     <string name="settings_guide_subtitle">Zdroje programu a bezplatné XMLTV zdroje</string>
     <string name="settings_channels_subtitle">Skryť alebo označiť jednotlivé kanály ako obľúbené</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Kategórie</string>
     <string name="vod_watch_now">Sledovať teraz</string>
     <string name="vod_resume">Pokračovať</string>
-    <string name="vod_addon_sources">Zdroje z doplnkov</string>
-    <string name="vod_addon_pick_title">Vyberte stream</string>
-    <string name="vod_addon_loading">Hľadajú sa streamy z vašich doplnkov…</string>
-    <string name="vod_addon_none">Pre tento titul sa nenašli žiadne streamy z vašich doplnkov. Je potrebný nastavený kľúč TMDB (na priradenie IMDb) a doplnok, ktorý ho má.</string>
     <string name="vod_more_like_this">Ďalšie podobné</string>
     <string name="vod_synopsis">Synopsa</string>
     <string name="vod_cast">Obsadenie</string>

@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Kapalı</string>
     <string name="settings_providers_title">Sağlayıcılar</string>
     <string name="settings_providers_subtitle">IPTV kaynaklarınızı ekleyin, kaldırın ve yeniden test edin</string>
-    <string name="settings_addons_title">Eklentiler (Stremio)</string>
-    <string name="settings_addons_subtitle">Kendi kurduğunuz Stremio eklentilerinden oynatın</string>
-    <string name="addons_note">Manifest URL\'sini yapıştırarak bir Stremio eklentisi ekleyin. OpenTV hiçbir eklentiyle birlikte gelmez — kendi eklentinizi siz eklersiniz. Eklenti debrid destekliyse debrid anahtarınızı eklentinin kendi sitesinde ayarlayıp size verdiği kişiselleştirilmiş URL\'yi yapıştırın; anahtarınız orada kalır, asla OpenTV\'ye girmez.</string>
-    <string name="addons_url_label">Eklenti manifest URL\'si</string>
-    <string name="addons_add">Ekle</string>
-    <string name="addons_checking">Kontrol ediliyor…</string>
-    <string name="addons_invalid">Bu geçerli bir eklenti manifest URL\'sine benzemiyor.</string>
-    <string name="addons_added">%1$s eklendi</string>
-    <string name="addons_empty">Henüz eklenti yok. Eklemek için yukarıya bir manifest URL\'si yapıştırın.</string>
     <string name="settings_guide_title">TV rehberi</string>
     <string name="settings_guide_subtitle">Rehber kaynakları ve ücretsiz XMLTV akışları</string>
     <string name="settings_channels_subtitle">Kanalları tek tek gizleyin veya favorilere ekleyin</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Kategoriler</string>
     <string name="vod_watch_now">Şimdi izle</string>
     <string name="vod_resume">Devam et</string>
-    <string name="vod_addon_sources">Eklenti kaynakları</string>
-    <string name="vod_addon_pick_title">Bir yayın seçin</string>
-    <string name="vod_addon_loading">Eklentilerinizden yayınlar bulunuyor…</string>
-    <string name="vod_addon_none">Bu başlık için eklentilerinizden yayın bulunamadı. Bir TMDB anahtarının ayarlanmış olması (IMDb eşleşmesi için) ve buna sahip bir eklenti gerekir.</string>
     <string name="vod_more_like_this">Buna benzer</string>
     <string name="vod_synopsis">Özet</string>
     <string name="vod_cast">Oyuncular</string>

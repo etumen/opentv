@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Выкл.</string>
     <string name="settings_providers_title">Провайдеры</string>
     <string name="settings_providers_subtitle">Добавляйте, удаляйте и проверяйте свои источники IPTV</string>
-    <string name="settings_addons_title">Дополнения (Stremio)</string>
-    <string name="settings_addons_subtitle">Воспроизведение через дополнения Stremio, настроенные вами</string>
-    <string name="addons_note">Добавьте дополнение Stremio, вставив ссылку на его манифест. OpenTV не поставляется с готовыми дополнениями — вы подключаете свои. Если дополнение работает через debrid-сервис, настройте свой ключ debrid на сайте самого дополнения и вставьте персональную ссылку, которую он выдаст; ключ останется там и никогда не попадёт в OpenTV.</string>
-    <string name="addons_url_label">Ссылка на манифест дополнения</string>
-    <string name="addons_add">Добавить</string>
-    <string name="addons_checking">Проверка…</string>
-    <string name="addons_invalid">Похоже, это недействительная ссылка на манифест дополнения.</string>
-    <string name="addons_added">Добавлено: %1$s</string>
-    <string name="addons_empty">Пока нет дополнений. Вставьте ссылку на манифест выше, чтобы добавить.</string>
     <string name="settings_guide_title">Телегид</string>
     <string name="settings_guide_subtitle">Источники телегида и бесплатные фиды XMLTV</string>
     <string name="settings_channels_subtitle">Скрывайте каналы или добавляйте их в избранное</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Категории</string>
     <string name="vod_watch_now">Смотреть сейчас</string>
     <string name="vod_resume">Продолжить</string>
-    <string name="vod_addon_sources">Источники дополнений</string>
-    <string name="vod_addon_pick_title">Выберите поток</string>
-    <string name="vod_addon_loading">Поиск потоков в ваших дополнениях…</string>
-    <string name="vod_addon_none">Потоки для этого тайтла не найдены в ваших дополнениях. Нужен настроенный ключ TMDB (для сопоставления с IMDb) и дополнение, которое его поддерживает.</string>
     <string name="vod_more_like_this">Похожее</string>
     <string name="vod_synopsis">Описание</string>
     <string name="vod_cast">В ролях</string>

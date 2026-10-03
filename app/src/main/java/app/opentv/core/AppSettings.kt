@@ -6,13 +6,9 @@
 package app.opentv.core
 
 import android.content.Context
-import app.opentv.data.model.StremioAddon
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 /**
  * The handful of user preferences that are not "data" (sources, guides) but "how the app
@@ -25,8 +21,6 @@ class AppSettings private constructor(context: Context) {
 
     private val prefs =
         context.applicationContext.getSharedPreferences("opentv_settings", Context.MODE_PRIVATE)
-
-    private val addonJson = Json { ignoreUnknownKeys = true }
 
     /** How the app chooses light vs dark. TV defaults to dark under [ThemeMode.SYSTEM]. */
     enum class ThemeMode { SYSTEM, DARK, LIGHT }
@@ -391,35 +385,6 @@ class AppSettings private constructor(context: Context) {
         _tmdbApiKey.value = trimmed
     }
 
-    // ---- Stremio add-ons ---------------------------------------------------------------------
-
-    /**
-     * The user's Stremio add-ons, stored on-device as JSON. OpenTV ships with none; each entry is a
-     * manifest URL the user pasted (a debrid key, if any, is baked into that URL on the add-on's own
-     * site — never entered here). Empty = the whole feature stays inert.
-     */
-    private val _stremioAddons = MutableStateFlow(readStremioAddons())
-    val stremioAddons: StateFlow<List<StremioAddon>> = _stremioAddons.asStateFlow()
-
-    fun addStremioAddon(addon: StremioAddon) {
-        val deduped = _stremioAddons.value.filterNot { it.manifestUrl.equals(addon.manifestUrl, ignoreCase = true) }
-        persistStremioAddons(deduped + addon)
-    }
-
-    fun removeStremioAddon(manifestUrl: String) {
-        persistStremioAddons(_stremioAddons.value.filterNot { it.manifestUrl == manifestUrl })
-    }
-
-    private fun persistStremioAddons(list: List<StremioAddon>) {
-        prefs.edit().putString(KEY_STREMIO_ADDONS, addonJson.encodeToString(list)).apply()
-        _stremioAddons.value = list
-    }
-
-    private fun readStremioAddons(): List<StremioAddon> =
-        runCatching {
-            prefs.getString(KEY_STREMIO_ADDONS, null)?.let { addonJson.decodeFromString<List<StremioAddon>>(it) }
-        }.getOrNull() ?: emptyList()
-
     companion object {
         private const val KEY_THEME = "theme_mode"
         private const val KEY_CHANNEL_LAYOUT = "channel_layout"
@@ -456,7 +421,6 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_NAS_AUTO_SYNC = "nas_auto_sync"
         private const val KEY_VOD_SYNCED_AT = "vod_synced_at"
         private const val KEY_TMDB_KEY = "tmdb_api_key"
-        private const val KEY_STREMIO_ADDONS = "stremio_addons"
         private const val KEY_PAD_START = "rec_pad_start_min"
         private const val KEY_PAD_END = "rec_pad_end_min"
         private const val KEY_REC_AUTOSWITCH = "rec_auto_switch"

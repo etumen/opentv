@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Desactivado</string>
     <string name="settings_providers_title">Proveedores</string>
     <string name="settings_providers_subtitle">Agrega, quita y vuelve a probar tus fuentes IPTV</string>
-    <string name="settings_addons_title">Complementos (Stremio)</string>
-    <string name="settings_addons_subtitle">Reproduce contenido de complementos de Stremio que configures tú mismo</string>
-    <string name="addons_note">Agrega un complemento de Stremio pegando la URL de su manifiesto. OpenTV no incluye ninguno — tú agregas los tuyos. Si el complemento funciona con un servicio debrid, configura tu clave debrid en el sitio del complemento y pega la URL personalizada que te dé; tu clave se queda ahí, nunca en OpenTV.</string>
-    <string name="addons_url_label">URL del manifiesto del complemento</string>
-    <string name="addons_add">Agregar</string>
-    <string name="addons_checking">Comprobando…</string>
-    <string name="addons_invalid">Eso no parece una URL de manifiesto de complemento válida.</string>
-    <string name="addons_added">Se agregó %1$s</string>
-    <string name="addons_empty">Todavía no hay complementos. Pega una URL de manifiesto arriba para agregar uno.</string>
     <string name="settings_guide_title">Guía de TV</string>
     <string name="settings_guide_subtitle">Fuentes de guía y feeds XMLTV gratuitos</string>
     <string name="settings_channels_subtitle">Oculta canales individuales o márcalos como favoritos</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Categorías</string>
     <string name="vod_watch_now">Ver ahora</string>
     <string name="vod_resume">Reanudar</string>
-    <string name="vod_addon_sources">Fuentes de complementos</string>
-    <string name="vod_addon_pick_title">Elige una transmisión</string>
-    <string name="vod_addon_loading">Buscando transmisiones en tus complementos…</string>
-    <string name="vod_addon_none">No se encontraron transmisiones de tus complementos para este título. Se necesita una clave TMDB configurada (para la coincidencia con IMDb) y un complemento que la tenga.</string>
     <string name="vod_more_like_this">Más como esto</string>
     <string name="vod_synopsis">Sinopsis</string>
     <string name="vod_cast">Reparto</string>

@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">ปิด</string>
     <string name="settings_providers_title">ผู้ให้บริการ</string>
     <string name="settings_providers_subtitle">เพิ่ม ลบ และทดสอบแหล่งที่มา IPTV ของคุณอีกครั้ง</string>
-    <string name="settings_addons_title">แอดออน (Stremio)</string>
-    <string name="settings_addons_subtitle">เล่นจากแอดออน Stremio ที่คุณตั้งค่าเอง</string>
-    <string name="addons_note">เพิ่มแอดออน Stremio โดยวาง URL ไฟล์ manifest ของแอดออนนั้น OpenTV ไม่มีแอดออนมาให้ — คุณต้องนำมาเอง หากแอดออนอิงกับ debrid ให้ตั้งค่าคีย์ debrid ของคุณบนเว็บไซต์ของแอดออนนั้นเอง แล้ววาง URL เฉพาะบุคคลที่ได้รับมา คีย์ของคุณจะอยู่ที่นั่น ไม่เก็บไว้ใน OpenTV</string>
-    <string name="addons_url_label">URL manifest ของแอดออน</string>
-    <string name="addons_add">เพิ่ม</string>
-    <string name="addons_checking">กำลังตรวจสอบ…</string>
-    <string name="addons_invalid">นี่ดูไม่ใช่ URL manifest ของแอดออนที่ถูกต้อง</string>
-    <string name="addons_added">เพิ่ม %1$s แล้ว</string>
-    <string name="addons_empty">ยังไม่มีแอดออน วาง URL manifest ด้านบนเพื่อเพิ่มรายการแรก</string>
     <string name="settings_guide_title">ผังรายการทีวี</string>
     <string name="settings_guide_subtitle">แหล่งผังรายการและฟีด XMLTV ฟรี</string>
     <string name="settings_channels_subtitle">ซ่อนหรือตั้งเป็นรายการโปรดสำหรับแต่ละช่อง</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">หมวดหมู่</string>
     <string name="vod_watch_now">ดูตอนนี้</string>
     <string name="vod_resume">ดูต่อ</string>
-    <string name="vod_addon_sources">แหล่งที่มาจากแอดออน</string>
-    <string name="vod_addon_pick_title">เลือกสตรีม</string>
-    <string name="vod_addon_loading">กำลังค้นหาสตรีมจากแอดออนของคุณ…</string>
-    <string name="vod_addon_none">ไม่พบสตรีมจากแอดออนของคุณสำหรับเรื่องนี้ ต้องตั้งค่าคีย์ TMDB (สำหรับจับคู่กับ IMDb) และมีแอดออนที่รองรับ</string>
     <string name="vod_more_like_this">เรื่องที่คล้ายกัน</string>
     <string name="vod_synopsis">เรื่องย่อ</string>
     <string name="vod_cast">นักแสดง</string>

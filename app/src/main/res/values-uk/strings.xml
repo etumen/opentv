@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Вимкнено</string>
     <string name="settings_providers_title">Провайдери</string>
     <string name="settings_providers_subtitle">Додавайте, видаляйте та повторно перевіряйте свої джерела IPTV</string>
-    <string name="settings_addons_title">Додатки (Stremio)</string>
-    <string name="settings_addons_subtitle">Відтворення з додатків Stremio, які ви налаштували самостійно</string>
-    <string name="addons_note">Додайте додаток Stremio, вставивши URL його маніфесту. OpenTV не постачається з жодним — ви додаєте свої. Якщо додаток працює через debrid-сервіс, налаштуйте свій debrid-ключ на сайті самого додатка та вставте персоналізований URL, який він видасть; ваш ключ залишається там і ніколи не потрапляє в OpenTV.</string>
-    <string name="addons_url_label">URL маніфесту додатка</string>
-    <string name="addons_add">Додати</string>
-    <string name="addons_checking">Перевірка…</string>
-    <string name="addons_invalid">Це не схоже на дійсний URL маніфесту додатка.</string>
-    <string name="addons_added">Додано %1$s</string>
-    <string name="addons_empty">Поки що немає додатків. Вставте URL маніфесту вище, щоб додати перший.</string>
     <string name="settings_guide_title">Телепрограма</string>
     <string name="settings_guide_subtitle">Джерела програми передач і безкоштовні канали XMLTV</string>
     <string name="settings_channels_subtitle">Приховуйте або додавайте в улюблені окремі канали</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Категорії</string>
     <string name="vod_watch_now">Дивитися зараз</string>
     <string name="vod_resume">Продовжити</string>
-    <string name="vod_addon_sources">Джерела додатків</string>
-    <string name="vod_addon_pick_title">Виберіть потік</string>
-    <string name="vod_addon_loading">Пошук потоків від ваших додатків…</string>
-    <string name="vod_addon_none">Не знайдено потоків від ваших додатків для цього тайтлу. Потрібен налаштований ключ TMDB (для зіставлення з IMDb) і додаток, який його має.</string>
     <string name="vod_more_like_this">Схоже за змістом</string>
     <string name="vod_synopsis">Опис</string>
     <string name="vod_cast">Акторський склад</string>

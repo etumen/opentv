@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Desligado</string>
     <string name="settings_providers_title">Fornecedores</string>
     <string name="settings_providers_subtitle">Adicione, remova e volte a testar as suas fontes IPTV</string>
-    <string name="settings_addons_title">Add-ons (Stremio)</string>
-    <string name="settings_addons_subtitle">Reproduza a partir de add-ons Stremio configurados por si</string>
-    <string name="addons_note">Adicione um add-on Stremio colando o URL do seu manifesto. O OpenTV não vem com nenhum — traz o seu próprio. Se o add-on funcionar com debrid, configure a sua chave debrid no próprio site do add-on e cole o URL personalizado que ele lhe der; a sua chave fica lá, nunca no OpenTV.</string>
-    <string name="addons_url_label">URL do manifesto do add-on</string>
-    <string name="addons_add">Adicionar</string>
-    <string name="addons_checking">A verificar…</string>
-    <string name="addons_invalid">Isso não parece ser um URL de manifesto de add-on válido.</string>
-    <string name="addons_added">%1$s adicionado</string>
-    <string name="addons_empty">Ainda sem add-ons. Cole um URL de manifesto acima para adicionar um.</string>
     <string name="settings_guide_title">Guia de TV</string>
     <string name="settings_guide_subtitle">Fontes do guia e feeds XMLTV gratuitos</string>
     <string name="settings_channels_subtitle">Oculte ou marque canais individuais como favoritos</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Categorias</string>
     <string name="vod_watch_now">Ver agora</string>
     <string name="vod_resume">Retomar</string>
-    <string name="vod_addon_sources">Fontes de add-ons</string>
-    <string name="vod_addon_pick_title">Escolha uma transmissão</string>
-    <string name="vod_addon_loading">A procurar transmissões nos seus add-ons…</string>
-    <string name="vod_addon_none">Não foram encontradas transmissões nos seus add-ons para este título. É necessária uma chave TMDB definida (para a correspondência no IMDb) e um add-on que a tenha.</string>
     <string name="vod_more_like_this">Mais como este</string>
     <string name="vod_synopsis">Sinopse</string>
     <string name="vod_cast">Elenco</string>

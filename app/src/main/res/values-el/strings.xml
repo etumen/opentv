@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Απενεργοποιημένοι</string>
     <string name="settings_providers_title">Πάροχοι</string>
     <string name="settings_providers_subtitle">Προσθέστε, αφαιρέστε και επανελέγξτε τις πηγές IPTV σας</string>
-    <string name="settings_addons_title">Πρόσθετα (Stremio)</string>
-    <string name="settings_addons_subtitle">Αναπαραγωγή από πρόσθετα Stremio που ρυθμίζετε εσείς</string>
-    <string name="addons_note">Προσθέστε ένα πρόσθετο Stremio επικολλώντας το URL του manifest του. Το OpenTV δεν περιλαμβάνει κανένα — τα φέρνετε εσείς. Αν το πρόσθετο υποστηρίζεται από debrid, ρυθμίστε το κλειδί debrid στον ιστότοπο του ίδιου του πρόσθετου και επικολλήστε το εξατομικευμένο URL που σας δίνει· το κλειδί σας παραμένει εκεί, ποτέ στο OpenTV.</string>
-    <string name="addons_url_label">URL manifest πρόσθετου</string>
-    <string name="addons_add">Προσθήκη</string>
-    <string name="addons_checking">Έλεγχος…</string>
-    <string name="addons_invalid">Αυτό δεν μοιάζει με έγκυρο URL manifest πρόσθετου.</string>
-    <string name="addons_added">Προστέθηκε %1$s</string>
-    <string name="addons_empty">Δεν υπάρχουν ακόμη πρόσθετα. Επικολλήστε ένα URL manifest παραπάνω για να προσθέσετε ένα.</string>
     <string name="settings_guide_title">Οδηγός τηλεόρασης</string>
     <string name="settings_guide_subtitle">Πηγές οδηγού και δωρεάν feeds XMLTV</string>
     <string name="settings_channels_subtitle">Απόκρυψη ή προσθήκη μεμονωμένων καναλιών στα αγαπημένα</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Κατηγορίες</string>
     <string name="vod_watch_now">Παρακολούθηση τώρα</string>
     <string name="vod_resume">Συνέχιση</string>
-    <string name="vod_addon_sources">Πηγές πρόσθετων</string>
-    <string name="vod_addon_pick_title">Επιλέξτε μια ροή</string>
-    <string name="vod_addon_loading">Εύρεση ροών από τα πρόσθετά σας…</string>
-    <string name="vod_addon_none">Δεν βρέθηκαν ροές από τα πρόσθετά σας για αυτόν τον τίτλο. Χρειάζεται ένα ορισμένο κλειδί TMDB (για την αντιστοίχιση IMDb) και ένα πρόσθετο που να το διαθέτει.</string>
     <string name="vod_more_like_this">Παρόμοια περιεχόμενα</string>
     <string name="vod_synopsis">Σύνοψη</string>
     <string name="vod_cast">Ηθοποιοί</string>

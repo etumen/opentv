@@ -208,7 +208,7 @@ object Routes {
     const val EDIT_SOURCE = "edit-source/{sourceId}"
 
     // A person's name goes in a query arg, URL-encoded, so spaces and punctuation survive the round
-    // trip — the same inline-encode/decode approach as the VOD player below.
+    // trip.
     const val PERSON = "person?name={name}"
 
     // One-off VOD payloads stay in memory. Only a short token travels through Navigation:

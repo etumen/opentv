@@ -115,6 +115,14 @@ fun VodPlayerScreen(
     streamUrl: String,
     title: String,
     userAgent: String,
+    referer: String = "",
+    cookie: String = "",
+    origin: String = "",
+    streamMimeType: String = "",
+    subtitleUrl: String = "",
+    subtitleLabel: String = "",
+    subtitleLanguage: String = "",
+    subtitleMimeType: String = "",
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -196,7 +204,18 @@ fun VodPlayerScreen(
         }
     }
 
-    LaunchedEffect(mediaKey) {
+    LaunchedEffect(
+        mediaKey,
+        streamUrl,
+        referer,
+        cookie,
+        origin,
+        streamMimeType,
+        subtitleUrl,
+        subtitleLabel,
+        subtitleLanguage,
+        subtitleMimeType,
+    ) {
         val resumeFrom = graph.playbackPositions.get(settings.activeProfileId.value, mediaKey)
             ?.takeIf { !it.isFinished }?.positionMillis ?: 0L
         controller.play(
@@ -204,6 +223,16 @@ fun VodPlayerScreen(
                 url = streamUrl,
                 title = title,
                 userAgent = userAgent,
+                requestHeaders = buildMap {
+                    if (referer.isNotBlank()) put("Referer", referer)
+                    if (cookie.isNotBlank()) put("Cookie", cookie)
+                    if (origin.isNotBlank()) put("Origin", origin)
+                },
+                streamMimeType = streamMimeType.takeIf { it.isNotBlank() },
+                subtitleUrl = subtitleUrl.takeIf { it.isNotBlank() },
+                subtitleLabel = subtitleLabel.takeIf { it.isNotBlank() },
+                subtitleLanguage = subtitleLanguage.takeIf { it.isNotBlank() },
+                subtitleMimeType = subtitleMimeType.takeIf { it.isNotBlank() },
                 startPositionMillis = resumeFrom,
                 isLive = false,
             ),

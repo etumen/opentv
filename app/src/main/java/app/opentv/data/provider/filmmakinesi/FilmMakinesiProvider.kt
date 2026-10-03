@@ -5,6 +5,7 @@
  */
 package app.opentv.data.provider.filmmakinesi
 
+import android.util.Log
 import app.opentv.data.provider.*
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
@@ -36,14 +37,29 @@ class FilmMakinesiProvider(private val http: OkHttpClient) : Provider {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     private val fallbackSections = linkedMapOf(
-        "latest" to Section("Yeni Eklenenler", "/", true),
+        "latest" to Section("Film Arşivi", "/film-arsivi/", true),
+        "popular" to Section("Popüler Filmler", "/populer-filmler/", true),
+        "dubbed" to Section("Türkçe Dublaj", "/turkce-dublaj-filmler/", true),
+        "subtitled" to Section("Türkçe Altyazılı", "/turkce-altyazili-filmler/", true),
         "action" to Section("Aksiyon", "/aksiyon-filmleri-hd-izle/", true),
-        "horror" to Section("Korku", "/korku-filmleri-hd-izle/", true),
-        "scifi" to Section("Bilim Kurgu", "/bilim-kurgu-filmleri-hd-izle/", true),
-        "comedy" to Section("Komedi", "/komedi-fimleri-hd-izle/", true),
-        "thriller" to Section("Gerilim", "/gerilim-filmleri-hd-izle/", false),
-        "adventure" to Section("Macera", "/macera-filmleri-hd-izle/", false),
+        "family" to Section("Aile", "/aile-filmleri-hd-izle/", false),
+        "animation" to Section("Animasyon", "/animasyon-filmleri-hd-izle/", false),
+        "documentary" to Section("Belgesel", "/belgelsel-filmleri-hd-izle/", false),
+        "scifi" to Section("Bilim Kurgu", "/bilim-kurgu-filmleri-hd-izle/", false),
+        "drama" to Section("Dram", "/dram-filmleri-hd-izle/", false),
         "fantasy" to Section("Fantastik", "/fantastik-filmleri-hd-izle/", false),
+        "thriller" to Section("Gerilim", "/gerilim-filmleri-hd-izle/", false),
+        "mystery" to Section("Gizem", "/gizem-filmleri-hd-izle/", false),
+        "horror" to Section("Korku", "/korku-filmleri-hd-izle/", false),
+        "adventure" to Section("Macera", "/macera-filmleri-hd-izle/", false),
+        "music" to Section("Müzik", "/muzik-filmleri-hd-izle/", false),
+        "romance" to Section("Romantik", "/romantik-filmleri-hd-izle/", false),
+        "war" to Section("Savaş", "/savas-filmleri-hd-izle/", false),
+        "crime" to Section("Suç", "/suc-filmleri-hd-izle/", false),
+        "history" to Section("Tarih", "/tarih-filmleri-hd-izle/", false),
+        "western" to Section("Vahşi Batı", "/vahsi-bati-filmleri-hd-izle/", false),
+        "local" to Section("Yerli Filmler", "/yerli-filmleri-hd-izle/", false),
+        "indian" to Section("Hint Filmleri", "/hint-filmleri/", false),
     )
     @Volatile private var discoveredSections: Map<String, Section>? = null
     private fun sections(): Map<String, Section> = discoveredSections ?: fallbackSections
@@ -78,6 +94,7 @@ class FilmMakinesiProvider(private val http: OkHttpClient) : Provider {
             val target = if (page == 1) base else base.trimEnd('/') + "/page/$page/"
             val doc = fetchDocument(target)
             val items = parseCards(doc)
+            Log.d(TAG, "catalog section=${section.title} page=$page items=${items.size} url=$target")
             ProviderCatalogPage(
                 title = section.title,
                 items = items,
@@ -353,7 +370,12 @@ class FilmMakinesiProvider(private val http: OkHttpClient) : Provider {
         }
         val links = genreSection?.select("a.nav-link[href]")
             ?.takeIf { it.isNotEmpty() }
-            ?: doc.select("a[href*='/tur/'][href*='/film/']")
+            ?: doc.select(
+                "a[href*='filmleri-hd-izle'], " +
+                    "a[href*='/hint-filmleri/'], " +
+                    "a[href*='/yerli-filmleri-hd-izle/'], " +
+                    "a[href*='/tur/'][href*='/film/']",
+            )
 
         return links.mapNotNull { link ->
             val title = link.text().trim()
@@ -445,6 +467,7 @@ class FilmMakinesiProvider(private val http: OkHttpClient) : Provider {
         ProviderResult.Failure(ProviderError(id, operation, code, message, cause))
 
     companion object {
+        private const val TAG = "FilmMakinesiProvider"
         const val PROVIDER_ID = "filmmakinesi"
         const val MAIN_URL = "https://filmmakinesi.co"
         private const val HLS_MIME = "application/x-mpegURL"

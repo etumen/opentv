@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">关闭</string>
     <string name="settings_providers_title">提供商</string>
     <string name="settings_providers_subtitle">添加、移除并重新测试你的 IPTV 来源</string>
-    <string name="settings_addons_title">插件（Stremio）</string>
-    <string name="settings_addons_subtitle">播放你自行设置的 Stremio 插件内容</string>
-    <string name="addons_note">粘贴清单（manifest）URL 即可添加 Stremio 插件。OpenTV 本身不附带任何插件——需要你自行添加。如果插件基于 Debrid 服务，请先在该插件自己的网站上设置好你的 Debrid 密钥，然后粘贴它提供给你的专属 URL；你的密钥只保存在那里，绝不会保存在 OpenTV 中。</string>
-    <string name="addons_url_label">插件清单 URL</string>
-    <string name="addons_add">添加</string>
-    <string name="addons_checking">检查中…</string>
-    <string name="addons_invalid">这看起来不是有效的插件清单 URL。</string>
-    <string name="addons_added">已添加 %1$s</string>
-    <string name="addons_empty">还没有插件。请在上方粘贴清单 URL 以添加。</string>
     <string name="settings_guide_title">电视节目单</string>
     <string name="settings_guide_subtitle">节目单来源与免费 XMLTV 源</string>
     <string name="settings_channels_subtitle">隐藏或收藏单个频道</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">分类</string>
     <string name="vod_watch_now">立即观看</string>
     <string name="vod_resume">继续播放</string>
-    <string name="vod_addon_sources">插件来源</string>
-    <string name="vod_addon_pick_title">选择播放源</string>
-    <string name="vod_addon_loading">正在从你的插件中查找播放源…</string>
-    <string name="vod_addon_none">未能从你的插件中找到该内容的播放源。需要设置 TMDB 密钥（用于匹配 IMDb）并安装带有该内容的插件。</string>
     <string name="vod_more_like_this">更多类似内容</string>
     <string name="vod_synopsis">简介</string>
     <string name="vod_cast">演员</string>

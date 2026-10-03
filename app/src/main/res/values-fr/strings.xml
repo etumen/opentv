@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Désactivés</string>
     <string name="settings_providers_title">Fournisseurs</string>
     <string name="settings_providers_subtitle">Ajoutez, supprimez et retestez vos sources IPTV</string>
-    <string name="settings_addons_title">Extensions (Stremio)</string>
-    <string name="settings_addons_subtitle">Lisez du contenu depuis des extensions Stremio que vous configurez vous-même</string>
-    <string name="addons_note">Ajoutez une extension Stremio en collant son URL de manifeste. OpenTV n\'en fournit aucune — vous apportez les vôtres. Si l\'extension repose sur un service debrid, configurez votre clé debrid sur le site de l\'extension et collez l\'URL personnalisée qu\'il vous donne ; votre clé y reste, jamais dans OpenTV.</string>
-    <string name="addons_url_label">URL du manifeste de l\'extension</string>
-    <string name="addons_add">Ajouter</string>
-    <string name="addons_checking">Vérification…</string>
-    <string name="addons_invalid">Cela ne ressemble pas à une URL de manifeste d\'extension valide.</string>
-    <string name="addons_added">%1$s ajouté</string>
-    <string name="addons_empty">Aucune extension pour l\'instant. Collez une URL de manifeste ci-dessus pour en ajouter une.</string>
     <string name="settings_guide_title">Guide TV</string>
     <string name="settings_guide_subtitle">Sources de guide et flux XMLTV gratuits</string>
     <string name="settings_channels_subtitle">Masquez ou mettez en favori des chaînes individuelles</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Catégories</string>
     <string name="vod_watch_now">Regarder maintenant</string>
     <string name="vod_resume">Reprendre</string>
-    <string name="vod_addon_sources">Sources d\'extensions</string>
-    <string name="vod_addon_pick_title">Choisissez un flux</string>
-    <string name="vod_addon_loading">Recherche de flux auprès de vos extensions…</string>
-    <string name="vod_addon_none">Aucun flux trouvé auprès de vos extensions pour ce titre. Il faut une clé TMDB configurée (pour la correspondance IMDb) et une extension qui la propose.</string>
     <string name="vod_more_like_this">Plus comme ça</string>
     <string name="vod_synopsis">Synopsis</string>
     <string name="vod_cast">Distribution</string>

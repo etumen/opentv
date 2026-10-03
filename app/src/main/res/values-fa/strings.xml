@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">خاموش</string>
     <string name="settings_providers_title">ارائه‌دهندگان</string>
     <string name="settings_providers_subtitle">منابع IPTV خود را اضافه، حذف و دوباره آزمایش کنید</string>
-    <string name="settings_addons_title">افزونه‌ها (Stremio)</string>
-    <string name="settings_addons_subtitle">پخش از افزونه‌های Stremio که خودتان تنظیم کرده‌اید</string>
-    <string name="addons_note">با چسباندن نشانی URL مانیفست، یک افزونه Stremio اضافه کنید. OpenTV هیچ افزونه‌ای همراه ندارد — خودتان اضافه می‌کنید. اگر افزونه مبتنی بر debrid است، کلید debrid خود را در سایت همان افزونه تنظیم کنید و نشانی شخصی‌سازی‌شده‌ای که می‌دهد را بچسبانید؛ کلید شما همان‌جا می‌ماند، هرگز در OpenTV.</string>
-    <string name="addons_url_label">نشانی URL مانیفست افزونه</string>
-    <string name="addons_add">افزودن</string>
-    <string name="addons_checking">در حال بررسی…</string>
-    <string name="addons_invalid">این یک نشانی URL معتبر برای مانیفست افزونه به نظر نمی‌رسد.</string>
-    <string name="addons_added">%1$s اضافه شد</string>
-    <string name="addons_empty">هنوز افزونه‌ای وجود ندارد. برای افزودن، نشانی URL مانیفست را در بالا بچسبانید.</string>
     <string name="settings_guide_title">راهنمای تلویزیون</string>
     <string name="settings_guide_subtitle">منابع راهنما و فیدهای رایگان XMLTV</string>
     <string name="settings_channels_subtitle">کانال‌های جداگانه را پنهان یا به علاقه‌مندی‌ها اضافه کنید</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">دسته‌ها</string>
     <string name="vod_watch_now">اکنون تماشا کنید</string>
     <string name="vod_resume">ادامه</string>
-    <string name="vod_addon_sources">منابع افزونه</string>
-    <string name="vod_addon_pick_title">یک جریان را انتخاب کنید</string>
-    <string name="vod_addon_loading">در حال یافتن جریان‌ها از افزونه‌های شما…</string>
-    <string name="vod_addon_none">هیچ جریانی از افزونه‌های شما برای این عنوان یافت نشد. به یک کلید TMDB تنظیم‌شده (برای تطبیق با IMDb) و افزونه‌ای که آن را داشته باشد نیاز است.</string>
     <string name="vod_more_like_this">موارد مشابه</string>
     <string name="vod_synopsis">خلاصه داستان</string>
     <string name="vod_cast">بازیگران</string>

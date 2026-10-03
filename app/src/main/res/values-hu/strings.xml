@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Kikapcsolva</string>
     <string name="settings_providers_title">Szolgáltatók</string>
     <string name="settings_providers_subtitle">IPTV-forrásainak hozzáadása, eltávolítása és újratesztelése</string>
-    <string name="settings_addons_title">Bővítmények (Stremio)</string>
-    <string name="settings_addons_subtitle">Lejátszás az Ön által beállított Stremio-bővítményekből</string>
-    <string name="addons_note">Adjon hozzá egy Stremio-bővítményt a manifest URL-jének beillesztésével. Az OpenTV egyet sem tartalmaz — Ön hozza a sajátját. Ha a bővítmény debrid-alapú, állítsa be a debrid kulcsát a bővítmény saját weboldalán, és illessze be az onnan kapott személyre szabott URL-t; a kulcsa ott marad, soha nem kerül az OpenTV-be.</string>
-    <string name="addons_url_label">Bővítmény manifest URL</string>
-    <string name="addons_add">Hozzáadás</string>
-    <string name="addons_checking">Ellenőrzés…</string>
-    <string name="addons_invalid">Ez nem tűnik érvényes bővítmény manifest URL-nek.</string>
-    <string name="addons_added">%1$s hozzáadva</string>
-    <string name="addons_empty">Még nincsenek bővítmények. Illesszen be egy manifest URL-t fent a hozzáadásához.</string>
     <string name="settings_guide_title">Műsorújság</string>
     <string name="settings_guide_subtitle">Műsorújság-források és ingyenes XMLTV-feedek</string>
     <string name="settings_channels_subtitle">Egyes csatornák elrejtése vagy kedvencnek jelölése</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Kategóriák</string>
     <string name="vod_watch_now">Nézze most</string>
     <string name="vod_resume">Folytatás</string>
-    <string name="vod_addon_sources">Bővítményforrások</string>
-    <string name="vod_addon_pick_title">Válasszon adatfolyamot</string>
-    <string name="vod_addon_loading">Adatfolyamok keresése a bővítményekből…</string>
-    <string name="vod_addon_none">Nem található adatfolyam a bővítményeiből ehhez a címhez. Ehhez egy beállított TMDB kulcs szükséges (az IMDb-egyezéshez), valamint egy olyan bővítmény, amely rendelkezik vele.</string>
     <string name="vod_more_like_this">Hasonlók</string>
     <string name="vod_synopsis">Ismertető</string>
     <string name="vod_cast">Szereplők</string>

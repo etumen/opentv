@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">बंद</string>
     <string name="settings_providers_title">प्रदाता</string>
     <string name="settings_providers_subtitle">अपने IPTV स्रोत जोड़ें, हटाएं और फिर से टेस्ट करें</string>
-    <string name="settings_addons_title">ऐड-ऑन (Stremio)</string>
-    <string name="settings_addons_subtitle">आपके द्वारा सेटअप किए गए Stremio ऐड-ऑन से चलाएं</string>
-    <string name="addons_note">इसका manifest URL पेस्ट करके एक Stremio ऐड-ऑन जोड़ें। OpenTV किसी के भी साथ नहीं आता — आप अपना खुद का लाते हैं। अगर ऐड-ऑन debrid-समर्थित है, तो अपनी debrid key ऐड-ऑन की अपनी साइट पर सेट करें और वह पर्सनलाइज़्ड URL पेस्ट करें जो वह देती है; आपकी key वहीं रहती है, कभी OpenTV में नहीं।</string>
-    <string name="addons_url_label">ऐड-ऑन manifest URL</string>
-    <string name="addons_add">जोड़ें</string>
-    <string name="addons_checking">जांच हो रही है…</string>
-    <string name="addons_invalid">यह किसी मान्य ऐड-ऑन manifest URL जैसा नहीं लगता।</string>
-    <string name="addons_added">%1$s जोड़ा गया</string>
-    <string name="addons_empty">अभी तक कोई ऐड-ऑन नहीं है। एक जोड़ने के लिए ऊपर manifest URL पेस्ट करें।</string>
     <string name="settings_guide_title">टीवी गाइड</string>
     <string name="settings_guide_subtitle">गाइड स्रोत और मुफ़्त XMLTV फ़ीड</string>
     <string name="settings_channels_subtitle">अलग-अलग चैनल छिपाएं या पसंदीदा बनाएं</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">श्रेणियां</string>
     <string name="vod_watch_now">अभी देखें</string>
     <string name="vod_resume">फिर से शुरू करें</string>
-    <string name="vod_addon_sources">ऐड-ऑन स्रोत</string>
-    <string name="vod_addon_pick_title">एक स्ट्रीम चुनें</string>
-    <string name="vod_addon_loading">आपके ऐड-ऑन से स्ट्रीम खोजी जा रही हैं…</string>
-    <string name="vod_addon_none">इस टाइटल के लिए आपके ऐड-ऑन से कोई स्ट्रीम नहीं मिली। इसके लिए एक TMDB कुंजी सेट होनी चाहिए (IMDb मैच के लिए) और एक ऐड-ऑन जिसके पास वह हो।</string>
     <string name="vod_more_like_this">इससे मिलती-जुलती और</string>
     <string name="vod_synopsis">सारांश</string>
     <string name="vod_cast">कलाकार</string>

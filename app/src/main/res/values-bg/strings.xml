@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Изключени</string>
     <string name="settings_providers_title">Доставчици</string>
     <string name="settings_providers_subtitle">Добавяйте, премахвайте и тествайте отново вашите IPTV източници</string>
-    <string name="settings_addons_title">Добавки (Stremio)</string>
-    <string name="settings_addons_subtitle">Гледайте от добавки за Stremio, които сами настройвате</string>
-    <string name="addons_note">Добавете добавка за Stremio, като поставите нейния manifest URL адрес. OpenTV не се доставя с нито една — вие ги добавяте сами. Ако добавката работи с debrid, настройте своя debrid ключ на сайта на самата добавка и поставете персонализирания URL адрес, който тя ви дава; ключът ви остава там, никога в OpenTV.</string>
-    <string name="addons_url_label">Manifest URL на добавката</string>
-    <string name="addons_add">Добави</string>
-    <string name="addons_checking">Проверка…</string>
-    <string name="addons_invalid">Това не прилича на валиден manifest URL адрес на добавка.</string>
-    <string name="addons_added">%1$s е добавена</string>
-    <string name="addons_empty">Все още няма добавки. Поставете manifest URL адрес по-горе, за да добавите такава.</string>
     <string name="settings_guide_title">Телевизионна програма</string>
     <string name="settings_guide_subtitle">Източници на програма и безплатни XMLTV емисии</string>
     <string name="settings_channels_subtitle">Скриване или отбелязване на отделни канали като любими</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Категории</string>
     <string name="vod_watch_now">Гледай сега</string>
     <string name="vod_resume">Продължи</string>
-    <string name="vod_addon_sources">Източници от добавки</string>
-    <string name="vod_addon_pick_title">Изберете поток</string>
-    <string name="vod_addon_loading">Търсене на потоци от вашите добавки…</string>
-    <string name="vod_addon_none">Не са намерени потоци от добавките ви за това заглавие. Необходим е зададен TMDB ключ (за IMDb съвпадение) и добавка, която го има.</string>
     <string name="vod_more_like_this">Още като това</string>
     <string name="vod_synopsis">Синопсис</string>
     <string name="vod_cast">Актьорски състав</string>

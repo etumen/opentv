@@ -20,7 +20,6 @@ import app.opentv.data.model.Programme
 import app.opentv.data.model.Series
 import app.opentv.data.model.Source
 import app.opentv.data.model.SourceKind
-import app.opentv.data.model.StremioStream
 import app.opentv.data.model.StreamKind
 import app.opentv.data.parser.displayTitle
 import app.opentv.data.parser.ChannelNameNormalizer
@@ -786,29 +785,6 @@ class VodViewModel(app: Application) : AndroidViewModel(app) {
     fun selectMovieCategory(id: String?) { movieCategory.value = id }
 
     fun selectSeriesCategory(id: String?) { seriesCategory.value = id }
-
-    /** True when at least one Stremio add-on is configured — gates the "add-on sources" button. */
-    val hasAddons: StateFlow<Boolean> =
-        settings.stremioAddons
-            .map { it.isNotEmpty() }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), settings.stremioAddons.value.isNotEmpty())
-
-    /**
-     * The streams the configured add-ons offer for [movie], resolved through the user's TMDB key for
-     * the IMDb id. Empty when there's no key, no add-ons, no IMDb match, or nothing came back. Each
-     * add-on is queried independently so one failing doesn't sink the rest.
-     */
-    suspend fun addonStreams(movie: Movie): List<StremioStream> {
-        val addons = settings.stremioAddons.value
-        if (addons.isEmpty()) return emptyList()
-        val imdb = graph.catalogRepository.imdbIdFor(movie) ?: return emptyList()
-        return withContext(Dispatchers.IO) {
-            addons.flatMap { addon ->
-                runCatching { graph.stremioClient.streams(addon.manifestUrl, addon.name, "movie", imdb) }
-                    .getOrDefault(emptyList())
-            }
-        }
-    }
 
     /** Switch the Movies/Shows provider filter; category selections reset since they differ per source. */
     fun selectVodSource(sourceId: Long?) {

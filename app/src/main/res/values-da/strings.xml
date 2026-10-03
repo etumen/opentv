@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Fra</string>
     <string name="settings_providers_title">Udbydere</string>
     <string name="settings_providers_subtitle">Tilføj, fjern og gentest dine IPTV-kilder</string>
-    <string name="settings_addons_title">Tilføjelser (Stremio)</string>
-    <string name="settings_addons_subtitle">Afspil fra Stremio-tilføjelser, du selv har sat op</string>
-    <string name="addons_note">Tilføj en Stremio-tilføjelse ved at indsætte dens manifest-URL. OpenTV leveres uden nogen – du medbringer dine egne. Hvis tilføjelsen er debrid-baseret, skal du oprette din debrid-nøgle på tilføjelsens egen side og indsætte den personlige URL, den giver dig; din nøgle bliver der, aldrig i OpenTV.</string>
-    <string name="addons_url_label">Manifest-URL for tilføjelse</string>
-    <string name="addons_add">Tilføj</string>
-    <string name="addons_checking">Kontrollerer…</string>
-    <string name="addons_invalid">Det ligner ikke en gyldig manifest-URL for en tilføjelse.</string>
-    <string name="addons_added">%1$s tilføjet</string>
-    <string name="addons_empty">Ingen tilføjelser endnu. Indsæt en manifest-URL ovenfor for at tilføje en.</string>
     <string name="settings_guide_title">TV-guide</string>
     <string name="settings_guide_subtitle">Guidekilder og gratis XMLTV-feeds</string>
     <string name="settings_channels_subtitle">Skjul eller markér enkelte kanaler som favorit</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Kategorier</string>
     <string name="vod_watch_now">Se nu</string>
     <string name="vod_resume">Genoptag</string>
-    <string name="vod_addon_sources">Tilføjelseskilder</string>
-    <string name="vod_addon_pick_title">Vælg en stream</string>
-    <string name="vod_addon_loading">Finder streams fra dine tilføjelser…</string>
-    <string name="vod_addon_none">Der blev ikke fundet nogen streams fra dine tilføjelser til denne titel. Det kræver en angivet TMDB-nøgle (til IMDb-matchet) og en tilføjelse, der har den.</string>
     <string name="vod_more_like_this">Mere som denne</string>
     <string name="vod_synopsis">Resumé</string>
     <string name="vod_cast">Skuespillere</string>

@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Wyłączone</string>
     <string name="settings_providers_title">Dostawcy</string>
     <string name="settings_providers_subtitle">Dodawaj, usuwaj i testuj ponownie swoje źródła IPTV</string>
-    <string name="settings_addons_title">Dodatki (Stremio)</string>
-    <string name="settings_addons_subtitle">Odtwarzaj z dodatków Stremio skonfigurowanych samodzielnie</string>
-    <string name="addons_note">Dodaj dodatek Stremio, wklejając adres URL jego manifestu. OpenTV nie zawiera żadnych — musisz dodać własne. Jeśli dodatek korzysta z usługi debrid, skonfiguruj swój klucz debrid na stronie samego dodatku i wklej spersonalizowany adres URL, który tam otrzymasz; Twój klucz pozostaje tam, nigdy w OpenTV.</string>
-    <string name="addons_url_label">Adres URL manifestu dodatku</string>
-    <string name="addons_add">Dodaj</string>
-    <string name="addons_checking">Sprawdzanie…</string>
-    <string name="addons_invalid">To nie wygląda na prawidłowy adres URL manifestu dodatku.</string>
-    <string name="addons_added">Dodano %1$s</string>
-    <string name="addons_empty">Brak dodatków. Wklej powyżej adres URL manifestu, aby go dodać.</string>
     <string name="settings_guide_title">Przewodnik TV</string>
     <string name="settings_guide_subtitle">Źródła przewodnika i bezpłatne kanały XMLTV</string>
     <string name="settings_channels_subtitle">Ukrywaj kanały lub dodawaj je do ulubionych</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Kategorie</string>
     <string name="vod_watch_now">Oglądaj teraz</string>
     <string name="vod_resume">Wznów</string>
-    <string name="vod_addon_sources">Źródła dodatków</string>
-    <string name="vod_addon_pick_title">Wybierz strumień</string>
-    <string name="vod_addon_loading">Wyszukiwanie strumieni w Twoich dodatkach…</string>
-    <string name="vod_addon_none">Nie znaleziono strumieni od Twoich dodatków dla tego tytułu. Wymagany jest ustawiony klucz TMDB (do dopasowania IMDb) oraz dodatek, który go posiada.</string>
     <string name="vod_more_like_this">Więcej podobnych</string>
     <string name="vod_synopsis">Opis</string>
     <string name="vod_cast">Obsada</string>

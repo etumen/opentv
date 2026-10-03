@@ -120,15 +120,6 @@
     <string name="player_subtitles_off">Disattivati</string>
     <string name="settings_providers_title">Provider</string>
     <string name="settings_providers_subtitle">Aggiungi, rimuovi e ritesta le tue sorgenti IPTV</string>
-    <string name="settings_addons_title">Add-on (Stremio)</string>
-    <string name="settings_addons_subtitle">Riproduci contenuti dagli add-on Stremio che configuri tu stesso</string>
-    <string name="addons_note">Aggiungi un add-on Stremio incollando l\'URL del suo manifest. OpenTV non ne include nessuno: porti i tuoi. Se l\'add-on si basa su un servizio debrid, imposta la tua chiave debrid sul sito dell\'add-on e incolla l\'URL personalizzato che ti fornisce; la tua chiave resta lì, mai in OpenTV.</string>
-    <string name="addons_url_label">URL del manifest dell\'add-on</string>
-    <string name="addons_add">Aggiungi</string>
-    <string name="addons_checking">Verifica in corso…</string>
-    <string name="addons_invalid">Non sembra un URL manifest di add-on valido.</string>
-    <string name="addons_added">%1$s aggiunto</string>
-    <string name="addons_empty">Ancora nessun add-on. Incolla un URL manifest qui sopra per aggiungerne uno.</string>
     <string name="settings_guide_title">Guida TV</string>
     <string name="settings_guide_subtitle">Sorgenti guida e feed XMLTV gratuiti</string>
     <string name="settings_channels_subtitle">Nascondi o aggiungi ai preferiti i singoli canali</string>
@@ -388,10 +379,6 @@
     <string name="vod_categories">Categorie</string>
     <string name="vod_watch_now">Guarda ora</string>
     <string name="vod_resume">Riprendi</string>
-    <string name="vod_addon_sources">Sorgenti add-on</string>
-    <string name="vod_addon_pick_title">Scegli uno stream</string>
-    <string name="vod_addon_loading">Ricerca di stream dai tuoi add-on…</string>
-    <string name="vod_addon_none">Nessuno stream trovato dai tuoi add-on per questo titolo. Serve una chiave TMDB impostata (per la corrispondenza IMDb) e un add-on che lo includa.</string>
     <string name="vod_more_like_this">Altri simili</string>
     <string name="vod_synopsis">Trama</string>
     <string name="vod_cast">Cast</string>

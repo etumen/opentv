@@ -436,4 +436,11 @@
     <string name="settings_tmdb_save">Anahtarı kaydet</string>
     <string name="settings_tmdb_saved">TMDB anahtarı kaydedildi</string>
     <string name="settings_tmdb_active">Aktif</string>
+    <string name="cloud_no_stream">Oynatılabilir yayın bulunamadı.</string>
+    <string name="cloud_resolving_stream">Kaynak bulunuyor…</string>
+    <string name="cloud_choose_stream">Bir yayın seçin</string>
+    <string name="cloud_categories">Kategoriler</string>
+    <string name="cloud_home">Ana Sayfa</string>
+    <string name="cloud_filter_sources">Film kaynaklarını filtrele</string>
+    <string name="cloud_filter_categories">Kategorileri filtrele</string>
 </resources>

@@ -503,4 +503,11 @@
     <string name="settings_tmdb_save">Save key</string>
     <string name="settings_tmdb_saved">TMDB key saved</string>
     <string name="settings_tmdb_active">Active</string>
+    <string name="cloud_no_stream">No playable stream found.</string>
+    <string name="cloud_resolving_stream">Finding stream…</string>
+    <string name="cloud_choose_stream">Choose a stream</string>
+    <string name="cloud_categories">Categories</string>
+    <string name="cloud_home">Home</string>
+    <string name="cloud_filter_sources">Filter movie sources</string>
+    <string name="cloud_filter_categories">Filter categories</string>
 </resources>

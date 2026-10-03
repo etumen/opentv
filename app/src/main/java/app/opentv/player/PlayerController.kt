@@ -6,6 +6,7 @@
 package app.opentv.player
 
 import android.content.Context
+import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -101,6 +102,13 @@ class PlayerController(
         val url: String,
         val title: String,
         val userAgent: String,
+        val requestHeaders: Map<String, String> = emptyMap(),
+        /** Explicit container type for opaque provider URLs (for example HLS without .m3u8). */
+        val streamMimeType: String? = null,
+        val subtitleUrl: String? = null,
+        val subtitleLabel: String? = null,
+        val subtitleLanguage: String? = null,
+        val subtitleMimeType: String? = null,
         /** Live streams are never resumed; VOD is. */
         val startPositionMillis: Long = 0L,
         val isLive: Boolean = true,
@@ -269,12 +277,33 @@ class PlayerController(
             if (debounce) delay(switchDebounceMillis)
 
             consecutiveFailures = 0
-            httpFactory.setDefaultRequestProperties(mapOf("User-Agent" to request.userAgent))
+            httpFactory.setDefaultRequestProperties(
+                buildMap {
+                    putAll(request.requestHeaders)
+                    put("User-Agent", request.userAgent)
+                },
+            )
             _state.value = State.Buffering(request.title)
 
             val mediaItem = MediaItem.Builder()
                 .setUri(request.url)
                 .apply {
+                    request.streamMimeType?.takeIf { it.isNotBlank() }?.let(::setMimeType)
+                    request.subtitleUrl?.takeIf { it.isNotBlank() }?.let { subtitleUrl ->
+                        setSubtitleConfigurations(
+                            listOf(
+                                MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleUrl))
+                                    .setMimeType(
+                                        request.subtitleMimeType
+                                            ?: androidx.media3.common.MimeTypes.TEXT_VTT,
+                                    )
+                                    .setLabel(request.subtitleLabel)
+                                    .setLanguage(request.subtitleLanguage)
+                                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                                    .build(),
+                            ),
+                        )
+                    }
                     // Only meaningful for live streams; setting it on VOD skews seeking.
                     if (request.isLive) {
                         setLiveConfiguration(

@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,9 +58,12 @@ import app.opentv.R
 import app.opentv.data.model.Movie
 import app.opentv.data.model.Series
 import app.opentv.data.model.Source
+import app.opentv.data.provider.ProviderItem
+import app.opentv.data.provider.dizipal.DiziPalProvider
 import app.opentv.data.parser.displayTitle
 import app.opentv.ui.VodViewModel
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 
 /**
  * Movies: a modern, row-based home — Continue Watching, Recommended, Recently added and a row per
@@ -70,11 +74,13 @@ import coil.compose.AsyncImage
 @Composable
 fun MoviesScreen(
     onOpenMovie: (Movie) -> Unit,
+    onOpenCloudMovie: (ProviderItem) -> Unit,
     onResume: (mediaKey: String, url: String, title: String) -> Unit,
     onOpenSearch: () -> Unit,
     hasSources: Boolean,
     isSyncing: Boolean,
     viewModel: VodViewModel = viewModel(),
+    cloudViewModel: CloudVodViewModel = viewModel(),
 ) {
     val categories by viewModel.movieCategories.collectAsState()
     val resume by viewModel.continueWatching.collectAsState()
@@ -85,22 +91,46 @@ fun MoviesScreen(
     val vodLoading by viewModel.vodLoading.collectAsState()
     val sources by viewModel.sources.collectAsState()
     val selectedSource by viewModel.selectedVodSource.collectAsState()
+    val cloudProviders by cloudViewModel.movieProviders.collectAsState()
+    val selectedCloudProviderId by cloudViewModel.selectedMovieProviderId.collectAsState()
+    val selectedCloudSectionId by cloudViewModel.selectedMovieSectionId.collectAsState()
+    val cloudShelves by cloudViewModel.movieShelves.collectAsState()
+    val cloudSectionItems by cloudViewModel.selectedSectionItems.collectAsState()
+    val cloudSectionNextPage by cloudViewModel.selectedSectionNextPage.collectAsState()
+    val cloudLoading by cloudViewModel.loadingMovies.collectAsState()
+    val cloudSectionLoading by cloudViewModel.loadingSelectedSection.collectAsState()
+    val cloudSectionLoadingMore by cloudViewModel.loadingMoreSelectedSection.collectAsState()
 
-    // Pull the movie library the first time this tab is opened, not at login; refresh the computed
-    // home rows (recommended, by-genre) on open too — cheap, and covers a library already on disk.
+    // Pull the movie library and native-provider shelves when this tab first opens.
     LaunchedEffect(Unit) {
         if (hasSources) viewModel.ensureVodLoaded()
         viewModel.loadHomeFeeds()
+        cloudViewModel.loadMovieShelves()
     }
 
     // null = the curated home rows; a category id = that category's full grid.
     var browseCategory by remember { mutableStateOf<String?>(null) }
 
     val hasContent = resume.isNotEmpty() || recommended.isNotEmpty() ||
-        recentlyAdded.isNotEmpty() || genreRows.isNotEmpty()
+        recentlyAdded.isNotEmpty() || genreRows.isNotEmpty() || cloudShelves.isNotEmpty()
 
     Column(Modifier.fillMaxSize()) {
         SearchAffordance(onOpenSearch)
+        if (cloudProviders.isNotEmpty()) {
+            CloudProviderBrowseControls(
+                providers = cloudProviders,
+                selectedProviderId = selectedCloudProviderId,
+                selectedSectionId = selectedCloudSectionId,
+                onSelectProvider = { id ->
+                    browseCategory = null
+                    cloudViewModel.selectMovieProvider(id)
+                },
+                onSelectSection = { id ->
+                    browseCategory = null
+                    cloudViewModel.selectMovieSection(id)
+                },
+            )
+        }
         if (sources.size > 1) {
             ProviderChips(
                 sources = sources,
@@ -119,9 +149,17 @@ fun MoviesScreen(
         // unambiguously — the same reason Live TV weights its guide grid.
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
+                selectedCloudSectionId != null -> CloudMovieCategoryGrid(
+                    items = cloudSectionItems,
+                    hasNextPage = cloudSectionNextPage != null,
+                    loading = cloudSectionLoading,
+                    loadingMore = cloudSectionLoadingMore,
+                    onOpenMovie = onOpenCloudMovie,
+                    onLoadMore = cloudViewModel::loadMoreSelectedMovieSection,
+                )
                 browseCategory != null -> MovieCategoryGrid(categoryMovies, viewModel, onOpenMovie)
                 !hasContent -> when {
-                    vodLoading || isSyncing -> LoadingVod(stringResource(R.string.vod_loading_movies))
+                    cloudLoading || vodLoading || isSyncing -> LoadingVod(stringResource(R.string.vod_loading_movies))
                     hasSources -> EmptyVod(stringResource(R.string.vod_no_movies), stringResource(R.string.vod_no_movies_provider))
                     else -> EmptyVod(stringResource(R.string.vod_no_movies), stringResource(R.string.vod_no_movies_add))
                 }
@@ -140,6 +178,16 @@ fun MoviesScreen(
                     items(genreRows, key = { "g:${it.genre}" }) { group ->
                         MoviePosterRow(group.genre, group.items, onOpenMovie)
                     }
+                    items(
+                        cloudShelves,
+                        key = { "cloud:${it.providerId}:${it.section.id}" },
+                    ) { shelf ->
+                        CloudMoviePosterRow(
+                            shelf = shelf,
+                            onOpenMovie = onOpenCloudMovie,
+                            onLoadMore = { cloudViewModel.loadMoreMovieShelf(shelf.section.id) },
+                        )
+                    }
                 }
             }
         }
@@ -155,11 +203,13 @@ fun MoviesScreen(
 @Composable
 fun SeriesScreen(
     onOpenSeries: (Series) -> Unit,
+    onOpenCloudSeries: (app.opentv.data.provider.ProviderItem) -> Unit,
     onResume: (mediaKey: String, url: String, title: String) -> Unit,
     onOpenSearch: () -> Unit,
     hasSources: Boolean,
     isSyncing: Boolean,
     viewModel: VodViewModel = viewModel(),
+    cloudViewModel: CloudSeriesViewModel = viewModel(),
 ) {
     val categories by viewModel.seriesCategories.collectAsState()
     val resume by viewModel.continueWatching.collectAsState()
@@ -170,17 +220,55 @@ fun SeriesScreen(
     val sources by viewModel.sources.collectAsState()
     val selectedSource by viewModel.selectedVodSource.collectAsState()
 
+    val cloudProviders by cloudViewModel.providers.collectAsState()
+    val selectedCloudProviderId by cloudViewModel.selectedProviderId.collectAsState()
+    val selectedCloudSectionId by cloudViewModel.selectedSectionId.collectAsState()
+    val cloudShelves by cloudViewModel.shelves.collectAsState()
+    val cloudSectionItems by cloudViewModel.selectedSectionItems.collectAsState()
+    val cloudSectionNextPage by cloudViewModel.selectedSectionNextPage.collectAsState()
+    val cloudLoading by cloudViewModel.loading.collectAsState()
+    val cloudSectionLoading by cloudViewModel.loadingSelectedSection.collectAsState()
+    val cloudSectionLoadingMore by cloudViewModel.loadingMoreSelectedSection.collectAsState()
+
+    var diziPalVerified by remember { mutableStateOf(false) }
+    val needsDiziPalVerification =
+        selectedCloudProviderId == "dizipal" && !diziPalVerified
+
     LaunchedEffect(Unit) {
         if (hasSources) viewModel.ensureVodLoaded()
         viewModel.loadHomeFeeds()
     }
 
+    LaunchedEffect(selectedCloudProviderId, diziPalVerified) {
+        if (!needsDiziPalVerification) cloudViewModel.loadShelves()
+    }
+
     var browseCategory by remember { mutableStateOf<String?>(null) }
 
-    val hasContent = resume.isNotEmpty() || recentlyAdded.isNotEmpty() || genreRows.isNotEmpty()
+    val hasContent = resume.isNotEmpty() || recentlyAdded.isNotEmpty() ||
+        genreRows.isNotEmpty() || cloudShelves.isNotEmpty()
 
     Column(Modifier.fillMaxSize()) {
+        if (selectedCloudProviderId == "dizipal" && diziPalVerified) {
+            DiziPalSessionAnchor()
+        }
+
         SearchAffordance(onOpenSearch)
+
+        CloudSeriesTvControls(
+            providers = cloudProviders,
+            selectedProviderId = selectedCloudProviderId,
+            selectedSectionId = selectedCloudSectionId,
+            onSelectProvider = { id ->
+                browseCategory = null
+                cloudViewModel.selectProvider(id)
+            },
+            onSelectSection = { id ->
+                browseCategory = null
+                cloudViewModel.selectSection(id)
+            },
+        )
+
         if (sources.size > 1) {
             ProviderChips(
                 sources = sources,
@@ -189,19 +277,37 @@ fun SeriesScreen(
                 onSelectSource = { id -> browseCategory = null; viewModel.selectVodSource(id) },
             )
         }
-        CategoryChips(
-            entries = categories.map { it.id to it.name },
-            selected = browseCategory,
-            onSelectHome = { browseCategory = null },
-            onSelectCategory = { id -> browseCategory = id; viewModel.selectSeriesCategory(id) },
-        )
+        if (categories.isNotEmpty()) {
+            CategoryChips(
+                entries = categories.map { it.id to it.name },
+                selected = browseCategory,
+                onSelectHome = { browseCategory = null },
+                onSelectCategory = { id -> browseCategory = id; viewModel.selectSeriesCategory(id) },
+            )
+        }
+
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
+                selectedCloudSectionId != null -> CloudSeriesCategoryGrid(
+                    items = cloudSectionItems,
+                    hasNextPage = cloudSectionNextPage != null,
+                    loading = cloudSectionLoading,
+                    loadingMore = cloudSectionLoadingMore,
+                    onOpenSeries = onOpenCloudSeries,
+                    onLoadMore = cloudViewModel::loadMoreSelectedSection,
+                )
                 browseCategory != null -> SeriesCategoryGrid(categorySeries, onOpenSeries)
                 !hasContent -> when {
-                    vodLoading || isSyncing -> LoadingVod(stringResource(R.string.vod_loading_shows))
-                    hasSources -> EmptyVod(stringResource(R.string.vod_no_shows), stringResource(R.string.vod_no_shows_provider))
-                    else -> EmptyVod(stringResource(R.string.vod_no_shows), stringResource(R.string.vod_no_shows_add))
+                    cloudLoading || vodLoading || isSyncing ->
+                        LoadingVod(stringResource(R.string.vod_loading_shows))
+                    hasSources -> EmptyVod(
+                        stringResource(R.string.vod_no_shows),
+                        stringResource(R.string.vod_no_shows_provider),
+                    )
+                    else -> EmptyVod(
+                        stringResource(R.string.vod_no_shows),
+                        stringResource(R.string.vod_no_shows_add),
+                    )
                 }
                 else -> LazyColumn(
                     contentPadding = PaddingValues(vertical = 8.dp),
@@ -215,9 +321,28 @@ fun SeriesScreen(
                     items(genreRows, key = { "g:${it.genre}" }) { group ->
                         SeriesPosterRow(group.genre, group.items, onOpenSeries)
                     }
+                    items(
+                        cloudShelves,
+                        key = { "cloud-series:${it.providerId}:${it.section.id}" },
+                    ) { shelf ->
+                        CloudSeriesPosterRow(
+                            shelf = shelf,
+                            onOpenSeries = onOpenCloudSeries,
+                            onLoadMore = { cloudViewModel.loadMoreShelf(shelf.section.id) },
+                        )
+                    }
                 }
             }
         }
+    }
+
+    if (needsDiziPalVerification) {
+        DiziPalChallengeDialog(
+            onVerified = {
+                diziPalVerified = true
+                cloudViewModel.loadShelves(force = true)
+            },
+        )
     }
 }
 
@@ -355,6 +480,21 @@ internal fun PosterCard(
     progress: Float? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val imageModel = remember(posterUrl, context) {
+        posterUrl?.let { url ->
+            if (url.contains("cdnhipter.xyz", ignoreCase = true)) {
+                ImageRequest.Builder(context)
+                    .data(url)
+                    .addHeader("User-Agent", DiziPalProvider.SITE_USER_AGENT)
+                    .addHeader("Referer", DiziPalProvider.FALLBACK_BASE_URL + "/")
+                    .addHeader("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8")
+                    .build()
+            } else {
+                url
+            }
+        }
+    }
     val scale by animateFloatAsState(if (focused) 1.06f else 1f, label = "posterScale")
     Column(
         modifier
@@ -377,9 +517,19 @@ internal fun PosterCard(
                 ),
         ) {
             AsyncImage(
-                model = posterUrl,
+                model = imageModel,
                 contentDescription = title,
                 contentScale = ContentScale.Crop,
+                onSuccess = {
+                    android.util.Log.d("PosterCard", "Loaded poster " + title + " -> " + posterUrl)
+                },
+                onError = {
+                    android.util.Log.e(
+                        "PosterCard",
+                        "Failed poster " + title + " -> " + posterUrl,
+                        it.result.throwable,
+                    )
+                },
                 modifier = Modifier.fillMaxSize(),
             )
             rating?.takeIf { it > 0.0 }?.let {

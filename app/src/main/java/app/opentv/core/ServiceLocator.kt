@@ -7,6 +7,11 @@ package app.opentv.core
 
 import android.content.Context
 import app.opentv.data.db.OpenTvDatabase
+import app.opentv.data.provider.ProviderRegistry
+import app.opentv.data.provider.ProviderRepository
+import app.opentv.data.provider.dizipal.DiziPalProvider
+import app.opentv.data.provider.filmmakinesi.FilmMakinesiProvider
+import app.opentv.data.provider.fullhd.FullHdFilmizleseneProvider
 import app.opentv.data.remote.StalkerApi
 import app.opentv.data.remote.StremioClient
 import app.opentv.data.remote.XtreamApi
@@ -81,6 +86,18 @@ object ServiceLocator {
 
         /** Neutral Stremio add-on protocol client. Talks only to user-added manifest URLs. */
         val stremioClient: StremioClient by lazy { StremioClient(httpClient) }
+
+        /** Native provider graph. Kept independent from IPTV/Stremio sources. */
+        val providerRegistry: ProviderRegistry by lazy {
+            ProviderRegistry(
+                listOf(
+                    FullHdFilmizleseneProvider(httpClient),
+                    FilmMakinesiProvider(httpClient),
+                    DiziPalProvider(appContext, httpClient),
+                ),
+            )
+        }
+        val providerRepository: ProviderRepository by lazy { ProviderRepository(providerRegistry) }
 
         val sourceRepository: SourceRepository by lazy {
             SourceRepository(database.sources(), xtreamApi, stalkerApi)

@@ -237,13 +237,18 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
                     is ProviderResult.Success -> {
                         if (_selectedMovieProviderId.value != providerId) return@launch
                         _movieShelves.value = _movieShelves.value.map { current ->
-                            if (current.section.id != sectionId) current
-                            else current.copy(
-                                items = (current.items + result.value.items)
-                                    .distinctBy { item -> item.id },
-                                nextPage = result.value.nextPage,
-                                loadingMore = false,
-                            )
+                            if (current.section.id != sectionId) {
+                                current
+                            } else {
+                                val merged = (current.items + result.value.items)
+                                    .distinctBy { item -> item.id }
+                                val addedNewItems = merged.size > current.items.size
+                                current.copy(
+                                    items = merged,
+                                    nextPage = if (addedNewItems) result.value.nextPage else null,
+                                    loadingMore = false,
+                                )
+                            }
                         }
                     }
                     is ProviderResult.Failure -> {
@@ -316,10 +321,12 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
                         if (_selectedMovieProviderId.value == providerId &&
                             _selectedMovieSectionId.value == sectionId
                         ) {
-                            _selectedSectionItems.value =
-                                (_selectedSectionItems.value + result.value.items)
-                                    .distinctBy { it.id }
-                            _selectedSectionNextPage.value = result.value.nextPage
+                            val currentItems = _selectedSectionItems.value
+                            val merged = (currentItems + result.value.items)
+                                .distinctBy { it.id }
+                            _selectedSectionItems.value = merged
+                            _selectedSectionNextPage.value =
+                                if (merged.size > currentItems.size) result.value.nextPage else null
                         }
                     }
                     is ProviderResult.Failure -> _lastError.value = result.error

@@ -5,6 +5,7 @@
  */
 package app.opentv.data.provider.fullhd
 
+import android.util.Log
 import app.opentv.data.provider.Provider
 import app.opentv.data.provider.ProviderCatalogPage
 import app.opentv.data.provider.ProviderCatalogRequest
@@ -81,11 +82,32 @@ class FullHdFilmizleseneProvider(
     private val playbackCache = linkedMapOf<String, CachedPlayback>()
 
     private val fallbackSections = linkedMapOf(
-        "latest" to Section("Son Eklenen Filmler", "/"),
-        "dubbed" to Section("Türkçe Dublaj Filmler", "/filmizle/turkce-dublaj-filmler-1"),
-        "subtitled" to Section("Türkçe Altyazılı Filmler", "/filmizle/turkce-altyazili-filmler"),
-        "1080p" to Section("1080p Filmler", "/filmizle/1080p-filmler-2"),
-        "action" to Section("Aksiyon Filmleri", "/filmizle/aksiyon-filmleri"),
+        "latest" to Section("En Çok İzlenen Filmler", "/en-cok-izlenen-filmler-izle-hd/"),
+        "imdb" to Section("IMDB Puanı Yüksek Filmler", "/filmizle/imdb-puani-yuksek-filmler-izle-1/"),
+        "family" to Section("Aile Filmleri", "/filmizle/aile-filmleri-hdf-izle/"),
+        "action" to Section("Aksiyon Filmleri", "/filmizle/aksiyon-filmleri-hdf-izle/"),
+        "animation" to Section("Animasyon Filmleri", "/filmizle/animasyon-filmleri-fhd-izle/"),
+        "documentary" to Section("Belgeseller", "/filmizle/belgesel-filmleri-izle/", showOnHome = false),
+        "scifi" to Section("Bilim Kurgu Filmleri", "/filmizle/bilim-kurgu-filmleri-izle-2/"),
+        "bluray" to Section("Blu Ray Filmler", "/filmizle/bluray-filmler-izle/", showOnHome = false),
+        "cartoon" to Section("Çizgi Filmler", "/filmizle/cizgi-filmler-fhd-izle/", showOnHome = false),
+        "drama" to Section("Dram Filmleri", "/filmizle/dram-filmleri-hd-izle/", showOnHome = false),
+        "fantasy" to Section("Fantastik Filmler", "/filmizle/fantastik-filmler-hd-izle/", showOnHome = false),
+        "thriller" to Section("Gerilim Filmleri", "/filmizle/gerilim-filmleri-fhd-izle/", showOnHome = false),
+        "mystery" to Section("Gizem Filmleri", "/filmizle/gizem-filmleri-hd-izle/", showOnHome = false),
+        "indian" to Section("Hint Filmleri", "/filmizle/hint-filmleri-fhd-izle/", showOnHome = false),
+        "comedy" to Section("Komedi Filmleri", "/filmizle/komedi-filmleri-fhd-izle/", showOnHome = false),
+        "horror" to Section("Korku Filmleri", "/filmizle/korku-filmleri-izle-3/", showOnHome = false),
+        "adventure" to Section("Macera Filmleri", "/filmizle/macera-filmleri-fhd-izle/", showOnHome = false),
+        "musical" to Section("Müzikal Filmler", "/filmizle/muzikal-filmler-izle/", showOnHome = false),
+        "crime-police" to Section("Polisiye Filmleri", "/filmizle/polisiye-filmleri-izle/", showOnHome = false),
+        "psychological" to Section("Psikolojik Filmler", "/filmizle/psikolojik-filmler-izle/", showOnHome = false),
+        "romance" to Section("Romantik Filmler", "/filmizle/romantik-filmler-fhd-izle/", showOnHome = false),
+        "war" to Section("Savaş Filmleri", "/filmizle/savas-filmleri-fhd-izle/", showOnHome = false),
+        "crime" to Section("Suç Filmleri", "/filmizle/suc-filmleri-izle/", showOnHome = false),
+        "history" to Section("Tarih Filmleri", "/filmizle/tarih-filmleri-fhd-izle/", showOnHome = false),
+        "western" to Section("Western Filmler", "/filmizle/western-filmler-hd-izle-3/", showOnHome = false),
+        "local" to Section("Yerli Filmler", "/filmizle/yerli-filmler-hd-izle/", showOnHome = false),
     )
 
     @Volatile
@@ -115,13 +137,10 @@ class FullHdFilmizleseneProvider(
         val sections = activeSections()
         val section = sections[request.sectionId ?: "latest"] ?: fallbackSections.getValue("latest")
         val page = request.page.coerceAtLeast(1)
-        val target = when {
-            section.path == "/" && page == 1 -> MAIN_URL
-            section.path == "/" -> "$MAIN_URL/yeni-filmler/$page"
-            page == 1 -> absolute(section.path)
-            else -> absolute(section.path.trimEnd('/') + "/$page")
-        }
+        val base = absolute(section.path)
+        val target = if (page == 1) base else base.trimEnd('/') + "/$page"
         val items = parseCards(fetchDocument(target))
+        Log.d(TAG, "catalog section=${section.title} page=$page items=${items.size} url=$target")
         ProviderCatalogPage(
             title = section.title,
             items = items,
@@ -651,6 +670,7 @@ class FullHdFilmizleseneProvider(
         )
 
     companion object {
+        private const val TAG = "FullHdFilmProvider"
         const val PROVIDER_ID = "fullhdfilmizlesene"
         const val MAIN_URL = "https://www.fullhdfilmizlesene.now"
         private const val RAPIDVID_REFERER = "https://rapidvid.org/"

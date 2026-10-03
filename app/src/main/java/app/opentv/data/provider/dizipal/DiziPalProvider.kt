@@ -73,7 +73,7 @@ class DiziPalProvider(
 
     private val sections = linkedMapOf(
         "latest" to Section("Diziler", "/yabanci-dizi-izle"),
-        "episodes" to Section("Son Bölümler", "/", latestEpisodes = true),
+        "episodes" to Section("Son Bölümler", "/yeni-eklenen-dizi-bolumler", latestEpisodes = true),
         "netflix" to Section("Netflix", "/kanal/netflix"),
         "exxen" to Section("Exxen", "/kanal/exxen"),
         "disney" to Section("Disney+", "/kanal/disney"),
@@ -100,17 +100,89 @@ class DiziPalProvider(
     ): ProviderResult<ProviderCatalogPage> = guarded("catalog") {
         val base = baseUrl()
         val section = sections[request.sectionId ?: "latest"] ?: sections.getValue("latest")
-        val doc = fetchDocument(base + section.path)
-        val items = if (section.latestEpisodes) {
-            parseLatestEpisodeCards(doc)
-        } else {
-            parseSeriesCards(doc)
+        val page = request.page.coerceAtLeast(1)
+
+        val items = when {
+            section.latestEpisodes -> {
+                val target = if (page == 1) {
+                    base + section.path
+                } else {
+                    base + section.path + "?page=$page"
+                }
+                parseLatestEpisodeCards(fetchDocument(target))
+            }
+
+            section.path.startsWith("/kanal/") -> {
+                loadChannelPage(base, section, page)
+            }
+
+            else -> {
+                val target = if (page == 1) {
+                    base + section.path
+                } else {
+                    val separator = if (section.path.contains('?')) "&" else "?"
+                    base + section.path + separator + "sayfa=$page"
+                }
+                parseSeriesCards(fetchDocument(target))
+            }
         }
+
+        Log.d(TAG, "catalog section=${section.title} page=$page items=${items.size}")
         ProviderCatalogPage(
             title = section.title,
             items = items,
-            nextPage = null,
+            nextPage = if (items.isEmpty()) null else page + 1,
         )
+    }
+
+    private suspend fun loadChannelPage(
+        base: String,
+        section: Section,
+        page: Int,
+    ): List<ProviderItem> {
+        val pageUrl = base + section.path
+        val doc = fetchDocument(pageUrl)
+        val staticItems = if (page == 1) parseSeriesCards(doc) else emptyList()
+
+        val session = browser ?: return staticItems
+        val channelId = doc.selectFirst("input[name=channelId]")?.attr("value")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: Regex("""channelId\s*[:=]\s*(\d+)""")
+                .find(doc.html())
+                ?.groupValues
+                ?.getOrNull(1)
+            ?: "1"
+        val slug = section.path.substringAfterLast('/').ifBlank { "netflix" }
+
+        val response = session.postForm(
+            url = base + "/bg/getserielistbychannel",
+            data = listOf(
+                "cKey" to CHANNEL_API_KEY,
+                "cValue" to CHANNEL_API_VALUE,
+                "curPage" to page.toString(),
+                "channelId" to channelId,
+                "languageId" to "2,3,4",
+                "slug" to slug,
+            ),
+        )
+
+        val html = runCatching {
+            json.parseToJsonElement(response)
+                .jsonObject["data"]
+                ?.jsonObject
+                ?.get("html")
+                ?.jsonPrimitive
+                ?.contentOrNull
+        }.getOrNull().orEmpty()
+
+        val apiItems = if (html.isBlank()) {
+            emptyList()
+        } else {
+            parseSeriesCards(Jsoup.parse(html, pageUrl))
+        }
+
+        return (staticItems + apiItems).distinctBy { it.id }
     }
 
     override suspend fun search(
@@ -203,7 +275,6 @@ class DiziPalProvider(
             scope.selectFirst("img") ?: anchor.selectFirst("img"),
             doc.baseUri(),
         )
-        Log.d(TAG, "Poster card " + title + " -> " + (poster ?: "<null>"))
         return ProviderItem(
             providerId = id,
             id = href,
@@ -275,7 +346,6 @@ class DiziPalProvider(
                 doc.selectFirst(".series-poster img, .detail-poster img, img.poster"),
                 doc.baseUri(),
             )
-        Log.d(TAG, "Poster detail " + title + " -> " + (poster ?: "<null>"))
 
         val year = doc.selectFirst("div.info-row:contains(Yıl) span.info-value")
             ?.text()?.trim()?.toIntOrNull()
@@ -948,5 +1018,8 @@ class DiziPalProvider(
         private const val DOMAIN_CACHE_MILLIS = 30 * 60 * 1000L
         private const val PLAYBACK_CACHE_MILLIS = 90_000L
         private const val PLAYBACK_CACHE_SIZE = 8
+        private const val CHANNEL_API_KEY = "c61f91c5141d178450934fe81c0a2029"
+        private const val CHANNEL_API_VALUE =
+            "MTc4NDQwNzIwMDhkMzJhNTc1YzUwOGU1ZjQwMjdjMjIyOWVjOGVhMTcwNGQyM2FjODM2YTI4YTU0NjUyMjI2ZmVjMzFkYzBkMWQyMWY4YzdiNA=="
     }
 }

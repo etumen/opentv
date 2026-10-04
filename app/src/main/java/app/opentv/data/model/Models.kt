@@ -141,6 +141,12 @@ data class Channel(
      *  to the real URL on demand at play time (see [SourceKind.STALKER]). */
     val streamUrl: String,
     /**
+     * Per-channel HTTP headers declared by an M3U playlist (EXTVLCOPT/EXTHTTP/EXT-X-*).
+     * Null for normal Xtream/Stalker channels. User-Agent can be present here too; playback gives
+     * it precedence over the source-level fallback.
+     */
+    val requestHeaders: Map<String, String>? = null,
+    /**
      * Stalker/Ministra play command (`ffmpeg http://…`, `auto …`, or a bare URL) that `create_link`
      * turns into a short-lived playable URL at tune time. Null for Xtream/M3U.
      */
@@ -174,6 +180,18 @@ data class Channel(
 
 /** What the UI should show for a channel: the user's rename if set, else the cleaned display name. */
 val Channel.shownName: String get() = customName?.takeIf { it.isNotBlank() } ?: displayName
+
+/** Per-channel M3U User-Agent wins; a source setting remains the fallback for ordinary providers. */
+fun Channel.playbackUserAgent(fallback: String): String =
+    requestHeaders.orEmpty().entries
+        .firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }
+        ?.value
+        ?.takeIf { it.isNotBlank() }
+        ?: fallback
+
+/** Player/recorder headers excluding User-Agent, which their APIs carry as a dedicated field. */
+fun Channel.playbackRequestHeaders(): Map<String, String> =
+    requestHeaders.orEmpty().filterKeys { !it.equals("User-Agent", ignoreCase = true) }
 
 /**
  * One guide feed: where XMLTV comes from.
@@ -424,6 +442,8 @@ data class Recording(
     val streamUrl: String,
     /** User-Agent to capture with (some panels only serve a UA they recognise). */
     val userAgent: String = Source.DEFAULT_USER_AGENT,
+    /** Extra HTTP headers snapshotted from the channel for header-protected M3U streams. */
+    val requestHeaders: Map<String, String>? = null,
     /** Planned window, for scheduled recordings (0 when started on the spot). */
     val scheduledStartMillis: Long = 0,
     val scheduledEndMillis: Long = 0,

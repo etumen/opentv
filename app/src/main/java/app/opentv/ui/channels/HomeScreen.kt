@@ -77,6 +77,8 @@ import app.opentv.core.requestIgnoreBatteryOptimizations
 import app.opentv.data.model.Channel
 import app.opentv.data.model.Programme
 import app.opentv.data.model.Reminder
+import app.opentv.data.model.playbackRequestHeaders
+import app.opentv.data.model.playbackUserAgent
 import app.opentv.data.model.shownName
 import app.opentv.reminders.ReminderScheduler
 import app.opentv.player.PlaybackQueue
@@ -122,6 +124,11 @@ fun HomeScreen(
     val settings = remember { graph.settings }
     val previewEnabled by settings.guidePreviewVideo.collectAsState()
     val channelLayout by settings.channelLayout.collectAsState()
+    // Normal Live TV behaves like a television: open straight into one ordered channel list.
+    // Categories stay in Room and remain available to manager/search/future filters; they are just
+    // not a mandatory navigation step in the everyday TV surface.
+    val classicLiveList = true
+    val livePreviewEnabled = previewEnabled && !classicLiveList
 
     val categories by viewModel.visibleCategoryGroups.collectAsState()
     val rows by viewModel.rows.collectAsState()
@@ -169,7 +176,7 @@ fun HomeScreen(
     // leftmost (channel) column slides it back and drops focus on the selected category.
     var railExpanded by remember { mutableStateOf(true) }
     val railWidth by animateDpAsState(
-        targetValue = if (railExpanded) 240.dp else 0.dp,
+        targetValue = if (!classicLiveList && railExpanded) 240.dp else 0.dp,
         label = "railWidth",
     )
     val railFocusRequester = remember { FocusRequester() }
@@ -224,7 +231,7 @@ fun HomeScreen(
     var pendingLiveChannel by remember { mutableStateOf<Channel?>(null) }
     fun startLive(channel: Channel) {
         PlaybackQueue.items = rows.map {
-            PlaybackQueue.Item(it.primary.id, it.primary.shownName, it.primary.logoUrl, it.primary.number)
+            PlaybackQueue.Item(it.primary.id, it.primary.shownName, it.primary.logoUrl, it.number)
         }
         previewController.stop()
         onPlayChannel(channel)
@@ -252,9 +259,9 @@ fun HomeScreen(
 
     // Hold the screen awake while the guide's live preview is playing — otherwise the box's
     // screensaver fires while you're browsing with a channel running in the preview pane.
-    DisposableEffect(previewEnabled, screenResumed) {
+    DisposableEffect(livePreviewEnabled, screenResumed) {
         val window = context.findActivity()?.window
-        if (previewEnabled && screenResumed) {
+        if (livePreviewEnabled && screenResumed) {
             window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -272,9 +279,9 @@ fun HomeScreen(
     // While a recording is running the preview is silenced entirely: on a single-connection line a
     // muted preview is still a second stream, which fights the recording and risks a provider ban.
     val recordingActive = activeRecordings.isNotEmpty()
-    LaunchedEffect(highlightedRow?.key, previewEnabled, screenResumed, recordingActive) {
+    LaunchedEffect(highlightedRow?.key, livePreviewEnabled, screenResumed, recordingActive) {
         val row = highlightedRow
-        if (!previewEnabled || !screenResumed || recordingActive || row == null) {
+        if (!livePreviewEnabled || !screenResumed || recordingActive || row == null) {
             previewController.stop()
             return@LaunchedEffect
         }
@@ -284,7 +291,10 @@ fun HomeScreen(
             PlayerController.Request(
                 url = channel.streamUrl,
                 title = channel.shownName,
-                userAgent = source?.userAgent ?: "OpenTV/0.1 (Android)",
+                userAgent = channel.playbackUserAgent(
+                    source?.userAgent ?: "OpenTV/0.1 (Android)",
+                ),
+                requestHeaders = channel.playbackRequestHeaders(),
                 isLive = true,
             ),
             debounce = true,
@@ -417,30 +427,34 @@ fun HomeScreen(
                         SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(windowStart))
                     }
                 }
-                GuidePreview(
-                    row = highlightedRow,
-                    nowMillis = nowMillis,
-                    onWatch = { highlightedRow?.let { goFullscreen(it.primary) } },
-                    onRefresh = onRefresh,
-                    onAddSource = onAddSource,
-                    previewPlayer = if (previewEnabled && !recordingActive) previewController.player else null,
-                    isRecording = highlightedRow?.primary?.id?.let { id ->
-                        activeRecordings.any { it.channelId == id }
-                    } == true,
-                    onRecord = { recordSelected() },
-                    dayLabel = dayLabel,
-                    canGoPrevDay = guideDayOffset > 0,
-                    onPrevDay = { viewModel.nudgeGuideDay(-1) },
-                    onNextDay = { viewModel.nudgeGuideDay(1) },
-                )
+                if (!classicLiveList) {
+                    GuidePreview(
+                        row = highlightedRow,
+                        nowMillis = nowMillis,
+                        onWatch = { highlightedRow?.let { goFullscreen(it.primary) } },
+                        onRefresh = onRefresh,
+                        onAddSource = onAddSource,
+                        previewPlayer = if (livePreviewEnabled && !recordingActive) previewController.player else null,
+                        isRecording = highlightedRow?.primary?.id?.let { id ->
+                            activeRecordings.any { it.channelId == id }
+                        } == true,
+                        onRecord = { recordSelected() },
+                        dayLabel = dayLabel,
+                        canGoPrevDay = guideDayOffset > 0,
+                        onPrevDay = { viewModel.nudgeGuideDay(-1) },
+                        onNextDay = { viewModel.nudgeGuideDay(1) },
+                    )
+                }
                 // Shared by both layouts: focus follows the highlight and collapses the rail; LEFT
                 // from the leftmost element reopens the rail (consumed only when it was hidden).
                 val onFocusChannel: (ChannelsViewModel.Row) -> Unit = {
                     highlightedRow = it
-                    railExpanded = false
+                    if (!classicLiveList) railExpanded = false
                 }
                 val onExitLeftChannel: () -> Boolean = {
-                    if (!railExpanded) {
+                    if (classicLiveList) {
+                        false
+                    } else if (!railExpanded) {
                         railExpanded = true
                         pendingRailFocus = true
                         true
@@ -448,11 +462,13 @@ fun HomeScreen(
                         false
                     }
                 }
-                if (channelLayout == AppSettings.ChannelLayout.LIST) {
+                if (classicLiveList || channelLayout == AppSettings.ChannelLayout.LIST) {
                     ChannelList(
                         rows = rows,
                         selectedKey = highlightedRow?.key,
-                        onSelectRow = { row -> channelMenu = row },
+                        onSelectRow = { row ->
+                            if (classicLiveList) requestLive(row.primary) else channelMenu = row
+                        },
                         onFocusRow = onFocusChannel,
                         onToggleFavourite = { viewModel.toggleFavourite(it) },
                         onExitLeftFromChannel = onExitLeftChannel,

@@ -30,8 +30,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import app.opentv.pairing.QrCodes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,8 +60,14 @@ import kotlinx.coroutines.launch
 fun AboutScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val graph = remember(context) { ServiceLocator.get(context) }
+    val sporbEnabled by graph.settings.sporbEnabled.collectAsState()
     var updateLine by remember { mutableStateOf<String?>(null) }
     var checking by remember { mutableStateOf(false) }
+    var versionTapCount by remember { mutableStateOf(0) }
+    var showFeatureCode by remember { mutableStateOf(false) }
+    var featureCode by remember { mutableStateOf("") }
+    var featureBusy by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -76,7 +84,20 @@ fun AboutScreen(onBack: () -> Unit) {
         Spacer(Modifier.height(20.dp))
 
         Section(stringResource(R.string.about_version)) {
-            Text("OpenTV ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleMedium)
+            // Five OK presses on the otherwise ordinary version label reveal the local feature-code
+            // field. There is no visible SporB affordance on a normal install, and the gesture is
+            // remote-friendly (no long-press timing or touch-only interaction).
+            Text(
+                "OpenTV ${BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.clickable {
+                    versionTapCount += 1
+                    if (versionTapCount >= 5) {
+                        showFeatureCode = true
+                        versionTapCount = 0
+                    }
+                },
+            )
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(
@@ -85,7 +106,6 @@ fun AboutScreen(onBack: () -> Unit) {
                         checking = true
                         updateLine = null
                         scope.launch {
-                            val graph = ServiceLocator.get(context)
                             val update = runCatching {
                                 UpdateChecker(graph.httpClient, BuildConfig.VERSION_NAME).check()
                             }.getOrNull()
@@ -106,6 +126,71 @@ fun AboutScreen(onBack: () -> Unit) {
                 updateLine?.let {
                     Spacer(Modifier.width(16.dp))
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
+            if (showFeatureCode || sporbEnabled) {
+                Spacer(Modifier.height(14.dp))
+                if (sporbEnabled) {
+                    Text(
+                        stringResource(R.string.about_sporb_enabled),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = featureCode,
+                        onValueChange = { featureCode = it },
+                        singleLine = true,
+                        enabled = !featureBusy,
+                        label = { Text(stringResource(R.string.about_feature_code_label)) },
+                        modifier = Modifier.widthIn(max = 360.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        enabled = featureCode.isNotBlank() && !featureBusy,
+                        onClick = {
+                            if (!featureCode.trim().equals("sporb", ignoreCase = true)) {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.about_feature_code_invalid),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                return@OutlinedButton
+                            }
+
+                            // The code is only a local feature switch, not a password. Persist it
+                            // immediately; if GitHub is temporarily unreachable, startup will retry
+                            // the still-empty managed source on the next launch.
+                            graph.settings.setSporbEnabled(true)
+                            featureBusy = true
+                            scope.launch {
+                                val synced = runCatching {
+                                    val ensured = graph.sourceRepository.ensureSporbSource()
+                                    graph.catalogRepository.syncLive(
+                                        ensured.source,
+                                        System.currentTimeMillis(),
+                                    )
+                                }.isSuccess
+
+                                featureCode = ""
+                                featureBusy = false
+                                Toast.makeText(
+                                    context,
+                                    context.getString(
+                                        if (synced) R.string.about_sporb_enabled_synced
+                                        else R.string.about_sporb_enabled_sync_pending,
+                                    ),
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                        },
+                    ) {
+                        Text(
+                            if (featureBusy) stringResource(R.string.onboarding_working)
+                            else stringResource(R.string.about_feature_code_activate),
+                        )
+                    }
                 }
             }
         }

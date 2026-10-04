@@ -38,6 +38,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ClosedCaption
@@ -290,12 +291,11 @@ fun VodPlayerScreen(
     }
 
     BackHandler {
-        val activelyPlaying = state is PlayerController.State.Playing ||
-            (growingRec && state is PlayerController.State.Buffering)
-        when {
-            vodPanel != VodPanel.NONE -> vodPanel = VodPanel.NONE
-            controlsVisible && activelyPlaying && !paused -> controlsVisible = false
-            else -> onBack()
+        if (vodPanel != VodPanel.NONE) {
+            vodPanel = VodPanel.NONE
+            reveal()
+        } else {
+            onBack()
         }
     }
 
@@ -361,6 +361,24 @@ fun VodPlayerScreen(
                 }
 
             else -> Unit
+        }
+
+        AnimatedVisibility(
+            visible = controlsVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top),
+                )
+                .padding(20.dp),
+        ) {
+            VodChip(
+                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                label = stringResource(R.string.common_back),
+                onClick = onBack,
+            )
         }
 
         AnimatedVisibility(

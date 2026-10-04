@@ -224,6 +224,21 @@ class AppSettings private constructor(context: Context) {
         _seriesEnabled.value = enabled
     }
 
+    // ---- Hidden feature unlocks ---------------------------------------------------------------
+
+    /**
+     * SporB is an intentionally hidden, opt-in supplemental M3U source. This is not an
+     * authentication/security flag: it simply remembers that the local user entered the feature
+     * code once, so subsequent launches may keep the managed SporB source available.
+     */
+    private val _sporbEnabled = MutableStateFlow(prefs.getBoolean(KEY_SPORB_ENABLED, false))
+    val sporbEnabled: StateFlow<Boolean> = _sporbEnabled.asStateFlow()
+
+    fun setSporbEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SPORB_ENABLED, enabled).apply()
+        _sporbEnabled.value = enabled
+    }
+
     /**
      * UI language override. Blank = follow the device; otherwise a BCP-47 tag ("en", "es").
      * Applied at [android.content.ContextWrapper.attachBaseContext] time so the whole app —
@@ -398,6 +413,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_CONTENT_LIVE = "content_live"
         private const val KEY_CONTENT_MOVIES = "content_movies"
         private const val KEY_CONTENT_SERIES = "content_series"
+        private const val KEY_SPORB_ENABLED = "sporb_enabled"
         private const val KEY_LAST_CHANNEL = "last_channel_id"
         private const val KEY_RESIZE_MODE = "player_resize_mode"
         private const val KEY_LANGUAGE = "language_tag"

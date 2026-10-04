@@ -326,6 +326,12 @@
     <string name="about_up_to_date">You\'re on the latest version.</string>
     <string name="about_checking">Checking…</string>
     <string name="about_check_updates">Check for updates</string>
+    <string name="about_sporb_enabled">SporB source is enabled on this device.</string>
+    <string name="about_feature_code_label">Feature code</string>
+    <string name="about_feature_code_invalid">Invalid feature code.</string>
+    <string name="about_sporb_enabled_synced">SporB enabled and channel list synced.</string>
+    <string name="about_sporb_enabled_sync_pending">SporB enabled. Channel sync will retry automatically.</string>
+    <string name="about_feature_code_activate">Activate</string>
     <string name="about_what_is_title">What it is</string>
     <string name="about_what_is_body">A free, open-source IPTV player for Android TV, Fire TV and phones. It\'s a player only — it doesn\'t supply channels; you connect the service you already pay for. Nothing you enter leaves your device except to talk to your own provider.</string>
     <string name="about_built_open_title">Built in the open</string>
@@ -497,4 +503,6 @@
     <string name="cloud_home">Home</string>
     <string name="cloud_filter_sources">Filter movie sources</string>
     <string name="cloud_filter_categories">Filter categories</string>
+    <string name="player_trying_alternative_stream">Trying another stream…</string>
+    <string name="player_all_streams_unavailable">This channel is temporarily unavailable.</string>
 </resources>

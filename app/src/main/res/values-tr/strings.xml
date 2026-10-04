@@ -290,6 +290,12 @@
     <string name="about_up_to_date">En son sürümü kullanıyorsunuz.</string>
     <string name="about_checking">Kontrol ediliyor…</string>
     <string name="about_check_updates">Güncellemeleri denetle</string>
+    <string name="about_sporb_enabled">SporB kaynağı bu cihazda etkin.</string>
+    <string name="about_feature_code_label">Özellik kodu</string>
+    <string name="about_feature_code_invalid">Geçersiz özellik kodu.</string>
+    <string name="about_sporb_enabled_synced">SporB etkinleştirildi ve kanal listesi senkronize edildi.</string>
+    <string name="about_sporb_enabled_sync_pending">SporB etkinleştirildi. Kanal senkronizasyonu otomatik olarak tekrar denenecek.</string>
+    <string name="about_feature_code_activate">Etkinleştir</string>
     <string name="about_what_is_title">Bu nedir</string>
     <string name="about_what_is_body">Android TV, Fire TV ve telefonlar için ücretsiz, açık kaynaklı bir IPTV oynatıcısı. Yalnızca bir oynatıcıdır — kanal sağlamaz; zaten ödeme yaptığınız hizmete bağlanırsınız. Girdiğiniz hiçbir bilgi, kendi sağlayıcınızla konuşmak dışında cihazınızdan çıkmaz.</string>
     <string name="about_built_open_title">Açık şekilde geliştirildi</string>
@@ -430,4 +436,24 @@
     <string name="cloud_home">Ana Sayfa</string>
     <string name="cloud_filter_sources">Film kaynaklarını filtrele</string>
     <string name="cloud_filter_categories">Kategorileri filtrele</string>
+
+    <!-- Türkçe dosyada eksik kalan varsayılan İngilizce metinler -->
+    <string name="common_edit">Düzenle</string>
+    <string name="exit_title">OpenTV\'den çıkılsın mı?</string>
+    <string name="exit_body">TV\'nizin ana ekranına döneceksiniz.</string>
+    <string name="exit_confirm">Çık</string>
+    <string name="exit_cancel">Kal</string>
+    <string name="settings_edit_provider_title">Sağlayıcıyı düzenle</string>
+    <string name="rec_live_warn_title">Kayıt devam ediyor</string>
+    <string name="rec_live_warn_body">Tek bağlantı kullanıyorsunuz; şimdi canlı yayını izlerseniz “%1$s” kaydı duracak.</string>
+    <string name="rec_live_warn_keep">Kayda devam et</string>
+    <string name="rec_live_warn_watch">Canlı izle (kaydı durdur)</string>
+    <string name="rec_watching_live_badge">Kayıt — canlı</string>
+    <string name="recset_pw_show">Parolayı göster</string>
+    <string name="recset_pw_hide">Parolayı gizle</string>
+    <string name="about_sponsor_github">GitHub Sponsors</string>
+    <string name="about_donate_paypal">PayPal ile bağış yap</string>
+    <string name="about_support_body">OpenTV ücretsizdir ve her zaman ücretsiz kalacaktır — hiçbir özellik ücretli değildir. İşinize yarıyorsa ve katkıda bulunmak isterseniz, GitHub Sponsors üzerinden destek olmak veya tek seferlik bağış yapmak güncellemelerin devam etmesine yardımcı olur. Yeni özellikler, düzeltmeler ve destek boş zamanlarda geliştiriliyor. Tamamen isteğe bağlıdır ve gerçekten takdir edilir.</string>
+    <string name="player_trying_alternative_stream">Alternatif yayın deneniyor…</string>
+    <string name="player_all_streams_unavailable">Yayın şu anda kullanılamıyor.</string>
 </resources>

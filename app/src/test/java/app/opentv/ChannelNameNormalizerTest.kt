@@ -121,4 +121,24 @@ class ChannelNameNormalizerTest {
 
         assertThat(keys.distinct()).hasSize(1)
     }
+
+    @Test
+    fun `iptv org resolution and availability suffixes are hidden from viewers`() {
+        val n = ChannelNameNormalizer.normalize("TRT Spor Yildiz 1440p Geo-blocked")
+
+        assertThat(n.baseName).isEqualTo("TRT Spor Yildiz")
+        assertThat(n.qualityRank).isEqualTo(300)
+        assertThat(n.qualityLabel).isEqualTo("1440P")
+    }
+
+    @Test
+    fun `iptv org country suffix is removed`() {
+        assertThat(ChannelNameNormalizer.normalize("NTV Turkiye").baseName).isEqualTo("NTV")
+    }
+
+    @Test
+    fun `iptv org not 24 7 suffix is removed`() {
+        assertThat(ChannelNameNormalizer.normalize("Kanal 7 Avrupa Not 24 7").baseName)
+            .isEqualTo("Kanal 7 Avrupa")
+    }
 }

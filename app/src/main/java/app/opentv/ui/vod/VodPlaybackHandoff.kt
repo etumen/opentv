@@ -30,6 +30,8 @@ object VodPlaybackHandoff {
         val subtitleLabel: String = "",
         val subtitleLanguage: String = "",
         val subtitleMimeType: String = "",
+        val returnRoute: String = "",
+        val returnRoutePattern: String = "",
     )
 
     private val nextId = AtomicLong(1)

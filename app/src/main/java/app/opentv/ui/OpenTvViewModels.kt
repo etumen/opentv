@@ -23,6 +23,8 @@ import app.opentv.data.model.SourceKind
 import app.opentv.data.model.StreamKind
 import app.opentv.data.parser.displayTitle
 import app.opentv.data.parser.ChannelNameNormalizer
+import app.opentv.data.parser.TurkeyChannelPlan
+import app.opentv.data.model.shownName
 import app.opentv.data.repo.CatalogRepository
 import app.opentv.data.repo.GenreGroup
 import app.opentv.data.repo.MovieVariantGroup
@@ -287,6 +289,8 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
         val variants: List<Channel>,
         val now: Programme?,
         val next: Programme?,
+        /** OpenTV's compact, source-independent channel number in the current live list. */
+        val number: Int = 0,
         /** Every programme for this channel inside the guide window, start-ordered. */
         val programmes: List<Programme>,
     ) {
@@ -433,8 +437,16 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
 
         val total = groups.size.coerceAtLeast(1)
         var built = 0
-        return groups.values.map { group ->
-            group.sortByDescending { it.qualityRank }
+        val builtRows = groups.values.map { group ->
+            // For the curated sports block prefer the provider's canonical feed, then explicit
+            // quality mirrors, then named backup feeds (-A/-B/-C/Alternatif). Everywhere else
+            // fallbackPriority is zero, preserving the existing best-quality-first behaviour.
+            group.sortWith(
+                compareBy<Channel> { TurkeyChannelPlan.playbackSourcePriority(it.streamId) }
+                    .thenBy { TurkeyChannelPlan.fallbackPriority(it.name) }
+                    .thenByDescending { it.qualityRank }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name },
+            )
             // Only genuinely different qualities are switchable; identical-quality dupes
             // (same stream in two categories) collapse to one, so no false "2 qualities".
             val variants = distinctByQuality(group)
@@ -466,6 +478,18 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
                 programmes = list,
             )
         }
+
+        // Turkey's familiar TV order is a presentation concern, not provider state. Known channels
+        // follow the global Turkey plan; everything else remains available after them in a stable
+        // alphabetical tail. Numbering is compact, so a channel missing from this source leaves no
+        // dead slot and changing M3U sources does not force us to maintain a second line-up.
+        return builtRows
+            .sortedWith(
+                compareBy<Row> {
+                    TurkeyChannelPlan.orderIndex(it.primary.shownName) ?: Int.MAX_VALUE
+                }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.primary.shownName },
+            )
+            .mapIndexed { index, row -> row.copy(number = index + 1) }
     }
 
     /** A friendly, size-aware line for the load — a small provider gets a quick word, a huge one

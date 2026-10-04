@@ -27,6 +27,7 @@ import app.opentv.data.model.Reminder
 import app.opentv.data.model.Series
 import app.opentv.data.model.SeriesRule
 import app.opentv.data.model.Source
+import app.opentv.data.model.SourceKind
 import app.opentv.data.model.StreamKind
 import kotlinx.coroutines.flow.Flow
 
@@ -43,6 +44,9 @@ interface SourceDao {
 
     @Query("SELECT * FROM sources WHERE id = :id")
     suspend fun byId(id: Long): Source?
+
+    @Query("SELECT * FROM sources WHERE kind = :kind AND url = :url LIMIT 1")
+    suspend fun byKindAndUrl(kind: SourceKind, url: String): Source?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(source: Source): Long

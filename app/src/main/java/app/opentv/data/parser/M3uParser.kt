@@ -8,6 +8,9 @@ package app.opentv.data.parser
 import app.opentv.data.model.Channel
 import java.io.BufferedReader
 import java.io.InputStream
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Streaming M3U/M3U8 playlist parser.
@@ -22,6 +25,7 @@ import java.io.InputStream
 object M3uParser {
 
     private val ATTRIBUTE_REGEX = Regex("""([\w-]+)="([^"]*)"""")
+    private val json = Json { ignoreUnknownKeys = true }
 
     data class Result(
         val channels: List<Channel>,
@@ -45,8 +49,17 @@ object M3uParser {
         var pendingName: String? = null
         var pendingAttributes: Map<String, String> = emptyMap()
         var pendingNumber: Int? = null
-        // #EXTVLCOPT / #EXTHTTP lines that apply to the next URL.
+        // Directives placed before the first EXTINF are playlist-wide defaults (SporB uses this
+        // form). Entry-local directives then override the inherited value for only that channel.
+        val globalHeaders = linkedMapOf<String, String>()
+        val pendingHeaders = linkedMapOf<String, String>()
+        var seenExtInf = false
         var index = 0
+
+        fun putHeader(name: String, value: String) {
+            if (!seenExtInf) globalHeaders[name] = value
+            else pendingHeaders[name] = value
+        }
 
         reader.forEachLine { rawLine ->
             val line = rawLine.trim()
@@ -61,9 +74,43 @@ object M3uParser {
                 }
 
                 line.startsWith("#EXTINF", ignoreCase = true) -> {
+                    // A new EXTINF starts a new entry-local scope while inheriting playlist-wide
+                    // defaults. This both supports global M3U headers and prevents a malformed
+                    // entry's local headers from leaking into the next valid channel.
+                    pendingHeaders.clear()
+                    pendingHeaders.putAll(globalHeaders)
+                    seenExtInf = true
                     pendingAttributes = parseAttributes(line)
                     pendingName = displayNameOf(line, pendingAttributes)
                     pendingNumber = pendingAttributes["tvg-chno"]?.toIntOrNull()
+                }
+
+                line.startsWith("#EXTVLCOPT:", ignoreCase = true) -> {
+                    parseVlcOption(line)?.let { (name, value) -> putHeader(name, value) }
+                }
+
+                line.startsWith("#EXTHTTP:", ignoreCase = true) -> {
+                    parseExtHttp(line).forEach { (name, value) -> putHeader(name, value) }
+                }
+
+                line.startsWith("#EXT-X-USER-AGENT", ignoreCase = true) -> {
+                    directiveValue(line, "#EXT-X-USER-AGENT")
+                        ?.let { putHeader("User-Agent", it) }
+                }
+
+                line.startsWith("#EXT-X-REFERER", ignoreCase = true) ||
+                    line.startsWith("#EXT-X-REFERRER", ignoreCase = true) -> {
+                    val prefix = if (line.startsWith("#EXT-X-REFERRER", ignoreCase = true)) {
+                        "#EXT-X-REFERRER"
+                    } else {
+                        "#EXT-X-REFERER"
+                    }
+                    directiveValue(line, prefix)?.let { putHeader("Referer", it) }
+                }
+
+                line.startsWith("#EXT-X-ORIGIN", ignoreCase = true) -> {
+                    directiveValue(line, "#EXT-X-ORIGIN")
+                        ?.let { putHeader("Origin", it) }
                 }
 
                 // Any other directive: ignore, but keep the pending EXTINF alive.
@@ -95,6 +142,9 @@ object M3uParser {
                                 epgChannelId = attributes["tvg-id"]?.takeIf { it.isNotBlank() },
                                 number = pendingNumber,
                                 streamUrl = line,
+                                requestHeaders = pendingHeaders
+                                    .takeIf { it.isNotEmpty() }
+                                    ?.toMap(),
                                 sortIndex = index++,
                             )
                         }
@@ -102,11 +152,73 @@ object M3uParser {
                     pendingName = null
                     pendingAttributes = emptyMap()
                     pendingNumber = null
+                    pendingHeaders.clear()
                 }
             }
         }
 
         return Result(channels, declaredEpgUrl, skipped)
+    }
+
+    /**
+     * VLC-style per-entry option, e.g.
+     * `#EXTVLCOPT:http-referer=https://site/` or `http-user-agent=Mozilla/5.0`.
+     *
+     * Any `http-*` option is preserved, not just the three we currently know SporB needs.
+     */
+    private fun parseVlcOption(line: String): Pair<String, String>? {
+        val option = line.substringAfter(':', missingDelimiterValue = "").trim()
+        val key = option.substringBefore('=', missingDelimiterValue = "").trim()
+        val value = option.substringAfter('=', missingDelimiterValue = "").trim().trim('"')
+        if (!key.startsWith("http-", ignoreCase = true) || value.isBlank()) return null
+
+        val rawHeader = key.substringAfter("http-", missingDelimiterValue = "")
+        return canonicalHeaderName(rawHeader) to value
+    }
+
+    /**
+     * Kodi/IPTV clients also use `#EXTHTTP:{"Header":"value"}`. Invalid JSON is simply ignored,
+     * keeping the parser's "one bad line never loses the playlist" contract.
+     */
+    private fun parseExtHttp(line: String): Map<String, String> {
+        val payload = line.substringAfter(':', missingDelimiterValue = "").trim()
+        if (payload.isBlank()) return emptyMap()
+        val obj = runCatching { json.parseToJsonElement(payload) as? JsonObject }.getOrNull()
+            ?: return emptyMap()
+
+        return buildMap {
+            for ((key, element) in obj) {
+                val value = runCatching { element.jsonPrimitive.content }.getOrNull()
+                if (!value.isNullOrBlank()) put(canonicalHeaderName(key), value)
+            }
+        }
+    }
+
+    private fun directiveValue(line: String, prefix: String): String? {
+        val tail = line.substring(prefix.length).trimStart()
+        val value = tail
+            .removePrefix(":")
+            .removePrefix("=")
+            .trim()
+            .trim('"')
+        return value.takeIf { it.isNotBlank() }
+    }
+
+    private fun canonicalHeaderName(raw: String): String {
+        val normalized = raw.trim().replace('_', '-').lowercase()
+        return when (normalized) {
+            "user-agent", "useragent" -> "User-Agent"
+            "referer", "referrer" -> "Referer"
+            "origin" -> "Origin"
+            "cookie" -> "Cookie"
+            "accept" -> "Accept"
+            "host" -> "Host"
+            else -> normalized.split('-')
+                .filter { it.isNotBlank() }
+                .joinToString("-") { part ->
+                    part.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                }
+        }
     }
 
     /**

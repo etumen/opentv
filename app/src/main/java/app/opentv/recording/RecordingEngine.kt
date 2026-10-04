@@ -14,6 +14,8 @@ import app.opentv.data.model.RecordingStatus
 import app.opentv.data.model.SeriesRule
 import app.opentv.data.db.ChannelDao
 import app.opentv.data.model.Source
+import app.opentv.data.model.playbackRequestHeaders
+import app.opentv.data.model.playbackUserAgent
 import app.opentv.data.repo.EpgRepository
 import app.opentv.data.repo.RecordingRepository
 import app.opentv.data.repo.SourceRepository
@@ -40,7 +42,8 @@ class RecordingEngine(
         profileId: Long = settings.activeProfileId.value,
     ): Long {
         val source = sources.byId(channel.sourceId)
-        val ua = source?.userAgent ?: Source.DEFAULT_USER_AGENT
+        val ua = channel.playbackUserAgent(source?.userAgent ?: Source.DEFAULT_USER_AGENT)
+        val requestHeaders = channel.playbackRequestHeaders().takeIf { it.isNotEmpty() }
         val now = System.currentTimeMillis()
         val title = programme?.title?.takeIf { it.isNotBlank() } ?: channel.displayName
         val filename = RecordingStorage.fileNameFor(channel.displayName, title, now)
@@ -56,6 +59,7 @@ class RecordingEngine(
             filePath = locator,
             streamUrl = recordUrlFor(channel.streamUrl),
             userAgent = ua,
+            requestHeaders = requestHeaders,
             scheduledStartMillis = programme?.startUtcMillis ?: 0,
             // Keep going past the listed end by the padding, so an overrun isn't cut off.
             scheduledEndMillis = programme?.endUtcMillis
@@ -115,7 +119,8 @@ class RecordingEngine(
         // connections, no cut. Falls back to the original channel when there's no free alternate.
         val recordFrom = alternateProviderForClash(channel, scheduledStart, scheduledEnd)
         val source = sources.byId(recordFrom.sourceId)
-        val ua = source?.userAgent ?: Source.DEFAULT_USER_AGENT
+        val ua = recordFrom.playbackUserAgent(source?.userAgent ?: Source.DEFAULT_USER_AGENT)
+        val requestHeaders = recordFrom.playbackRequestHeaders().takeIf { it.isNotEmpty() }
         val filename = RecordingStorage.fileNameFor(channel.displayName, programme.title, programme.startUtcMillis)
         val locator = RecordingStorage.plannedLocator(appContext, settings, filename)
 
@@ -131,6 +136,7 @@ class RecordingEngine(
             filePath = locator,
             streamUrl = recordUrlFor(recordFrom.streamUrl),
             userAgent = ua,
+            requestHeaders = requestHeaders,
             scheduledStartMillis = scheduledStart,
             scheduledEndMillis = scheduledEnd,
             status = RecordingStatus.SCHEDULED,

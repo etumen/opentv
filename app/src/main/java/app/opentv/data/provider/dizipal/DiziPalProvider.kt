@@ -654,6 +654,16 @@ class DiziPalProvider(
         }
         val directPlaylist = first.body.trimStart()
         if (directPlaylist.startsWith("#EXTM3U")) {
+            // Some DPlayer masters (for example Reacher) keep audio in a separate
+            // EXT-X-MEDIA:TYPE=AUDIO rendition. Collapsing such a master to only the highest
+            // video variant drops the audio group completely: video plays, but Media3 never
+            // receives an audio track. Preserve the master in that case and make every URI
+            // absolute because the inline data: playlist has no HTTP base URL of its own.
+            if (hasExternalAudioRendition(first.body)) {
+                Log.d(TAG, "DPlayer master HLS preserved with external audio rendition")
+                return toInlineHls(absolutizeHlsReferences(first.body, remoteUrl))
+            }
+
             val variantUrl = selectBestDplayerVariant(first.body)
             if (variantUrl == null) {
                 Log.d(TAG, "DPlayer direct media playlist resolved")
@@ -692,6 +702,36 @@ class DiziPalProvider(
         val segments = playlist.lineSequence().count { it.startsWith("http") }
         Log.d(TAG, "DPlayer inline HLS resolved, segments=" + segments)
         return toInlineHls(playlist)
+    }
+
+    internal fun hasExternalAudioRendition(master: String): Boolean =
+        master.lineSequence().any { line ->
+            line.startsWith("#EXT-X-MEDIA:", ignoreCase = true) &&
+                Regex("""\bTYPE\s*=\s*"?AUDIO"?\b""", RegexOption.IGNORE_CASE)
+                    .containsMatchIn(line)
+        }
+
+    internal fun absolutizeHlsReferences(
+        playlist: String,
+        baseUrl: String,
+    ): String {
+        val base = runCatching { baseUrl.toHttpUrl() }.getOrNull() ?: return playlist
+        val uriAttribute = Regex("""URI\s*=\s*"([^"]+)"""", RegexOption.IGNORE_CASE)
+
+        return playlist.lineSequence().joinToString("\n") { rawLine ->
+            val line = rawLine.trimEnd()
+            if (line.isBlank()) {
+                line
+            } else if (line.startsWith("#")) {
+                uriAttribute.replace(line) { match ->
+                    val rawUri = match.groupValues[1]
+                    val absolute = base.resolve(rawUri)?.toString() ?: rawUri
+                    """URI="$absolute""""
+                }
+            } else {
+                base.resolve(line)?.toString() ?: line
+            }
+        }
     }
 
     private fun selectBestDplayerVariant(master: String): String? {

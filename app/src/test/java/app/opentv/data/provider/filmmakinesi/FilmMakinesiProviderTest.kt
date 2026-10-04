@@ -78,6 +78,66 @@ class FilmMakinesiProviderTest {
     }
 
     @Test
+    fun paginationParser_buildsCurrentCategoryAndArchiveUrls() {
+        val provider = FilmMakinesiProvider(OkHttpClient())
+
+        val categoryDoc = Jsoup.parse(
+            """
+                <nav class="pagination-container"
+                     data-pages="3"
+                     data-page-action="category"></nav>
+            """.trimIndent(),
+            FilmMakinesiProvider.MAIN_URL + "/aksiyon-filmleri-hd-izle/",
+        )
+        val category = provider.parsePagination(categoryDoc)
+        assertThat(category).isNotNull()
+        assertThat(category?.pages).isEqualTo(3)
+        assertThat(
+            provider.paginationUrl(
+                FilmMakinesiProvider.MAIN_URL + "/aksiyon-filmleri-hd-izle/",
+                2,
+                category!!,
+            ),
+        ).isEqualTo(
+            FilmMakinesiProvider.MAIN_URL +
+                "/aksiyon-filmleri-hd-izle/?knl_page_action=category&knl_paged=2",
+        )
+
+        val archiveDoc = Jsoup.parse(
+            """
+                <nav class="pagination-container"
+                     data-pages="8"
+                     data-page-action="archive"
+                     data-sort="date"></nav>
+            """.trimIndent(),
+            FilmMakinesiProvider.MAIN_URL + "/film-arsivi/",
+        )
+        val archive = provider.parsePagination(archiveDoc)
+        assertThat(archive).isNotNull()
+        assertThat(
+            provider.paginationUrl(
+                FilmMakinesiProvider.MAIN_URL + "/film-arsivi/",
+                2,
+                archive!!,
+            ),
+        ).isEqualTo(
+            FilmMakinesiProvider.MAIN_URL +
+                "/film-arsivi/?knl_page_action=archive&knl_paged=2&knl_sort=date",
+        )
+    }
+
+    @Test
+    fun paginationParser_returnsNullWhenSiteHasOnlyOnePage() {
+        val provider = FilmMakinesiProvider(OkHttpClient())
+        val doc = Jsoup.parse(
+            """<div class="posters-4-col"></div>""",
+            FilmMakinesiProvider.MAIN_URL + "/animasyon-filmleri-hd-izle/",
+        )
+
+        assertThat(provider.parsePagination(doc)).isNull()
+    }
+
+    @Test
     fun categoryParser_readsLegacyFilmGenres() {
         val html = """
             <nav>

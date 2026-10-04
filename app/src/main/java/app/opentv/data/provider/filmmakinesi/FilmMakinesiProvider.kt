@@ -8,6 +8,7 @@ package app.opentv.data.provider.filmmakinesi
 import android.util.Log
 import app.opentv.data.provider.*
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,6 +30,14 @@ class FilmMakinesiProvider(private val http: OkHttpClient) : Provider {
     override val supportedMediaTypes = setOf(ProviderMediaType.MOVIE)
 
     private data class Section(val title: String, val path: String, val showOnHome: Boolean)
+
+    internal data class PaginationConfig(
+        val pages: Int,
+        val action: String,
+        val sort: String? = null,
+        val search: String? = null,
+    )
+
     private data class Playback(
         val streams: List<ProviderStream>,
         val subtitles: List<ProviderSubtitle>,
@@ -62,6 +71,7 @@ class FilmMakinesiProvider(private val http: OkHttpClient) : Provider {
         "indian" to Section("Hint Filmleri", "/hint-filmleri/", false),
     )
     @Volatile private var discoveredSections: Map<String, Section>? = null
+    private val paginationBySection = ConcurrentHashMap<String, PaginationConfig>()
     private fun sections(): Map<String, Section> = discoveredSections ?: fallbackSections
 
     override val catalogSections: List<ProviderCatalogSection>
@@ -88,17 +98,57 @@ class FilmMakinesiProvider(private val http: OkHttpClient) : Provider {
 
     override suspend fun catalog(request: ProviderCatalogRequest): ProviderResult<ProviderCatalogPage> =
         guarded("catalog") {
-            val section = sections()[request.sectionId ?: "latest"] ?: fallbackSections.getValue("latest")
+            val sectionId = request.sectionId ?: "latest"
+            val section = sections()[sectionId] ?: fallbackSections.getValue("latest")
             val page = request.page.coerceAtLeast(1)
             val base = absolute(section.path)
-            val target = if (page == 1) base else base.trimEnd('/') + "/page/$page/"
+
+            val config: PaginationConfig?
+            val target: String
+            if (page == 1) {
+                target = base
+                config = null
+            } else {
+                config = paginationBySection[sectionId]
+                    ?: parsePagination(fetchDocument(base))?.also {
+                        paginationBySection[sectionId] = it
+                    }
+                if (config == null || page > config.pages) {
+                    return@guarded ProviderCatalogPage(
+                        title = section.title,
+                        items = emptyList(),
+                        nextPage = null,
+                    )
+                }
+                target = paginationUrl(base, page, config)
+            }
+
             val doc = fetchDocument(target)
+            val effectiveConfig = if (page == 1) {
+                parsePagination(doc)?.also { paginationBySection[sectionId] = it }
+            } else {
+                config
+            }
             val items = parseCards(doc)
-            Log.d(TAG, "catalog section=${section.title} page=$page items=${items.size} url=$target")
+            val nextPage = if (
+                items.isNotEmpty() &&
+                effectiveConfig != null &&
+                page < effectiveConfig.pages
+            ) {
+                page + 1
+            } else {
+                null
+            }
+
+            Log.d(
+                TAG,
+                "catalog section=${section.title} page=$page items=${items.size} " +
+                    "pages=${effectiveConfig?.pages ?: 1} url=$target",
+            )
             ProviderCatalogPage(
                 title = section.title,
                 items = items,
-                nextPage = if (items.isEmpty()) null else page + 1,
+                nextPage = nextPage,
             )
         }
 
@@ -362,6 +412,38 @@ class FilmMakinesiProvider(private val http: OkHttpClient) : Provider {
                 rating = rating?.takeIf { it in 0.0..10.0 },
             )
         }.distinctBy { it.id }
+
+    internal fun parsePagination(doc: Document): PaginationConfig? {
+        val nav = doc.selectFirst(".pagination-container") ?: return null
+        val pages = nav.attr("data-pages").toIntOrNull()?.takeIf { it > 1 } ?: return null
+        val action = nav.attr("data-page-action").trim().ifBlank { "category" }
+        val sort = nav.attr("data-sort").trim().takeIf { it.isNotBlank() }
+        val search = nav.attr("data-search").trim().takeIf { it.isNotBlank() }
+        return PaginationConfig(
+            pages = pages,
+            action = action,
+            sort = sort,
+            search = search,
+        )
+    }
+
+    internal fun paginationUrl(
+        base: String,
+        page: Int,
+        config: PaginationConfig,
+    ): String {
+        val builder = when (config.action.lowercase()) {
+            "home" -> MAIN_URL.toHttpUrl().newBuilder()
+            else -> base.toHttpUrl().newBuilder()
+        }
+        builder.addQueryParameter("knl_page_action", config.action)
+        builder.addQueryParameter("knl_paged", page.toString())
+        when (config.action.lowercase()) {
+            "archive" -> config.sort?.let { builder.addQueryParameter("knl_sort", it) }
+            "search" -> config.search?.let { builder.addQueryParameter("s", it) }
+        }
+        return builder.build().toString()
+    }
 
     internal fun parseCategoryLinks(doc: Document): List<Pair<String, String>> {
         val genreSection = doc.select("section.common-section").firstOrNull { section ->

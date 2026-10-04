@@ -129,6 +129,31 @@ class DiziPalProviderTest {
     }
 
     @Test
+    fun dplayerMaster_preservesExternalAudioAndAbsolutizesUris() {
+        val master = """
+            #EXTM3U
+            #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Türkçe",DEFAULT=YES,AUTOSELECT=YES,URI="../audio/tr/index.m3u8"
+            #EXT-X-STREAM-INF:BANDWIDTH=5400000,RESOLUTION=1920x1080,AUDIO="audio"
+            video/1080/index.m3u8
+        """.trimIndent()
+
+        assertThat(provider.hasExternalAudioRendition(master)).isTrue()
+
+        val rewritten = provider.absolutizeHlsReferences(
+            master,
+            "https://cdn.example.test/hls/master/master.m3u8",
+        )
+
+        assertThat(rewritten).contains(
+            """URI="https://cdn.example.test/hls/audio/tr/index.m3u8"""",
+        )
+        assertThat(rewritten).contains(
+            "https://cdn.example.test/hls/master/video/1080/index.m3u8",
+        )
+        assertThat(rewritten).contains("""AUDIO="audio"""")
+    }
+
+    @Test
     fun tracks_readsSubtitleEntries() {
         val source = """
             tracks: [

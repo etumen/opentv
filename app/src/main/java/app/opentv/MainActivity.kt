@@ -235,6 +235,8 @@ object Routes {
         subtitleLabel: String = "",
         subtitleLanguage: String = "",
         subtitleMimeType: String = "",
+        returnRoute: String = "",
+        returnRoutePattern: String = "",
     ): String {
         val token = app.opentv.ui.vod.VodPlaybackHandoff.put(
             app.opentv.ui.vod.VodPlaybackHandoff.Request(
@@ -250,6 +252,8 @@ object Routes {
                 subtitleLabel = subtitleLabel,
                 subtitleLanguage = subtitleLanguage,
                 subtitleMimeType = subtitleMimeType,
+                returnRoute = returnRoute,
+                returnRoutePattern = returnRoutePattern,
             ),
         )
         return "vod/$token"
@@ -519,7 +523,14 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     viewModel = vodViewModel,
                     onPlayEpisode = { key, url, title ->
                         navController.navigate(
-                            Routes.vodPlayer(key, url, title, "OpenTV/0.1 (Android)"),
+                            Routes.vodPlayer(
+                                key = key,
+                                url = url,
+                                title = title,
+                                ua = "OpenTV/0.1 (Android)",
+                                returnRoute = Routes.seriesDetail(seriesId),
+                                returnRoutePattern = Routes.SERIES_DETAIL,
+                            ),
                         )
                     },
                     onOpenSeries = { series -> navController.navigate(Routes.seriesDetail(series.id)) },
@@ -539,6 +550,8 @@ private fun OpenTvApp(isTelevision: Boolean) {
                                 url = movie.streamUrl,
                                 title = movie.displayTitle,
                                 ua = "OpenTV/0.1 (Android)",
+                                returnRoute = Routes.movieDetail(movieId),
+                                returnRoutePattern = Routes.MOVIE_DETAIL,
                             ),
                         )
                     },
@@ -572,6 +585,8 @@ private fun OpenTvApp(isTelevision: Boolean) {
                                 subtitleLabel = subtitle?.label.orEmpty(),
                                 subtitleLanguage = subtitle?.language.orEmpty(),
                                 subtitleMimeType = subtitle?.mimeType.orEmpty(),
+                                returnRoute = Routes.cloudMovieDetail(providerId, itemId),
+                                returnRoutePattern = Routes.CLOUD_MOVIE_DETAIL,
                             ),
                         )
                     },
@@ -606,6 +621,8 @@ private fun OpenTvApp(isTelevision: Boolean) {
                                 subtitleLabel = subtitle?.label.orEmpty(),
                                 subtitleLanguage = subtitle?.language.orEmpty(),
                                 subtitleMimeType = subtitle?.mimeType.orEmpty(),
+                                returnRoute = Routes.cloudSeriesDetail(providerId, itemId),
+                                returnRoutePattern = Routes.CLOUD_SERIES_DETAIL,
                             ),
                         )
                     },
@@ -632,6 +649,16 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     LaunchedEffect(token) { navController.popBackStack() }
                     return@composable
                 }
+                val leavePlayer = {
+                    val restored = if (request.returnRoutePattern.isNotBlank()) {
+                        navController.popBackStack(request.returnRoutePattern, inclusive = false)
+                    } else {
+                        navController.popBackStack()
+                    }
+                    if (!restored && request.returnRoute.isNotBlank()) {
+                        navController.navigate(request.returnRoute) { launchSingleTop = true }
+                    }
+                }
                 VodPlayerScreen(
                     mediaKey = request.mediaKey,
                     streamUrl = request.streamUrl,
@@ -645,7 +672,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     subtitleLabel = request.subtitleLabel,
                     subtitleLanguage = request.subtitleLanguage,
                     subtitleMimeType = request.subtitleMimeType,
-                    onBack = { navController.popBackStack() },
+                    onBack = leavePlayer,
                 )
             }
         }

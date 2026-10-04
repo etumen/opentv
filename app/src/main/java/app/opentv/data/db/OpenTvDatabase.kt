@@ -31,6 +31,9 @@ import app.opentv.data.model.SeriesRule
 import app.opentv.data.model.Source
 import app.opentv.data.model.SourceKind
 import app.opentv.data.model.StreamKind
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class Converters {
     @TypeConverter fun sourceKindToString(value: SourceKind): String = value.name
@@ -52,6 +55,14 @@ class Converters {
 
     @TypeConverter fun stringToRecordingStatus(value: String): RecordingStatus =
         runCatching { RecordingStatus.valueOf(value) }.getOrDefault(RecordingStatus.FAILED)
+
+    @TypeConverter fun headersToString(value: Map<String, String>?): String? =
+        value?.takeIf { it.isNotEmpty() }?.let { Json.encodeToString(it) }
+
+    @TypeConverter fun stringToHeaders(value: String?): Map<String, String>? =
+        value?.takeIf { it.isNotBlank() }?.let {
+            runCatching { Json.decodeFromString<Map<String, String>>(it) }.getOrNull()
+        }
 }
 
 @Database(
@@ -71,7 +82,7 @@ class Converters {
         SeriesRule::class,
         Reminder::class,
     ],
-    version = 11,
+    version = 13,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -272,6 +283,54 @@ abstract class OpenTvDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v11 → v12: per-channel HTTP request headers from M3U directives. Recordings snapshot the
+         * same headers so a Referer/Origin-protected stream keeps working after the channel list
+         * changes. Nullable TEXT maps to a nullable Map through [Converters].
+         */
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `channels` ADD COLUMN `requestHeaders` TEXT")
+                db.execSQL("ALTER TABLE `recordings` ADD COLUMN `requestHeaders` TEXT")
+
+                // Famelack Turkey was briefly shipped as an automatic comparison source and was
+                // later retired. Remove only that exact legacy built-in URL; arbitrary user M3Us
+                // are untouched. Doing it in the migration avoids one-frame source/list pollution
+                // on upgraded installs and makes the cleanup strictly one-shot.
+                val legacyUrl =
+                    "https://raw.githubusercontent.com/DEvmIb/famelack-channels-m3u/main/m3u/tr.m3u"
+                val sourceIds = "SELECT id FROM `sources` WHERE `kind` = 'M3U' AND `url` = ?"
+                for (table in listOf("channels", "categories", "movies", "series", "episodes")) {
+                    db.execSQL(
+                        "DELETE FROM `$table` WHERE `sourceId` IN ($sourceIds)",
+                        arrayOf(legacyUrl),
+                    )
+                }
+                db.execSQL(
+                    "DELETE FROM `sources` WHERE `kind` = 'M3U' AND `url` = ?",
+                    arrayOf(legacyUrl),
+                )
+            }
+        }
+
+        /**
+         * v12 → v13: remove provider-guide rows whose source no longer exists.
+         *
+         * The retired built-in Famelack source was deleted in v12, but its provider-generated EPG
+         * feed could survive because epg_feeds uses a nullable source id rather than a foreign key.
+         * An orphan provider feed cannot ever sync successfully, so cleaning all such rows is both
+         * safe and source-agnostic; user URL-based EPG feeds (providerSourceId = null) are untouched.
+         */
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "DELETE FROM `epg_feeds` " +
+                        "WHERE `providerSourceId` IS NOT NULL " +
+                        "AND `providerSourceId` NOT IN (SELECT `id` FROM `sources`)",
+                )
+            }
+        }
+
         fun build(context: Context): OpenTvDatabase =
             Room.databaseBuilder(context, OpenTvDatabase::class.java, "opentv.db")
                 // WAL keeps guide writes from blocking guide reads, so a background EPG
@@ -280,6 +339,7 @@ abstract class OpenTvDatabase : RoomDatabase() {
                 .addMigrations(
                     MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                     MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
+                    MIGRATION_11_12, MIGRATION_12_13,
                 )
                 /*
                  * Pre-1.0 policy: schema changes drop and rebuild the database. Everything

@@ -101,6 +101,8 @@ import app.opentv.core.SleepTimer
 import app.opentv.core.findActivity
 import app.opentv.core.requestIgnoreBatteryOptimizations
 import app.opentv.data.model.Channel
+import app.opentv.data.model.playbackRequestHeaders
+import app.opentv.data.model.playbackUserAgent
 import app.opentv.data.model.shownName
 import app.opentv.player.PlaybackQueue
 import app.opentv.player.PlayerController
@@ -169,6 +171,10 @@ fun PlayerScreen(
     }
 
     var variants by remember { mutableStateOf<List<Channel>>(emptyList()) }
+    // Raw mirrors for the same logical channel. These stay hidden from the guide/quality picker
+    // but are tried automatically when a provider's primary URL is dead.
+    var playbackCandidates by remember { mutableStateOf<List<Channel>>(emptyList()) }
+    var playbackCandidateIndex by remember { mutableIntStateOf(0) }
     var currentId by remember { mutableStateOf<Long?>(null) }
     // The channel we were on before this one — powers the "Last channel" recall in the list.
     var previousId by remember { mutableStateOf<Long?>(null) }
@@ -216,24 +222,44 @@ fun PlayerScreen(
         interaction++
     }
 
+    suspend fun playStream(channel: Channel) {
+        val source = graph.sourceRepository.byId(channel.sourceId)
+        // Xtream/M3U carry a ready URL; a Stalker channel's URL is minted here from its cmd.
+        val url = graph.catalogRepository.resolvePlaybackUrl(channel, source)
+        controller.play(
+            PlayerController.Request(
+                url = url,
+                title = channel.shownName,
+                userAgent = channel.playbackUserAgent(
+                    source?.userAgent ?: "OpenTV/0.1 (Android)",
+                ),
+                requestHeaders = channel.playbackRequestHeaders(),
+                isLive = true,
+            ),
+            debounce = false,
+        )
+    }
+
     fun tuneTo(channel: Channel) {
         currentId = channel.id
         paused = false
         settings.lastChannelId = channel.id
         scope.launch {
-            val source = graph.sourceRepository.byId(channel.sourceId)
-            // Xtream/M3U carry a ready URL; a Stalker channel's URL is minted here from its cmd.
-            val url = graph.catalogRepository.resolvePlaybackUrl(channel, source)
-            controller.play(
-                PlayerController.Request(
-                    url = url,
-                    title = channel.shownName,
-                    userAgent = source?.userAgent ?: "OpenTV/0.1 (Android)",
-                    isLive = true,
-                ),
-                debounce = false,
-            )
+            playbackCandidates = graph.catalogRepository.playbackCandidates(channel)
+                .ifEmpty { listOf(channel) }
+            playbackCandidateIndex = 0
+            playStream(playbackCandidates.first())
         }
+    }
+
+    fun retryFallbackChain() {
+        val first = playbackCandidates.firstOrNull()
+        if (first == null) {
+            controller.retry()
+            return
+        }
+        playbackCandidateIndex = 0
+        scope.launch { playStream(first) }
     }
 
     fun playChannelId(id: Long) {
@@ -274,6 +300,36 @@ fun PlayerScreen(
         val channel = graph.catalogRepository.channel(id) ?: return@LaunchedEffect
         variants = graph.catalogRepository.variants(channel)
         tuneTo(variants.firstOrNull { it.id == channel.id } ?: channel)
+    }
+
+    // A dead primary stream should be invisible to the viewer: walk the hidden mirrors once,
+    // immediately after a playback error. Calling controller.play() replaces its current request,
+    // so the controller's delayed same-URL auto-restart cannot race us back to the broken feed.
+    LaunchedEffect(state) {
+        if (state !is PlayerController.State.Error) return@LaunchedEffect
+        val nextIndex = playbackCandidateIndex + 1
+        if (nextIndex < playbackCandidates.size) {
+            playbackCandidateIndex = nextIndex
+            playStream(playbackCandidates[nextIndex])
+        }
+    }
+
+    // Some live CDNs do not fail fast: they accept the playlist request but then leave ExoPlayer
+    // buffering forever. Give a healthy stream enough time to start; if it is still buffering after
+    // the grace period and this logical channel has another mirror, advance silently.
+    LaunchedEffect(state, playbackCandidateIndex) {
+        if (state !is PlayerController.State.Buffering) return@LaunchedEffect
+        if (playbackCandidateIndex >= playbackCandidates.lastIndex) return@LaunchedEffect
+        val watchedIndex = playbackCandidateIndex
+        delay(LIVE_FALLBACK_BUFFER_TIMEOUT_MILLIS)
+        if (
+            controller.state.value is PlayerController.State.Buffering &&
+            playbackCandidateIndex == watchedIndex
+        ) {
+            val nextIndex = watchedIndex + 1
+            playbackCandidateIndex = nextIndex
+            playStream(playbackCandidates[nextIndex])
+        }
     }
 
     // Sleep timer: when the armed deadline passes, stop and leave the player. Re-arming from
@@ -454,13 +510,28 @@ fun PlayerScreen(
                     ) {
                         Text(current.title, style = MaterialTheme.typography.headlineSmall, color = Color.White)
                         Spacer(Modifier.height(12.dp))
-                        Text(
-                            current.message,
-                            color = Color.White.copy(alpha = 0.85f),
-                            textAlign = TextAlign.Center,
-                        )
-                        Spacer(Modifier.height(24.dp))
-                        Button(onClick = { controller.retry() }) { Text(stringResource(R.string.common_try_again)) }
+                        val hasAnotherStream =
+                            playbackCandidates.isNotEmpty() &&
+                                playbackCandidateIndex < playbackCandidates.lastIndex
+                        if (hasAnotherStream) {
+                            CircularProgressIndicator()
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                stringResource(R.string.player_trying_alternative_stream),
+                                color = Color.White.copy(alpha = 0.85f),
+                                textAlign = TextAlign.Center,
+                            )
+                        } else {
+                            Text(
+                                stringResource(R.string.player_all_streams_unavailable),
+                                color = Color.White.copy(alpha = 0.85f),
+                                textAlign = TextAlign.Center,
+                            )
+                            Spacer(Modifier.height(24.dp))
+                            Button(onClick = { retryFallbackChain() }) {
+                                Text(stringResource(R.string.common_try_again))
+                            }
+                        }
                     }
                 }
             }
@@ -900,6 +971,7 @@ private fun BarChip(
 
 private const val CONTROLS_TIMEOUT_MILLIS = 5_000L
 private const val NUMBER_ENTRY_TIMEOUT_MILLIS = 2_000L
+private const val LIVE_FALLBACK_BUFFER_TIMEOUT_MILLIS = 12_000L
 
 /** Maps a remote's number keys (top row and numeric keypad) to a digit, or null for other keys. */
 private fun keyToDigit(key: Key): Char? = when (key) {

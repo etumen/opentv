@@ -46,10 +46,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.opentv.R
+import app.opentv.isRunningOnTelevision
 import app.opentv.data.provider.ProviderItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,6 +70,10 @@ internal fun CloudProviderBrowseControls(
         ?: providers.firstOrNull()
         ?: return
     val selectedSection = provider.sections.firstOrNull { it.id == selectedSectionId }
+    val context = LocalContext.current
+    val isTelevision = remember(context) { isRunningOnTelevision(context) }
+    val providerFocusRequester = remember { FocusRequester() }
+    val categoryFocusRequester = remember { FocusRequester() }
     var providerOpen by remember { mutableStateOf(false) }
     var categoryOpen by remember { mutableStateOf(false) }
     var providerFilter by remember { mutableStateOf("") }
@@ -102,37 +111,56 @@ internal fun CloudProviderBrowseControls(
         )
     }
 
+    LaunchedEffect(providerOpen, isTelevision, provider.id) {
+        if (providerOpen && isTelevision) providerFocusRequester.requestFocus()
+    }
+
     if (providerOpen) {
         ModalBottomSheet(
             onDismissRequest = { providerOpen = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         ) {
-            val shown = remember(providers, providerFilter) {
-                if (providerFilter.isBlank()) providers
+            val shown = remember(providers, providerFilter, isTelevision) {
+                if (isTelevision || providerFilter.isBlank()) providers
                 else providers.filter { it.name.contains(providerFilter.trim(), ignoreCase = true) }
             }
             Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
-                OutlinedTextField(
-                    value = providerFilter,
-                    onValueChange = { providerFilter = it },
-                    placeholder = { Text(stringResource(R.string.cloud_filter_sources)) },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                )
+                if (!isTelevision) {
+                    OutlinedTextField(
+                        value = providerFilter,
+                        onValueChange = { providerFilter = it },
+                        placeholder = { Text(stringResource(R.string.cloud_filter_sources)) },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
                 LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
                     items(shown, key = { it.id }) { item ->
+                        var focused by remember(item.id) { mutableStateOf(false) }
                         ListItem(
                             headlineContent = { Text(item.name) },
                             colors = ListItemDefaults.colors(
-                                containerColor =
-                                    if (item.id == provider.id) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceContainerLow,
+                                containerColor = when {
+                                    focused -> MaterialTheme.colorScheme.secondaryContainer
+                                    item.id == provider.id -> MaterialTheme.colorScheme.primaryContainer
+                                    else -> MaterialTheme.colorScheme.surfaceContainerLow
+                                },
                             ),
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                providerOpen = false
-                                onSelectProvider(item.id)
-                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (isTelevision && item.id == provider.id) {
+                                        Modifier.focusRequester(providerFocusRequester)
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                                .onFocusChanged { focused = it.isFocused }
+                                .clickable {
+                                    providerOpen = false
+                                    onSelectProvider(item.id)
+                                },
                         )
                     }
                 }
@@ -140,55 +168,87 @@ internal fun CloudProviderBrowseControls(
         }
     }
 
+    LaunchedEffect(categoryOpen, isTelevision, selectedSection?.id) {
+        if (categoryOpen && isTelevision) categoryFocusRequester.requestFocus()
+    }
+
     if (categoryOpen) {
         ModalBottomSheet(
             onDismissRequest = { categoryOpen = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         ) {
-            val shown = remember(provider.sections, categoryFilter) {
-                if (categoryFilter.isBlank()) provider.sections
+            val shown = remember(provider.sections, categoryFilter, isTelevision) {
+                if (isTelevision || categoryFilter.isBlank()) provider.sections
                 else provider.sections.filter {
                     it.title.contains(categoryFilter.trim(), ignoreCase = true)
                 }
             }
             Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
-                OutlinedTextField(
-                    value = categoryFilter,
-                    onValueChange = { categoryFilter = it },
-                    placeholder = { Text(stringResource(R.string.cloud_filter_categories)) },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                )
+                if (!isTelevision) {
+                    OutlinedTextField(
+                        value = categoryFilter,
+                        onValueChange = { categoryFilter = it },
+                        placeholder = { Text(stringResource(R.string.cloud_filter_categories)) },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
                 LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
                     item(key = "home") {
+                        var focused by remember { mutableStateOf(false) }
                         ListItem(
                             headlineContent = { Text(stringResource(R.string.cloud_home)) },
                             colors = ListItemDefaults.colors(
-                                containerColor =
-                                    if (selectedSection == null) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceContainerLow,
+                                containerColor = when {
+                                    focused -> MaterialTheme.colorScheme.secondaryContainer
+                                    selectedSection == null -> MaterialTheme.colorScheme.primaryContainer
+                                    else -> MaterialTheme.colorScheme.surfaceContainerLow
+                                },
                             ),
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                categoryOpen = false
-                                onSelectSection(null)
-                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (isTelevision && selectedSection == null) {
+                                        Modifier.focusRequester(categoryFocusRequester)
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                                .onFocusChanged { focused = it.isFocused }
+                                .clickable {
+                                    categoryOpen = false
+                                    onSelectSection(null)
+                                },
                         )
                     }
                     items(shown, key = { it.id }) { section ->
+                        var focused by remember(section.id) { mutableStateOf(false) }
                         ListItem(
                             headlineContent = {
                                 Text(section.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             },
                             colors = ListItemDefaults.colors(
-                                containerColor =
-                                    if (section.id == selectedSection?.id) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceContainerLow,
+                                containerColor = when {
+                                    focused -> MaterialTheme.colorScheme.secondaryContainer
+                                    section.id == selectedSection?.id -> MaterialTheme.colorScheme.primaryContainer
+                                    else -> MaterialTheme.colorScheme.surfaceContainerLow
+                                },
                             ),
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                categoryOpen = false
-                                onSelectSection(section.id)
-                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (isTelevision && section.id == selectedSection?.id) {
+                                        Modifier.focusRequester(categoryFocusRequester)
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                                .onFocusChanged { focused = it.isFocused }
+                                .clickable {
+                                    categoryOpen = false
+                                    onSelectSection(section.id)
+                                },
                         )
                     }
                 }

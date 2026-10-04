@@ -106,19 +106,109 @@ class M3uParserTest {
     }
 
     @Test
-    fun `unknown directives between EXTINF and the url are ignored`() {
+    fun `vlc http options are captured as per-channel request headers`() {
         val playlist = """
             #EXTM3U
             #EXTINF:-1 tvg-id="a",Channel A
             #EXTVLCOPT:http-user-agent=SomePlayer/1.0
-            #EXTHTTP:{"User-Agent":"SomePlayer/1.0"}
+            #EXTVLCOPT:http-referrer=https://example.com/watch
+            #EXTVLCOPT:http-origin=https://example.com
+            #EXTVLCOPT:http-accept=*/*
+            #EXTVLCOPT:http-host=edge.example.com
             http://example.com/a.m3u8
+        """.trimIndent()
+
+        val channel = M3uParser.parse(playlist, sourceId = 1).channels.single()
+
+        assertThat(channel.requestHeaders).containsExactly(
+            "User-Agent", "SomePlayer/1.0",
+            "Referer", "https://example.com/watch",
+            "Origin", "https://example.com",
+            "Accept", "*/*",
+            "Host", "edge.example.com",
+        )
+    }
+
+    @Test
+    fun `ext x and exthttp header forms are supported together`() {
+        val playlist = """
+            #EXTM3U
+            #EXTINF:-1 tvg-id="a",Channel A
+            #EXT-X-USER-AGENT: Browser/123
+            #EXT-X-REFERER=https://site.example/page
+            #EXT-X-ORIGIN:https://site.example
+            #EXTHTTP:{"Cookie":"sid=abc","X-Test":"yes"}
+            http://example.com/a.m3u8
+        """.trimIndent()
+
+        val headers = M3uParser.parse(playlist, sourceId = 1).channels.single().requestHeaders
+
+        assertThat(headers).containsExactly(
+            "User-Agent", "Browser/123",
+            "Referer", "https://site.example/page",
+            "Origin", "https://site.example",
+            "Cookie", "sid=abc",
+            "X-Test", "yes",
+        )
+    }
+
+    @Test
+    fun `playlist-wide headers before first EXTINF are inherited by every channel`() {
+        val playlist = """
+            #EXTM3U
+            #EXTVLCOPT:http-user-agent=GlobalPlayer/1.0
+            #EXT-X-REFERER:https://global.example/page
+            #EXT-X-ORIGIN:https://global.example
+            #EXTINF:-1 tvg-id="a",Channel A
+            http://example.com/a.m3u8
+            #EXTINF:-1 tvg-id="b",Channel B
+            http://example.com/b.m3u8
         """.trimIndent()
 
         val channels = M3uParser.parse(playlist, sourceId = 1).channels
 
-        assertThat(channels).hasSize(1)
-        assertThat(channels.single().streamUrl).isEqualTo("http://example.com/a.m3u8")
+        assertThat(channels).hasSize(2)
+        channels.forEach { channel ->
+            assertThat(channel.requestHeaders).containsExactly(
+                "User-Agent", "GlobalPlayer/1.0",
+                "Referer", "https://global.example/page",
+                "Origin", "https://global.example",
+            )
+        }
+    }
+
+    @Test
+    fun `entry-local header overrides global default without leaking to next channel`() {
+        val playlist = """
+            #EXTM3U
+            #EXTVLCOPT:http-referer=https://global.example
+            #EXTINF:-1 tvg-id="a",Channel A
+            #EXTVLCOPT:http-referer=https://local.example
+            http://example.com/a.m3u8
+            #EXTINF:-1 tvg-id="b",Channel B
+            http://example.com/b.m3u8
+        """.trimIndent()
+
+        val channels = M3uParser.parse(playlist, sourceId = 1).channels
+
+        assertThat(channels[0].requestHeaders).containsEntry("Referer", "https://local.example")
+        assertThat(channels[1].requestHeaders).containsEntry("Referer", "https://global.example")
+    }
+
+    @Test
+    fun `headers from a malformed entry do not leak into the next channel`() {
+        val playlist = """
+            #EXTM3U
+            #EXTINF:-1 tvg-id="broken",Broken
+            #EXTVLCOPT:http-referer=https://wrong.example
+            #EXTINF:-1 tvg-id="good",Good
+            http://example.com/good.m3u8
+        """.trimIndent()
+
+        val channel = M3uParser.parse(playlist, sourceId = 1).channels.single()
+
+        assertThat(channel.name).isEqualTo("Good")
+        assertThat(channel.requestHeaders).isNull()
     }
 
     @Test

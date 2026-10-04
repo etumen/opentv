@@ -196,9 +196,9 @@ private fun ChannelListRow(
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        row.primary.number?.let { num ->
+        if (row.number > 0) {
             Text(
-                "$num",
+                "${row.number}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -357,9 +357,9 @@ private fun GuideRow(
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            row.primary.number?.let { num ->
+            if (row.number > 0) {
                 Text(
-                    "$num",
+                    "${row.number}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

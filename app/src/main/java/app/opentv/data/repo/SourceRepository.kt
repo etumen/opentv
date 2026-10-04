@@ -25,6 +25,63 @@ class SourceRepository(
 
     suspend fun byId(id: Long): Source? = dao.byId(id)
 
+    data class EnsureBuiltInResult(
+        val source: Source,
+        val created: Boolean,
+    )
+
+    /**
+     * Ensures the free IPTV-ORG Turkey playlist is always available as OpenTV's built-in live-TV
+     * starter source. This intentionally runs on every app launch: a clean install gets the source
+     * automatically, and deleting/reinstalling the app recreates it without any setup screen.
+     *
+     * Matching is by kind + canonical URL, not display name, so a user may rename the source without
+     * causing a duplicate. Existing sources are otherwise left untouched (enabled state, name, etc.).
+     */
+    suspend fun ensureBuiltInTurkeySource(): EnsureBuiltInResult = withContext(Dispatchers.IO) {
+        val url = normaliseUrl(BUILT_IN_TURKEY_URL, SourceKind.M3U)
+        val existing = dao.byKindAndUrl(SourceKind.M3U, url)
+        if (existing != null) {
+            return@withContext EnsureBuiltInResult(existing, created = false)
+        }
+
+        val id = dao.insert(
+            Source(
+                name = BUILT_IN_TURKEY_NAME,
+                kind = SourceKind.M3U,
+                url = url,
+            ),
+        )
+        val saved = dao.byId(id)
+            ?: error("Built-in IPTV-ORG Turkey source was inserted but could not be read back")
+        EnsureBuiltInResult(saved, created = true)
+    }
+
+    /**
+     * Ensures the hidden SporB supplemental playlist after the local feature has been unlocked.
+     * This method itself does not decide whether the feature is enabled; callers must gate it with
+     * [app.opentv.core.AppSettings.sporbEnabled]. Matching by exact canonical URL makes repeated
+     * unlocks and launches idempotent while keeping every ordinary user M3U untouched.
+     */
+    suspend fun ensureSporbSource(): EnsureBuiltInResult = withContext(Dispatchers.IO) {
+        val url = normaliseUrl(SPORB_URL, SourceKind.M3U)
+        val existing = dao.byKindAndUrl(SourceKind.M3U, url)
+        if (existing != null) {
+            return@withContext EnsureBuiltInResult(existing, created = false)
+        }
+
+        val id = dao.insert(
+            Source(
+                name = SPORB_NAME,
+                kind = SourceKind.M3U,
+                url = url,
+            ),
+        )
+        val saved = dao.byId(id)
+            ?: error("SporB source was inserted but could not be read back")
+        EnsureBuiltInResult(saved, created = true)
+    }
+
     suspend fun save(source: Source): Long = withContext(Dispatchers.IO) {
         val normalised = source.copy(url = normaliseUrl(source.url, source.kind))
         if (source.id == 0L) dao.insert(normalised)
@@ -61,6 +118,12 @@ class SourceRepository(
     }
 
     companion object {
+        const val BUILT_IN_TURKEY_NAME = "IPTV-ORG_Turkiye"
+        const val BUILT_IN_TURKEY_URL = "https://iptv-org.github.io/iptv/countries/tr.m3u"
+
+        const val SPORB_NAME = "SporB"
+        const val SPORB_URL = "https://raw.githubusercontent.com/ugur2941/b-t-n-kanallar/main/sporb"
+
         /**
          * Users paste all sorts of things. Accept them all rather than making someone guess
          * the format: a trailing slash, a missing scheme, or a full `get.php` URL copied out

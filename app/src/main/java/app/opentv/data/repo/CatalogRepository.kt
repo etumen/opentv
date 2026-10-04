@@ -25,6 +25,7 @@ import app.opentv.data.model.SourceKind
 import app.opentv.data.model.StreamKind
 import app.opentv.data.parser.ChannelNameNormalizer
 import app.opentv.data.parser.M3uParser
+import app.opentv.data.parser.TurkeyChannelPlan
 import app.opentv.data.parser.VodTitleCleaner
 import app.opentv.data.remote.StalkerApi
 import app.opentv.data.remote.TmdbClient
@@ -691,9 +692,56 @@ class CatalogRepository(
      * fails, so the player surfaces an error rather than silently doing nothing.
      */
     suspend fun resolvePlaybackUrl(channel: Channel, source: Source?): String {
+        resolveOfficialWebStream(channel)?.let {
+            Log.d(TAG, "Resolved official web-player stream for ${channel.displayName}")
+            return it
+        }
+
         if (source?.kind != SourceKind.STALKER) return channel.streamUrl
         val cmd = channel.cmd?.takeIf { it.isNotBlank() } ?: return channel.streamUrl
         return runCatching { stalkerApi.createLink(source, cmd) }.getOrNull() ?: channel.streamUrl
+    }
+
+    /**
+     * Resolves broadcasters whose public web players publish short-lived signed HLS URLs.
+     *
+     * The database deliberately stores a working fallback URL instead of a token that will expire.
+     * On every tune we ask the broadcaster's public live page for its current HLS address. Failure is
+     * soft: playback simply falls back to [Channel.streamUrl], and the normal candidate chain remains
+     * available after that.
+     */
+    private suspend fun resolveOfficialWebStream(channel: Channel): String? {
+        val pageAndPattern = when (channel.streamId) {
+            "opentv-official:now:web" -> {
+                "https://www.nowtv.com.tr/canli-yayin" to Regex(
+                    """https://nowtv\.daioncdn\.net/nowtv/nowtv\.m3u8\?[^"'<>\s]+""",
+                    RegexOption.IGNORE_CASE,
+                )
+            }
+            "opentv-official:showtv:web" -> {
+                "https://www.showtv.com.tr/canli-yayin" to Regex(
+                    """https://ciner\.daioncdn\.net/showtv/showtv\.m3u8\?[^"'<>\s]+""",
+                    RegexOption.IGNORE_CASE,
+                )
+            }
+            else -> return null
+        }
+
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val request = Request.Builder()
+                    .url(pageAndPattern.first)
+                    .header("User-Agent", Source.DEFAULT_USER_AGENT)
+                    .build()
+                http.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@use null
+                    val body = response.body?.string() ?: return@use null
+                    pageAndPattern.second.find(body)
+                        ?.value
+                        ?.replace("&amp;", "&")
+                }
+            }.getOrNull()
+        }
     }
 
     private suspend fun syncXtreamVod(source: Source, nowUtcMillis: Long) {
@@ -746,8 +794,17 @@ class CatalogRepository(
             )
         }
 
+        val liveChannels = if (
+            source.kind == SourceKind.M3U &&
+            source.url == SourceRepository.BUILT_IN_TURKEY_URL
+        ) {
+            parsed.channels + builtInTurkeyManagedChannels(source.id)
+        } else {
+            parsed.channels
+        }
+
         // Synthesise categories from group-title so the UI has something to group by.
-        val categories = parsed.channels
+        val categories = liveChannels
             .mapNotNull { it.categoryId }
             .distinct()
             .sorted()
@@ -763,7 +820,7 @@ class CatalogRepository(
 
         categoryDao.upsertAll(categories)
         val categoryNames = categories.associate { it.id to it.name }
-        channelDao.replaceCatalogue(source.id, normalized(parsed.channels, categoryNames), nowUtcMillis)
+        channelDao.replaceCatalogue(source.id, normalized(liveChannels, categoryNames), nowUtcMillis)
 
         // If the playlist declared its own guide URL and the user did not set one, adopt it.
         if (source.epgUrl.isNullOrBlank() && !parsed.declaredEpgUrl.isNullOrBlank()) {
@@ -771,8 +828,125 @@ class CatalogRepository(
         }
 
         sourceDao.markCatalogSynced(source.id, nowUtcMillis)
-        return SyncResult.Success(parsed.channels.size, 0, 0)
+        return SyncResult.Success(liveChannels.size, 0, 0)
     }
+
+    /**
+     * Official-first managed streams for the built-in Turkish source.
+     *
+     * The visible provider stays IPTV-ORG, but playback does not have to trust that playlist as the
+     * source of truth. When a broadcaster exposes a public web-player HLS URL we inject it into the
+     * same logical channel group as an invisible managed candidate. Official candidates play first,
+     * ordinary IPTV-ORG/provider rows come next, then curated mirrors.
+     *
+     * NOW and Show TV publish short-lived signed HLS URLs on their public live pages. Their managed
+     * rows keep a known-working URL only as an emergency fallback; [resolvePlaybackUrl] refreshes the
+     * official URL from the broadcaster page at tune time.
+     */
+    private fun builtInTurkeyManagedChannels(sourceId: Long): List<Channel> = listOf(
+        Channel(
+            sourceId = sourceId,
+            streamId = "opentv-official:kanald:web",
+            name = "Kanal D (1080p)",
+            categoryId = "General",
+            logoUrl = null,
+            epgChannelId = "KanalD.tr@SD",
+            number = null,
+            streamUrl = "https://demiroren.daioncdn.net/kanald/kanald.m3u8?app=kanald_web&ce=3",
+        ),
+        Channel(
+            sourceId = sourceId,
+            streamId = "opentv-official-backup:kanald:duhnet",
+            name = "Kanal D-A (1080p)",
+            categoryId = "General",
+            logoUrl = null,
+            epgChannelId = "KanalD.tr@SD",
+            number = null,
+            streamUrl = "https://kdlive.duhnet.tv/S2/HLS_LIVE/kanalddainp/playlist.m3u8",
+        ),
+        Channel(
+            sourceId = sourceId,
+            streamId = "opentv-fallback:kanald:b",
+            name = "Kanal D-B (720p)",
+            categoryId = "General",
+            logoUrl = null,
+            epgChannelId = "KanalD.tr@SD",
+            number = null,
+            streamUrl = "https://demiroren.daioncdn.net/kanald/kanald_720p.m3u8?app=kanald_web&ce=3",
+        ),
+        Channel(
+            sourceId = sourceId,
+            streamId = "opentv-fallback:kanald:c",
+            name = "Kanal D-C (480p)",
+            categoryId = "General",
+            logoUrl = null,
+            epgChannelId = "KanalD.tr@SD",
+            number = null,
+            streamUrl = "https://demiroren.daioncdn.net/kanald/kanald_480p.m3u8?app=kanald_web&ce=3",
+        ),
+        Channel(
+            sourceId = sourceId,
+            streamId = "opentv-official:showtv:web",
+            name = "Show TV (720p)",
+            categoryId = "General",
+            logoUrl = null,
+            epgChannelId = "ShowTV.tr@SD",
+            number = null,
+            streamUrl = "https://ciner.daioncdn.net/showtv/showtv.m3u8?ce=3&app=4bc856ef-4c68-4a94-bc87-37dfaaa66558",
+        ),
+        Channel(
+            sourceId = sourceId,
+            streamId = "opentv-fallback:showtv:a",
+            name = "Show TV-A (720p)",
+            categoryId = "General",
+            logoUrl = null,
+            epgChannelId = "ShowTV.tr@SD",
+            number = null,
+            streamUrl = "https://rmtftbjlne.turknet.ercdn.net/bpeytmnqyp/showtv/showtv.m3u8",
+        ),
+        Channel(
+            sourceId = sourceId,
+            streamId = "opentv-official:now:web",
+            name = "NOW (720p)",
+            categoryId = "Entertainment",
+            logoUrl = null,
+            epgChannelId = "NOWTV.tr@SD",
+            number = null,
+            // Used only if the official page cannot be refreshed; the next IPTV-ORG candidate is
+            // normally the same public CDN family.
+            streamUrl = "https://uycyyuuzyh.turknet.ercdn.net/nphindgytw/nowtv/nowtv.m3u8",
+        ),
+        Channel(
+            sourceId = sourceId,
+            streamId = "opentv-fallback:now:a",
+            name = "NOW-A (480p)",
+            categoryId = "Entertainment",
+            logoUrl = null,
+            epgChannelId = "NOWTV.tr@SD",
+            number = null,
+            streamUrl = "https://uycyyuuzyh.turknet.ercdn.net/nphindgytw/nowtv/nowtv_480p.m3u8",
+        ),
+        Channel(
+            sourceId = sourceId,
+            streamId = "opentv-fallback:now:b",
+            name = "NOW-B (360p)",
+            categoryId = "Entertainment",
+            logoUrl = null,
+            epgChannelId = "NOWTV.tr@SD",
+            number = null,
+            streamUrl = "https://uycyyuuzyh.turknet.ercdn.net/nphindgytw/nowtv/nowtv_360p.m3u8",
+        ),
+        Channel(
+            sourceId = sourceId,
+            streamId = "opentv-official:tv8:web",
+            name = "TV8 (1080p)",
+            categoryId = "Entertainment",
+            logoUrl = null,
+            epgChannelId = "TV8.tr@SD",
+            number = null,
+            streamUrl = "https://tv8.daioncdn.net/tv8/tv8.m3u8?app=7ddc255a-ef47-4e81-ab14-c0e5f2949788&ce=3",
+        ),
+    )
 
     /**
      * Stamps every channel with its normalised identity before it is stored.
@@ -801,9 +975,43 @@ class CatalogRepository(
                     if (rank == 0) rank = c.qualityRank
                 }
             }
+            // Managed Turkey candidates are playback routing, not user-facing quality choices.
+            // Give official/fallback rows the same quality signature as the preferred public feed so
+            // distinctByQuality() keeps the UI to one logical quality while playbackCandidates()
+            // still retains every raw URL.
+            if (
+                channel.streamId.startsWith("opentv-official:") ||
+                channel.streamId.startsWith("opentv-official-backup:") ||
+                channel.streamId.startsWith("opentv-fallback:")
+            ) {
+                when (TurkeyChannelPlan.canonicalKey(channel.name)) {
+                    TurkeyChannelPlan.canonicalKey("Kanal D") -> {
+                        rank = 300
+                        label = "1080P"
+                    }
+                    TurkeyChannelPlan.canonicalKey("NOW") -> {
+                        rank = 200
+                        label = "720P"
+                    }
+                    TurkeyChannelPlan.canonicalKey("Show TV") -> {
+                        rank = 200
+                        label = "720P"
+                    }
+                    TurkeyChannelPlan.canonicalKey("TV8") -> {
+                        rank = 300
+                        label = "1080P"
+                    }
+                }
+            }
+
+            val turkeyDisplayName = TurkeyChannelPlan.preferredDisplayName(channel.name)
             channel.copy(
-                displayName = n.baseName,
-                groupKey = n.groupKey,
+                displayName = turkeyDisplayName ?: n.baseName,
+                groupKey = if (turkeyDisplayName != null) {
+                    TurkeyChannelPlan.canonicalKey(channel.name)
+                } else {
+                    n.groupKey
+                },
                 qualityRank = rank,
                 qualityLabel = label,
                 // Providers ship decorative separator rows ('#### UK GENERAL ####') as
@@ -880,6 +1088,26 @@ class CatalogRepository(
     }
 
     /**
+     * Every raw stream that can satisfy this logical channel, in playback-fallback order.
+     *
+     * Unlike variants(), this deliberately keeps same-quality mirrors: provider A/B/C entries
+     * are useless as separate guide rows but very useful when the main URL dies. The explicitly
+     * selected stream is always tried first; after that the Turkey plan decides fallback priority.
+     */
+    suspend fun playbackCandidates(channel: Channel): List<Channel> {
+        if (channel.groupKey.isEmpty()) return listOf(channel)
+        val all = channelDao.variantsInGroup(channel.groupKey)
+        if (all.isEmpty()) return listOf(channel)
+        return all.sortedWith(
+            compareBy<Channel> { TurkeyChannelPlan.playbackSourcePriority(it.streamId) }
+                .thenBy { if (it.id == channel.id) 0 else 1 }
+                .thenBy { TurkeyChannelPlan.fallbackPriority(it.name) }
+                .thenByDescending { it.qualityRank }
+                .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name },
+        )
+    }
+
+    /**
      * The record menu's "record from which provider" options: one channel per source that carries
      * this logical channel, each that source's best-quality copy, the current source first. With two
      * providers this lets a recording run on one account while the user keeps watching on the other —
@@ -931,6 +1159,7 @@ class CatalogRepository(
          * already-imported channels. The app compares it against a stored value on launch
          * and runs [renormalizeAll] once when it moves.
          */
-        const val NORMALIZER_VERSION = 2
+        const val NORMALIZER_VERSION = 6
+        const val BUILT_IN_TURKEY_CATALOG_VERSION = 2
     }
 }

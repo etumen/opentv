@@ -7,6 +7,7 @@ package app.opentv
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import app.opentv.core.LocaleUtils
 import app.opentv.core.ServiceLocator
 import app.opentv.data.repo.CatalogRepository
@@ -60,6 +61,55 @@ class OpenTvApp : Application(), ImageLoaderFactory {
         super.onCreate()
         val graph = ServiceLocator.get(this)
         SyncWorker.schedule(this)
+
+        // OpenTV ships with IPTV-ORG Turkey as a built-in live-TV starter source. Keep this
+        // idempotent and URL-based: clean installs get it automatically, existing installs that
+        // already have the same playlist are not duplicated, and user-added sources are untouched.
+        // The first catalogue sync happens immediately so "Canlı TV" fills on first launch rather
+        // than waiting for the six-hour WorkManager refresh.
+        appScope.launch {
+            runCatching {
+                val ensured = graph.sourceRepository.ensureBuiltInTurkeySource()
+                val prefs = getSharedPreferences("opentv", MODE_PRIVATE)
+                val seenCatalogVersion = prefs.getInt("built_in_turkey_catalog_version", 0)
+                if (
+                    ensured.created ||
+                    ensured.source.lastCatalogSyncMillis == 0L ||
+                    seenCatalogVersion < CatalogRepository.BUILT_IN_TURKEY_CATALOG_VERSION
+                ) {
+                    val result = graph.catalogRepository.syncLive(
+                        ensured.source,
+                        System.currentTimeMillis(),
+                    )
+                    if (result is CatalogRepository.SyncResult.Success) {
+                        prefs.edit()
+                            .putInt(
+                                "built_in_turkey_catalog_version",
+                                CatalogRepository.BUILT_IN_TURKEY_CATALOG_VERSION,
+                            )
+                            .apply()
+                    }
+                }
+            }.onFailure {
+                Log.w("OpenTV", "Built-in IPTV-ORG Turkey bootstrap failed", it)
+            }
+        }
+
+        // SporB is deliberately absent from a normal install. Once its local feature flag has
+        // been unlocked, however, keep the managed source present across launches and retry the
+        // first sync if an earlier network failure left it empty.
+        if (graph.settings.sporbEnabled.value) {
+            appScope.launch {
+                runCatching {
+                    val ensured = graph.sourceRepository.ensureSporbSource()
+                    if (ensured.created || ensured.source.lastCatalogSyncMillis == 0L) {
+                        graph.catalogRepository.syncLive(ensured.source, System.currentTimeMillis())
+                    }
+                }.onFailure {
+                    Log.w("OpenTV", "Unlocked SporB bootstrap failed", it)
+                }
+            }
+        }
 
         // When the normaliser has moved on since the catalogue was last processed, re-clean
         // the stored channels and re-run the guide matcher — locally, no re-download. This

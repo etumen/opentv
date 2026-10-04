@@ -52,6 +52,9 @@ object ChannelNameNormalizer {
         "SD" to 100, "LQ" to 100, "480P" to 100, "576P" to 100,
     )
 
+    /** IPTV-ORG and similar public lists also expose non-standard labels such as 900p/1440p. */
+    private val DYNAMIC_RESOLUTION = Regex("""^(\d{3,4})P$""", RegexOption.IGNORE_CASE)
+
     /** Tokens that describe the stream but not its resolution. Stripped, kept in the label. */
     private val EXTRA_TOKENS = setOf(
         "RAW", "HEVC", "H265", "H.265", "H264", "H.264", "AV1",
@@ -153,7 +156,18 @@ object ChannelNameNormalizer {
             if (bare.isEmpty()) continue
             val upper = bare.uppercase()
 
-            val rank = QUALITY_RANKS[upper]
+            val rank = QUALITY_RANKS[upper] ?: DYNAMIC_RESOLUTION.matchEntire(upper)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.toIntOrNull()
+                ?.let { height ->
+                    when {
+                        height >= 2160 -> 400
+                        height >= 1080 -> 300
+                        height >= 720 -> 200
+                        else -> 100
+                    }
+                }
             when {
                 rank != null -> {
                     if (rank > bestRank) bestRank = rank
@@ -161,6 +175,31 @@ object ChannelNameNormalizer {
                 }
                 upper in EXTRA_TOKENS -> labelParts += bare
                 else -> keptTokens += bare
+            }
+        }
+
+        // Public playlists append availability/country metadata to the visible name.
+        // Keep it in [Channel.name] for diagnostics, but do not make a viewer read it on every zap.
+        fun dropTail(vararg words: String) {
+            if (keptTokens.size < words.size) return
+            val tail = keptTokens.takeLast(words.size)
+            if (tail.zip(words.asList()).all { (a, b) -> a.equals(b, ignoreCase = true) }) {
+                repeat(words.size) { keptTokens.removeAt(keptTokens.lastIndex) }
+            }
+        }
+        dropTail("Not", "24", "7")
+        dropTail("Geo", "blocked")
+        while (keptTokens.size > 1) {
+            val last = keptTokens.last().trim('-', '_')
+            if (
+                last.equals("Turkiye", ignoreCase = true) ||
+                last.equals("Türkiye", ignoreCase = true) ||
+                last.equals("Geo-blocked", ignoreCase = true) ||
+                last.equals("Geoblocked", ignoreCase = true)
+            ) {
+                keptTokens.removeAt(keptTokens.lastIndex)
+            } else {
+                break
             }
         }
 

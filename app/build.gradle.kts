@@ -100,6 +100,14 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+// Conscrypt derives its native-library classifier from the JVM default locale. Under Turkish
+// Windows, "WINDOWS".lowercase() can become "wındows", making Robolectric look for a DLL name
+// that does not exist. Keep JVM unit tests locale-stable so the full suite is reproducible.
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    systemProperty("user.language", "en")
+    systemProperty("user.country", "US")
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
 

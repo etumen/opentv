@@ -31,6 +31,31 @@ class DiziPalProviderTest {
     }
 
     @Test
+    fun seriesCards_prefersLazySrcsetOverPlaceholderSrc() {
+        val html = """
+            <ul class="content-grid">
+              <li>
+                <a href="/dizi/lazy-series">
+                  <img
+                    src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+                    data-srcset="/poster/lazy-320.jpg 320w, /poster/lazy-640.jpg 640w"
+                    alt="Lazy Series"
+                  />
+                  <div class="card-info"><h3>Lazy Series</h3></div>
+                </a>
+              </li>
+            </ul>
+        """.trimIndent()
+
+        val item = provider.parseSeriesCards(
+            Jsoup.parse(html, DiziPalProvider.FALLBACK_BASE_URL),
+        ).single()
+
+        assertThat(item.posterUrl)
+            .isEqualTo(DiziPalProvider.FALLBACK_BASE_URL + "/poster/lazy-640.jpg")
+    }
+
+    @Test
     fun seriesCards_fallbackToDirectSeriesLinks() {
         val html = """
             <div id="router-view">
@@ -132,11 +157,12 @@ class DiziPalProviderTest {
     fun dplayerMaster_preservesExternalAudioAndAbsolutizesUris() {
         val master = """
             #EXTM3U
-            #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Türkçe",DEFAULT=YES,AUTOSELECT=YES,URI="../audio/tr/index.m3u8"
+            #EXT-X-MEDIA:TYPE='AUDIO',GROUP-ID="audio",NAME="Türkçe",DEFAULT=YES,AUTOSELECT=YES,URI='../audio/tr/index.m3u8'
             #EXT-X-STREAM-INF:BANDWIDTH=5400000,RESOLUTION=1920x1080,AUDIO="audio"
             video/1080/index.m3u8
         """.trimIndent()
 
+        assertThat(provider.isMasterHls(master)).isTrue()
         assertThat(provider.hasExternalAudioRendition(master)).isTrue()
 
         val rewritten = provider.absolutizeHlsReferences(

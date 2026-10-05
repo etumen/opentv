@@ -116,6 +116,7 @@ fun VodPlayerScreen(
     streamUrl: String,
     title: String,
     userAgent: String,
+    requestHeaders: Map<String, String> = emptyMap(),
     referer: String = "",
     cookie: String = "",
     origin: String = "",
@@ -208,6 +209,7 @@ fun VodPlayerScreen(
     LaunchedEffect(
         mediaKey,
         streamUrl,
+        requestHeaders,
         referer,
         cookie,
         origin,
@@ -225,6 +227,7 @@ fun VodPlayerScreen(
                 title = title,
                 userAgent = userAgent,
                 requestHeaders = buildMap {
+                    putAll(requestHeaders)
                     if (referer.isNotBlank()) put("Referer", referer)
                     if (cookie.isNotBlank()) put("Cookie", cookie)
                     if (origin.isNotBlank()) put("Origin", origin)
@@ -453,6 +456,18 @@ fun VodPlayerScreen(
                 Spacer(Modifier.height(10.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    VodChip(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        stringResource(R.string.common_back),
+                    ) {
+                        if (vodPanel != VodPanel.NONE) {
+                            vodPanel = VodPanel.NONE
+                            reveal()
+                        } else {
+                            onBack()
+                        }
+                    }
+                    Spacer(Modifier.width(20.dp))
                     VodChip(Icons.Filled.FastRewind, stringResource(R.string.player_rewind)) {
                         if (growingRec) seekRelative(-15_000) else controller.seekBackward(); interaction++
                     }
@@ -528,7 +543,13 @@ private fun TrackPanel(
     onDone: () -> Unit,
 ) {
     val trackType = if (panel == VodPanel.SUBTITLES) C.TRACK_TYPE_TEXT else C.TRACK_TYPE_AUDIO
-    val groups = tracks.groups.filter { it.type == trackType }
+    val reportedGroups = tracks.groups.filter { it.type == trackType }
+    val currentGroups = controller.player.currentTracks.groups.filter { it.type == trackType }
+    // Some TV firmwares deliver Media3's onTracksChanged callback before the final HLS audio
+    // rendition has settled. The decoder can already be running while the snapshot held by the
+    // Compose flow is still empty. Reading player.currentTracks when the picker opens prevents the
+    // UI from falsely saying "no options" in that window.
+    val groups = if (currentGroups.isNotEmpty()) currentGroups else reportedGroups
     val options = mutableListOf<Triple<String, Boolean, () -> Unit>>()
 
     if (panel == VodPanel.SUBTITLES) {

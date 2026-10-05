@@ -303,6 +303,7 @@ internal fun CloudMovieCategoryGrid(
             PosterCard(
                 title = item.title,
                 posterUrl = item.posterUrl,
+                providerId = item.providerId,
                 subtitle = item.year?.toString(),
                 rating = item.rating,
                 onClick = { onOpenMovie(item) },

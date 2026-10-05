@@ -5,6 +5,7 @@
  */
 package app.opentv.ui.vod
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -93,6 +95,7 @@ internal fun CloudMoviePosterRow(
                 PosterCard(
                     title = item.title,
                     posterUrl = item.posterUrl,
+                    providerId = item.providerId,
                     subtitle = item.year?.toString(),
                     rating = item.rating,
                     onClick = { onOpenMovie(item) },
@@ -128,6 +131,8 @@ fun CloudMovieDetailScreen(
     val scope = rememberCoroutineScope()
     val noStreamMessage = stringResource(R.string.cloud_no_stream)
 
+    BackHandler { onBack() }
+
     LaunchedEffect(providerId, itemId) {
         when (val result = viewModel.details(providerId, itemId)) {
             is ProviderResult.Success -> details = result.value
@@ -161,6 +166,11 @@ fun CloudMovieDetailScreen(
                 posterUrl = item.posterUrl,
                 meta = meta,
             ) {
+                DetailButton(
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    label = stringResource(R.string.common_back),
+                    onClick = onBack,
+                )
                 DetailButton(
                     icon = Icons.Filled.PlayArrow,
                     label = stringResource(

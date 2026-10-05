@@ -474,6 +474,7 @@ internal fun PosterCard(
     posterUrl: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    providerId: String? = null,
     subtitle: String? = null,
     rating: Double? = null,
     qualityBadge: String? = null,
@@ -481,20 +482,33 @@ internal fun PosterCard(
 ) {
     var focused by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val imageModel = remember(posterUrl, context) {
+    val imageModel = remember(posterUrl, providerId, context) {
         posterUrl?.let { url ->
-            if (url.contains("cdnhipter.xyz", ignoreCase = true)) {
+            val diziPalAsset =
+                providerId == DiziPalProvider.PROVIDER_ID ||
+                    url.contains("cdnhipter.xyz", ignoreCase = true) ||
+                    url.contains("dizipal", ignoreCase = true)
+
+            if (diziPalAsset) {
                 ImageRequest.Builder(context)
                     .data(url)
                     .addHeader("User-Agent", DiziPalProvider.SITE_USER_AGENT)
                     .addHeader("Referer", DiziPalProvider.FALLBACK_BASE_URL + "/")
                     .addHeader("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8")
+                    .apply {
+                        runCatching {
+                            android.webkit.CookieManager.getInstance().getCookie(url)
+                        }.getOrNull()?.takeIf { it.isNotBlank() }?.let { cookie ->
+                            addHeader("Cookie", cookie)
+                        }
+                    }
                     .build()
             } else {
                 url
             }
         }
     }
+    var posterFailed by remember(posterUrl) { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.06f else 1f, label = "posterScale")
     Column(
         modifier
@@ -516,22 +530,33 @@ internal fun PosterCard(
                     else Modifier,
                 ),
         ) {
-            AsyncImage(
-                model = imageModel,
-                contentDescription = title,
-                contentScale = ContentScale.Crop,
-                onSuccess = {
-                    android.util.Log.d("PosterCard", "Loaded poster " + title + " -> " + posterUrl)
-                },
-                onError = {
-                    android.util.Log.e(
-                        "PosterCard",
-                        "Failed poster " + title + " -> " + posterUrl,
-                        it.result.throwable,
+            if (imageModel != null && !posterFailed) {
+                AsyncImage(
+                    model = imageModel,
+                    contentDescription = title,
+                    contentScale = ContentScale.Crop,
+                    onSuccess = {
+                        android.util.Log.d("PosterCard", "Loaded poster " + title + " -> " + posterUrl)
+                    },
+                    onError = {
+                        posterFailed = true
+                        android.util.Log.e(
+                            "PosterCard",
+                            "Failed poster " + title + " -> " + posterUrl,
+                            it.result.throwable,
+                        )
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        title.trim().take(1).uppercase(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
+                }
+            }
             rating?.takeIf { it > 0.0 }?.let {
                 Badge(
                     text = "★ ${formatRating(it)}",

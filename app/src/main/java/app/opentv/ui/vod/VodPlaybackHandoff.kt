@@ -22,6 +22,7 @@ object VodPlaybackHandoff {
         val streamUrl: String,
         val title: String,
         val userAgent: String,
+        val requestHeaders: Map<String, String> = emptyMap(),
         val referer: String = "",
         val cookie: String = "",
         val origin: String = "",

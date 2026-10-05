@@ -64,6 +64,12 @@ class DiziPalProvider(
         val subtitles: List<ProviderSubtitle>,
     )
 
+    private data class ResolvedHls(
+        val url: String,
+        val referer: String,
+        val cookie: String = "",
+    )
+
     private data class CachedPlayback(
         val createdAtMillis: Long,
         val value: Playback,
@@ -600,23 +606,27 @@ class DiziPalProvider(
                 continue
             }
 
-            val streamUrl = resolveDplayerInlinePlaylist(
+            val resolved = resolveDplayerInlinePlaylist(
                 remoteUrl = remoteUrl,
                 embedUrl = embedUrl,
                 origin = origin,
-            ) ?: remoteUrl
+            ) ?: ResolvedHls(
+                url = remoteUrl,
+                referer = embedUrl,
+            )
 
             streams += ProviderStream(
                 providerId = id,
-                url = streamUrl,
+                url = resolved.url,
                 label = "DiziPal · DPlayer",
                 mimeType = HLS_MIME,
-                headers = mapOf(
-                    "Origin" to origin,
-                    "Referer" to embedUrl,
-                    "User-Agent" to EXTERNAL_USER_AGENT,
-                    "Accept" to "*/*",
-                ),
+                headers = buildMap {
+                    put("Origin", origin)
+                    put("Referer", resolved.referer)
+                    put("User-Agent", EXTERNAL_USER_AGENT)
+                    put("Accept", "*/*")
+                    if (resolved.cookie.isNotBlank()) put("Cookie", resolved.cookie)
+                },
             )
         }
 
@@ -634,7 +644,7 @@ class DiziPalProvider(
         remoteUrl: String,
         embedUrl: String,
         origin: String,
-    ): String? {
+    ): ResolvedHls? {
         suspend fun request(url: String, referer: String = embedUrl): SiteResponse {
             val builder = Request.Builder()
                 .url(url)
@@ -654,33 +664,33 @@ class DiziPalProvider(
         }
         val directPlaylist = first.body.trimStart()
         if (directPlaylist.startsWith("#EXTM3U")) {
-            // Some DPlayer masters (for example Reacher) keep audio in a separate
-            // EXT-X-MEDIA:TYPE=AUDIO rendition. Collapsing such a master to only the highest
-            // video variant drops the audio group completely: video plays, but Media3 never
-            // receives an audio track. Preserve the master in that case and make every URI
-            // absolute because the inline data: playlist has no HTTP base URL of its own.
-            if (hasExternalAudioRendition(first.body)) {
-                Log.d(TAG, "DPlayer master HLS preserved with external audio rendition")
-                return toInlineHls(absolutizeHlsReferences(first.body, remoteUrl))
+            // Let Media3 consume a master playlist from its real HTTP URL. In particular, DPlayer
+            // can expose video and dubbed audio as separate HLS renditions. Turning that master
+            // into a data: URI (or collapsing it to one video variant) can detach the AUDIO group,
+            // which is exactly the "video plays but no audio track exists" failure.
+            if (isMasterHls(first.body)) {
+                Log.d(
+                    TAG,
+                    "DPlayer master HLS kept remote for native audio/video rendition handling" +
+                        if (hasExternalAudioRendition(first.body)) " (external audio present)" else "",
+                )
+                return ResolvedHls(
+                    url = remoteUrl,
+                    referer = embedUrl,
+                    cookie = responseCookieHeader(first),
+                )
             }
 
-            val variantUrl = selectBestDplayerVariant(first.body)
-            if (variantUrl == null) {
-                Log.d(TAG, "DPlayer direct media playlist resolved")
-                return toInlineHls(first.body)
+            val mediaPlaylist = absolutizeHlsReferences(first.body, remoteUrl)
+            val segments = mediaPlaylist.lineSequence().count {
+                it.trimStart().startsWith("http://") || it.trimStart().startsWith("https://")
             }
-
-            val mediaPlaylist = try {
-                request(variantUrl, referer = remoteUrl).body
-            } catch (error: Exception) {
-                Log.d(TAG, "DPlayer variant fetch failed: " + error.message)
-                return null
-            }
-            if (!mediaPlaylist.trimStart().startsWith("#EXTM3U")) return null
-
-            val segments = mediaPlaylist.lineSequence().count { it.startsWith("http") }
-            Log.d(TAG, "DPlayer variant inline HLS resolved, segments=" + segments)
-            return toInlineHls(mediaPlaylist)
+            Log.d(TAG, "DPlayer direct media playlist inlined, segments=" + segments)
+            return ResolvedHls(
+                url = toInlineHls(mediaPlaylist),
+                referer = remoteUrl,
+                cookie = responseCookieHeader(first),
+            )
         }
 
         val lPhpUrl = Regex(
@@ -690,24 +700,72 @@ class DiziPalProvider(
             ?.replace("&amp;", "&")
             ?: return null
 
-        val playlist = try {
-            request(lPhpUrl, referer = remoteUrl).body
+        val lPhpResponse = try {
+            request(lPhpUrl, referer = remoteUrl)
         } catch (error: Exception) {
             Log.d(TAG, "DPlayer l.php fetch failed: " + error.message)
             return null
         }
-
+        val playlist = lPhpResponse.body
         if (!playlist.trimStart().startsWith("#EXTM3U")) return null
 
-        val segments = playlist.lineSequence().count { it.startsWith("http") }
-        Log.d(TAG, "DPlayer inline HLS resolved, segments=" + segments)
-        return toInlineHls(playlist)
+        val cookie = responseCookieHeader(first, lPhpResponse)
+        if (isMasterHls(playlist)) {
+            // l.php itself was fetched with remoteUrl as its Referer. Replaying l.php directly in
+            // Media3 would need one Referer for the master request and another for its audio/video
+            // children. Inline only this master after making every child URI absolute; the child
+            // requests can then consistently use l.php as their Referer.
+            val master = absolutizeHlsReferences(playlist, lPhpUrl)
+            Log.d(
+                TAG,
+                "DPlayer l.php master HLS inlined with absolute audio/video rendition URIs",
+            )
+            return ResolvedHls(
+                url = toInlineHls(master),
+                referer = lPhpUrl,
+                cookie = cookie,
+            )
+        }
+
+        val mediaPlaylist = absolutizeHlsReferences(playlist, lPhpUrl)
+        val segments = mediaPlaylist.lineSequence().count {
+            it.trimStart().startsWith("http://") || it.trimStart().startsWith("https://")
+        }
+        Log.d(TAG, "DPlayer inline media HLS resolved, segments=" + segments)
+        return ResolvedHls(
+            url = toInlineHls(mediaPlaylist),
+            referer = lPhpUrl,
+            cookie = cookie,
+        )
     }
 
+    private fun responseCookieHeader(vararg responses: SiteResponse): String {
+        val cookies = linkedMapOf<String, String>()
+        responses.forEach { response ->
+            response.headers.entries
+                .filter { (name, _) -> name.equals("Set-Cookie", ignoreCase = true) }
+                .flatMap { (_, values) -> values }
+                .forEach { raw ->
+                    val pair = raw.substringBefore(';').trim()
+                    val name = pair.substringBefore('=').trim()
+                    if (name.isNotBlank() && pair.contains('=')) cookies[name] = pair
+                }
+        }
+        return cookies.values.joinToString("; ")
+    }
+
+    internal fun isMasterHls(playlist: String): Boolean =
+        playlist.lineSequence().any { raw ->
+            val line = raw.trimStart()
+            line.startsWith("#EXT-X-STREAM-INF", ignoreCase = true) ||
+                line.startsWith("#EXT-X-MEDIA:", ignoreCase = true)
+        }
+
     internal fun hasExternalAudioRendition(master: String): Boolean =
-        master.lineSequence().any { line ->
+        master.lineSequence().any { raw ->
+            val line = raw.trimStart()
             line.startsWith("#EXT-X-MEDIA:", ignoreCase = true) &&
-                Regex("""\bTYPE\s*=\s*"?AUDIO"?\b""", RegexOption.IGNORE_CASE)
+                Regex("""\bTYPE\s*=\s*["']?AUDIO["']?\b""", RegexOption.IGNORE_CASE)
                     .containsMatchIn(line)
         }
 
@@ -716,20 +774,25 @@ class DiziPalProvider(
         baseUrl: String,
     ): String {
         val base = runCatching { baseUrl.toHttpUrl() }.getOrNull() ?: return playlist
-        val uriAttribute = Regex("""URI\s*=\s*"([^"]+)"""", RegexOption.IGNORE_CASE)
+        val uriAttribute = Regex(
+            """URI\s*=\s*(?:"([^"]+)"|'([^']+)'|([^,\s]+))""",
+            RegexOption.IGNORE_CASE,
+        )
 
         return playlist.lineSequence().joinToString("\n") { rawLine ->
             val line = rawLine.trimEnd()
             if (line.isBlank()) {
                 line
-            } else if (line.startsWith("#")) {
+            } else if (line.trimStart().startsWith("#")) {
                 uriAttribute.replace(line) { match ->
-                    val rawUri = match.groupValues[1]
+                    val rawUri = match.groupValues.drop(1).firstOrNull { it.isNotBlank() }.orEmpty()
                     val absolute = base.resolve(rawUri)?.toString() ?: rawUri
                     """URI="$absolute""""
                 }
             } else {
-                base.resolve(line)?.toString() ?: line
+                val leading = line.takeWhile { it.isWhitespace() }
+                val uri = line.trim()
+                leading + (base.resolve(uri)?.toString() ?: uri)
             }
         }
     }
@@ -985,10 +1048,41 @@ class DiziPalProvider(
 
     private fun imageUrl(element: Element?, base: String): String? {
         element ?: return null
-        val raw = element.attr("data-src")
-            .ifBlank { element.attr("data-lazy-src") }
-            .ifBlank { element.attr("src") }
-        return absoluteFrom(base.ifBlank { FALLBACK_BASE_URL }, raw)
+
+        fun usable(raw: String): String? =
+            raw.trim()
+                .takeIf { it.isNotBlank() }
+                ?.takeUnless {
+                    it.startsWith("data:image", ignoreCase = true) ||
+                        it.equals("about:blank", ignoreCase = true) ||
+                        it.contains("transparent.gif", ignoreCase = true) ||
+                        it.contains("placeholder", ignoreCase = true)
+                }
+
+        fun fromSrcset(raw: String): String? =
+            raw.split(',')
+                .mapNotNull { candidate ->
+                    usable(candidate.trim().split(Regex("""\s+"""), limit = 2).firstOrNull().orEmpty())
+                }
+                .lastOrNull()
+
+        val picture = element.closest("picture")
+        val raw = sequenceOf(
+            element.attr("data-src"),
+            element.attr("data-lazy-src"),
+            element.attr("data-original"),
+            element.attr("data-original-src"),
+            element.attr("data-image"),
+            element.attr("data-url"),
+            fromSrcset(element.attr("data-srcset")),
+            fromSrcset(element.attr("srcset")),
+            picture?.select("source")?.asSequence()
+                ?.mapNotNull { source -> fromSrcset(source.attr("data-srcset")) ?: fromSrcset(source.attr("srcset")) }
+                ?.lastOrNull(),
+            element.attr("src"),
+        ).mapNotNull { it?.let(::usable) }.firstOrNull()
+
+        return raw?.let { absoluteFrom(base.ifBlank { FALLBACK_BASE_URL }, it) }
     }
 
     private suspend fun absolute(raw: String): String =

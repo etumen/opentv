@@ -123,9 +123,11 @@ internal class DiziPalBrowserSession(
                     document.querySelector('#router-view') ||
                     document.querySelector('ul.content-grid') ||
                     document.querySelector('.episodes-list-grid') ||
+                    document.querySelector('a[href*="/series/"]') ||
                     document.querySelector('a[href*="/dizi/"]') ||
                     document.querySelector('a[href="/diziler"]') ||
                     document.querySelector('#videoContainer') ||
+                    document.querySelector('script[src*="app-dizipals"]') ||
                     (document.body &&
                       document.body.innerText.indexOf('Trend Diziler') >= 0);
                   return (!cloudflare && !!realSite) ? 'READY' : 'WAIT';
@@ -424,11 +426,16 @@ internal class DiziPalBrowserSession(
                         title.indexOf('just a moment') >= 0 ||
                         title.indexOf('bir dakika') >= 0;
                       var realSite =
+                        document.querySelector('#router-view') ||
                         document.querySelector('ul.content-grid') ||
                         document.querySelector('.episodes-list-grid') ||
+                        document.querySelector('a[href*="/series/"]') ||
                         document.querySelector('a[href*="/dizi/"]') ||
                         document.querySelector('a[href="/diziler"]') ||
-                        document.querySelector('#videoContainer');
+                        document.querySelector('#videoContainer') ||
+                        document.querySelector('script[src*="app-dizipals"]') ||
+                        (document.body &&
+                          document.body.innerText.indexOf('Trend Diziler') >= 0);
                       return (!cloudflare && !!realSite) ? 'READY' : 'WAIT';
                     })();
                 """.trimIndent()

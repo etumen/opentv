@@ -1003,11 +1003,34 @@ class DiziPalProvider(
             ).find(body)?.groupValues?.getOrNull(1)
         }.getOrNull()?.trimEnd('/').orEmpty()
 
-        val value = resolved.ifBlank { FALLBACK_BASE_URL }
+        val candidate = resolved.ifBlank { FALLBACK_BASE_URL }
+        val value = resolveRedirectedBase(candidate) ?: candidate
+        Log.d(TAG, "Resolved DiziPal base: " + value)
         resolvedBaseUrl = value
         resolvedAtMillis = now
         return value
     }
+
+    private suspend fun resolveRedirectedBase(seed: String): String? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val request = Request.Builder()
+                    .url(seed)
+                    .header("User-Agent", SITE_USER_AGENT)
+                    .build()
+                http.newCall(request).execute().use { response ->
+                    val finalUrl = response.request.url
+                    finalUrl.newBuilder()
+                        .encodedPath("/")
+                        .query(null)
+                        .fragment(null)
+                        .build()
+                        .toString()
+                        .trimEnd('/')
+                }
+            }.getOrNull()
+        }
+
     private suspend fun siteRequest(
         url: String,
         referer: String,
@@ -1141,7 +1164,7 @@ class DiziPalProvider(
     companion object {
         private const val TAG = "DiziPalProvider"
         const val PROVIDER_ID = "dizipal"
-        const val FALLBACK_BASE_URL = "https://dizipal1586.com"
+        const val FALLBACK_BASE_URL = "https://dizipal1587.com"
         private const val DOMAIN_SOURCE =
             "https://raw.githubusercontent.com/aytzey/cs-kraptor/master/doms/eklenti_domainleri.txt"
         private const val HLS_MIME = "application/x-mpegURL"

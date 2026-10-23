@@ -6,6 +6,7 @@
 package app.opentv.core
 
 import android.content.Context
+import app.opentv.data.catalog.CatalogAggregator
 import app.opentv.data.db.OpenTvDatabase
 import app.opentv.data.provider.ProviderRegistry
 import app.opentv.data.provider.ProviderRepository
@@ -94,6 +95,7 @@ object ServiceLocator {
             )
         }
         val providerRepository: ProviderRepository by lazy { ProviderRepository(providerRegistry) }
+        val unifiedCatalog: CatalogAggregator by lazy { CatalogAggregator(providerRepository) }
 
         val sourceRepository: SourceRepository by lazy {
             SourceRepository(database.sources(), xtreamApi, stalkerApi)

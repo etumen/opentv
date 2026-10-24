@@ -370,7 +370,6 @@ fun CloudSeriesDetailScreen(
     val meta = buildList {
         displayItem.year?.let { add(it.toString()) }
         displayItem.rating?.takeIf { it > 0.0 }?.let { add("★ %.1f".format(it)) }
-        if (displayItem.externalIds.containsKey("imdb")) add("IMDb")
         if (sourceCount > 1) add(stringResource(R.string.cloud_sources_count, sourceCount))
     }.joinToString("  ·  ")
     val seasons = remember(episodes) {
@@ -424,6 +423,7 @@ fun CloudSeriesDetailScreen(
                 backdropUrl = displayItem.backdropUrl,
                 posterUrl = displayItem.posterUrl,
                 meta = meta,
+                imdbBadge = displayItem.externalIds.containsKey("imdb"),
             ) {
                 firstEpisode?.let { episode ->
                     DetailButton(

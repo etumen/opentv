@@ -126,7 +126,7 @@ class DiziBoxProviderTest {
         assertThat(playback.streams.single().url)
             .isEqualTo("https://pilavyerplay.top/api/stream.php?v=abc&token=xyz")
         assertThat(playback.streams.single().mimeType)
-            .isEqualTo("application/vnd.apple.mpegurl")
+            .isEqualTo("application/x-mpegURL")
         assertThat(playback.subtitles.map { it.language }).containsExactly("tr", "en")
         assertThat(playback.subtitles.first().url).contains("&sid=tr&")
     }

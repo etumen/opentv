@@ -493,7 +493,7 @@ class DiziBoxProvider(
         const val PROVIDER_ID = "ddizibox"
         const val MAIN_URL = "https://ddizibox.com"
         const val PLAYER_ORIGIN = "https://pilavyerplay.top"
-        const val HLS_MIME = "application/vnd.apple.mpegurl"
+        const val HLS_MIME = "application/x-mpegURL"
         const val USER_AGENT =
             "Mozilla/5.0 (Linux; Android 12; Android TV) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"

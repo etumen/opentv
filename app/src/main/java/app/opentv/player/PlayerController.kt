@@ -10,6 +10,7 @@ import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
@@ -288,7 +289,7 @@ class PlayerController(
             val mediaItem = MediaItem.Builder()
                 .setUri(request.url)
                 .apply {
-                    request.streamMimeType?.takeIf { it.isNotBlank() }?.let(::setMimeType)
+                    normalizeStreamMimeType(request.streamMimeType)?.let(::setMimeType)
                     request.subtitleUrl?.takeIf { it.isNotBlank() }?.let { subtitleUrl ->
                         setSubtitleConfigurations(
                             listOf(
@@ -399,6 +400,15 @@ class PlayerController(
     fun release() {
         switchJob?.cancel()
         player.release()
+    }
+
+    private fun normalizeStreamMimeType(value: String?): String? {
+        val mimeType = value?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return when (mimeType.lowercase()) {
+            "application/vnd.apple.mpegurl",
+            "application/x-mpegurl" -> MimeTypes.APPLICATION_M3U8
+            else -> mimeType
+        }
     }
 
     private companion object {

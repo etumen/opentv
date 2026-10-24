@@ -386,6 +386,36 @@ fun CloudSeriesDetailScreen(
         }
     }
     val activeSeason = selectedSeason ?: seasons.keys.firstOrNull()
+    val firstEpisode = seasons.values.firstOrNull()?.firstOrNull()
+    val playEpisode: (CanonicalEpisode) -> Unit = { episode ->
+        if (resolvingEpisodeId == null) {
+            resolvingEpisodeId = episode.id
+            error = null
+            scope.launch {
+                when (val result = viewModel.episodePlayback(episode)) {
+                    is ProviderResult.Success -> {
+                        val playback = result.value
+                        when (playback.streams.size) {
+                            0 -> error = noStreamMessage
+                            1 -> onPlayEpisode(
+                                displayDetails,
+                                episode,
+                                playback.streams.single(),
+                                preferredSeriesSubtitle(playback.subtitles),
+                            )
+                            else -> {
+                                pickerEpisode = episode
+                                pickerStreams = playback.streams
+                                pickerSubtitles = playback.subtitles
+                            }
+                        }
+                    }
+                    is ProviderResult.Failure -> error = result.error.message
+                }
+                resolvingEpisodeId = null
+            }
+        }
+    }
 
     LazyColumn(Modifier.fillMaxSize()) {
         item(key = "header") {
@@ -395,6 +425,15 @@ fun CloudSeriesDetailScreen(
                 posterUrl = displayItem.posterUrl,
                 meta = meta,
             ) {
+                firstEpisode?.let { episode ->
+                    DetailButton(
+                        icon = Icons.Filled.PlayArrow,
+                        label = stringResource(R.string.vod_watch_now) +
+                            " · S" + episode.season + " B" + episode.episodeNumber,
+                        primary = true,
+                        onClick = { playEpisode(episode) },
+                    )
+                }
                 DetailButton(
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
                     label = stringResource(R.string.common_back),
@@ -442,34 +481,7 @@ fun CloudSeriesDetailScreen(
                         CloudEpisodeCard(
                             episode = episode,
                             resolving = resolvingEpisodeId == episode.id,
-                            onClick = {
-                                if (resolvingEpisodeId != null) return@CloudEpisodeCard
-                                resolvingEpisodeId = episode.id
-                                error = null
-                                scope.launch {
-                                    when (val result = viewModel.episodePlayback(episode)) {
-                                        is ProviderResult.Success -> {
-                                            val playback = result.value
-                                            when (playback.streams.size) {
-                                                0 -> error = noStreamMessage
-                                                1 -> onPlayEpisode(
-                                                    displayDetails,
-                                                    episode,
-                                                    playback.streams.single(),
-                                                    preferredSeriesSubtitle(playback.subtitles),
-                                                )
-                                                else -> {
-                                                    pickerEpisode = episode
-                                                    pickerStreams = playback.streams
-                                                    pickerSubtitles = playback.subtitles
-                                                }
-                                            }
-                                        }
-                                        is ProviderResult.Failure -> error = result.error.message
-                                    }
-                                    resolvingEpisodeId = null
-                                }
-                            },
+                            onClick = { playEpisode(episode) },
                         )
                     }
                 }

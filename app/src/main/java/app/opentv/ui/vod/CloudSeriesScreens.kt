@@ -349,11 +349,28 @@ fun CloudSeriesDetailScreen(
         return
     }
 
-    val item = current.item
-    val sourceCount = unified?.content?.sources?.size ?: 1
+    val providerItem = current.item
+    val canonical = unified?.content
+    val displayItem = providerItem.copy(
+        title = canonical?.title?.takeIf { it.isNotBlank() } ?: providerItem.title,
+        posterUrl = canonical?.posterUrl ?: providerItem.posterUrl,
+        backdropUrl = canonical?.backdropUrl ?: providerItem.backdropUrl,
+        description = canonical?.description ?: providerItem.description,
+        year = canonical?.year ?: providerItem.year,
+        rating = canonical?.rating ?: providerItem.rating,
+        genres = canonical?.genres?.takeIf { it.isNotEmpty() } ?: providerItem.genres,
+        externalIds = providerItem.externalIds + canonical?.externalIds.orEmpty(),
+    )
+    val displayDetails = current.copy(
+        item = displayItem,
+        description = canonical?.description ?: current.description,
+        externalIds = current.externalIds + canonical?.externalIds.orEmpty(),
+    )
+    val sourceCount = canonical?.sources?.size ?: 1
     val meta = buildList {
-        item.year?.let { add(it.toString()) }
-        item.rating?.takeIf { it > 0.0 }?.let { add("★ %.1f".format(it)) }
+        displayItem.year?.let { add(it.toString()) }
+        displayItem.rating?.takeIf { it > 0.0 }?.let { add("★ %.1f".format(it)) }
+        if (displayItem.externalIds.containsKey("imdb")) add("IMDb")
         if (sourceCount > 1) add(stringResource(R.string.cloud_sources_count, sourceCount))
     }.joinToString("  ·  ")
     val seasons = remember(episodes) {
@@ -373,9 +390,9 @@ fun CloudSeriesDetailScreen(
     LazyColumn(Modifier.fillMaxSize()) {
         item(key = "header") {
             DetailBackdrop(
-                title = item.title,
-                backdropUrl = item.backdropUrl ?: item.posterUrl,
-                posterUrl = item.posterUrl,
+                title = displayItem.title,
+                backdropUrl = displayItem.backdropUrl,
+                posterUrl = displayItem.posterUrl,
                 meta = meta,
             ) {
                 DetailButton(
@@ -387,10 +404,10 @@ fun CloudSeriesDetailScreen(
         }
         item(key = "info") {
             DetailInfo(
-                plot = current.description,
-                cast = current.cast.joinToString(", ").takeIf { it.isNotBlank() },
-                director = current.director,
-                genre = item.genres.joinToString(", ").takeIf { it.isNotBlank() },
+                plot = displayDetails.description,
+                cast = displayDetails.cast.joinToString(", ").takeIf { it.isNotBlank() },
+                director = displayDetails.director,
+                genre = displayItem.genres.joinToString(", ").takeIf { it.isNotBlank() },
                 onOpenPerson = {},
             )
         }
@@ -436,7 +453,7 @@ fun CloudSeriesDetailScreen(
                                             when (playback.streams.size) {
                                                 0 -> error = noStreamMessage
                                                 1 -> onPlayEpisode(
-                                                    current,
+                                                    displayDetails,
                                                     episode,
                                                     playback.streams.single(),
                                                     preferredSeriesSubtitle(playback.subtitles),
@@ -477,7 +494,7 @@ fun CloudSeriesDetailScreen(
             onPick = { stream ->
                 pickerEpisode = null
                 onPlayEpisode(
-                    current,
+                    displayDetails,
                     selectedEpisode,
                     stream,
                     preferredSeriesSubtitle(pickerSubtitles),

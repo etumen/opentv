@@ -7,7 +7,6 @@ import app.opentv.core.ServiceLocator
 import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.provider.ProviderCatalogRequest
 import app.opentv.data.provider.ProviderMediaType
-import app.opentv.data.provider.ProviderResult
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -25,7 +24,6 @@ data class DiscoveryShelf(
 class DiscoveryHomeViewModel(app: Application) : AndroidViewModel(app) {
     private val graph = ServiceLocator.get(app)
     private val catalog = graph.unifiedCatalog
-    private val repository = graph.providerRepository
 
     private data class Collection(
         val id: String,
@@ -73,51 +71,19 @@ class DiscoveryHomeViewModel(app: Application) : AndroidViewModel(app) {
             ProviderMediaType.SERIES,
         )
 
-        val canonicalItems: List<CanonicalContent> = if (collection.sectionId == null) {
-            mediaTypes.map { mediaType ->
-                async {
-                    catalog.catalog(
-                        ProviderCatalogRequest(
-                            mediaType = mediaType,
-                            sectionId = null,
-                            page = 1,
-                        ),
-                    ).items
-                }
-            }.awaitAll().flatten()
-                .distinctBy { it.id }
-        } else {
-            val providerItems = mediaTypes.flatMap { mediaType ->
-                repository.providers(mediaType).map { provider ->
-                    async {
-                        val supportsHomeSection = provider.catalogSections.any { section ->
-                            section.mediaType == mediaType &&
-                                section.id == collection.sectionId &&
-                                section.showOnHome
-                        }
-                        if (!supportsHomeSection) {
-                            emptyList()
-                        } else {
-                            when (
-                                val result = repository.catalog(
-                                    provider.id,
-                                    ProviderCatalogRequest(
-                                        mediaType = mediaType,
-                                        sectionId = collection.sectionId,
-                                        page = 1,
-                                    ),
-                                )
-                            ) {
-                                is ProviderResult.Success -> result.value.items
-                                is ProviderResult.Failure -> emptyList()
-                            }
-                        }
-                    }
-                }
-            }.awaitAll().flatten()
-
-            catalog.merge(providerItems)
-        }
+        val canonicalItems = mediaTypes.map { mediaType ->
+            async {
+                catalog.catalog(
+                    ProviderCatalogRequest(
+                        mediaType = mediaType,
+                        sectionId = collection.sectionId,
+                        page = 1,
+                    ),
+                ).items
+            }
+        }.awaitAll()
+            .flatten()
+            .distinctBy { it.id }
 
         DiscoveryShelf(
             id = collection.id,

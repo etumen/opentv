@@ -56,8 +56,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.data.catalog.CanonicalContent
+import app.opentv.data.catalog.CanonicalEpisode
+import app.opentv.data.catalog.UnifiedSeriesDetails
 import app.opentv.data.provider.ProviderDetails
-import app.opentv.data.provider.ProviderEpisode
 import app.opentv.data.provider.ProviderItem
 import app.opentv.data.provider.ProviderResult
 import app.opentv.data.provider.ProviderStream
@@ -164,6 +166,63 @@ internal fun CloudSeriesPosterRow(
 }
 
 @Composable
+internal fun UnifiedSeriesPosterRow(
+    items: List<CanonicalContent>,
+    hasMore: Boolean,
+    loadingMore: Boolean,
+    onOpenSeries: (CanonicalContent) -> Unit,
+    onLoadMore: () -> Unit,
+) {
+    if (items.isEmpty()) return
+    val rowState = rememberLazyListState()
+
+    LaunchedEffect(items.size, hasMore) {
+        if (!hasMore) return@LaunchedEffect
+        snapshotFlow { rowState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .collect { lastVisible ->
+                if (lastVisible >= items.lastIndex - 4) onLoadMore()
+            }
+    }
+
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(stringResource(R.string.nav_shows))
+        LazyRow(
+            state = rowState,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(items, key = { "unified:" + it.id }) { item ->
+                val providerId = item.sources.firstOrNull()?.providerId.orEmpty()
+                val subtitle = buildList {
+                    item.year?.let { add(it.toString()) }
+                    if (item.sources.size > 1) {
+                        add(stringResource(R.string.cloud_sources_count, item.sources.size))
+                    }
+                }.joinToString(" · ").takeIf { it.isNotBlank() }
+                PosterCard(
+                    title = item.title,
+                    posterUrl = item.posterUrl,
+                    providerId = providerId,
+                    subtitle = subtitle,
+                    rating = item.rating,
+                    onClick = { onOpenSeries(item) },
+                )
+            }
+            if (loadingMore) {
+                item(key = "unified-loading") {
+                    Box(
+                        Modifier.width(72.dp).height(180.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 internal fun CloudSeriesCategoryGrid(
     items: List<ProviderItem>,
     hasNextPage: Boolean,
@@ -238,7 +297,7 @@ fun CloudSeriesDetailScreen(
     itemId: String,
     onPlayEpisode: (
         ProviderDetails,
-        ProviderEpisode,
+        CanonicalEpisode,
         ProviderStream,
         ProviderSubtitle?,
     ) -> Unit,
@@ -246,11 +305,12 @@ fun CloudSeriesDetailScreen(
     viewModel: CloudSeriesViewModel = viewModel(),
 ) {
     var details by remember(providerId, itemId) { mutableStateOf<ProviderDetails?>(null) }
-    var episodes by remember(providerId, itemId) { mutableStateOf<List<ProviderEpisode>>(emptyList()) }
+    var unified by remember(providerId, itemId) { mutableStateOf<UnifiedSeriesDetails?>(null) }
+    var episodes by remember(providerId, itemId) { mutableStateOf<List<CanonicalEpisode>>(emptyList()) }
     var loadingEpisodes by remember(providerId, itemId) { mutableStateOf(true) }
     var error by remember(providerId, itemId) { mutableStateOf<String?>(null) }
     var resolvingEpisodeId by remember(providerId, itemId) { mutableStateOf<String?>(null) }
-    var pickerEpisode by remember(providerId, itemId) { mutableStateOf<ProviderEpisode?>(null) }
+    var pickerEpisode by remember(providerId, itemId) { mutableStateOf<CanonicalEpisode?>(null) }
     var pickerStreams by remember(providerId, itemId) { mutableStateOf<List<ProviderStream>>(emptyList()) }
     var pickerSubtitles by remember(providerId, itemId) { mutableStateOf<List<ProviderSubtitle>>(emptyList()) }
     val scope = rememberCoroutineScope()
@@ -258,17 +318,17 @@ fun CloudSeriesDetailScreen(
 
     BackHandler { onBack() }
 
-    if (providerId == "dizipal") {
+    if (providerId == "dizipal" || unified?.content?.sources?.any { it.providerId == "dizipal" } == true) {
         DiziPalSessionAnchor()
     }
 
     LaunchedEffect(providerId, itemId) {
-        when (val result = viewModel.details(providerId, itemId)) {
-            is ProviderResult.Success -> details = result.value
-            is ProviderResult.Failure -> error = result.error.message
-        }
-        when (val result = viewModel.episodes(providerId, itemId)) {
-            is ProviderResult.Success -> episodes = result.value
+        when (val result = viewModel.unifiedDetails(providerId, itemId)) {
+            is ProviderResult.Success -> {
+                unified = result.value
+                details = result.value.details
+                episodes = result.value.episodes
+            }
             is ProviderResult.Failure -> error = result.error.message
         }
         loadingEpisodes = false
@@ -282,11 +342,11 @@ fun CloudSeriesDetailScreen(
     }
 
     val item = current.item
-    val providerName = viewModel.providerName(providerId)
+    val sourceCount = unified?.content?.sources?.size ?: 1
     val meta = buildList {
         item.year?.let { add(it.toString()) }
         item.rating?.takeIf { it > 0.0 }?.let { add("★ %.1f".format(it)) }
-        add(providerName)
+        if (sourceCount > 1) add(stringResource(R.string.cloud_sources_count, sourceCount))
     }.joinToString("  ·  ")
     val seasons = remember(episodes) {
         episodes.groupBy { it.season }
@@ -346,13 +406,7 @@ fun CloudSeriesDetailScreen(
                             resolvingEpisodeId = episode.id
                             error = null
                             scope.launch {
-                                when (
-                                    val result = viewModel.episodePlayback(
-                                        providerId = providerId,
-                                        seriesId = itemId,
-                                        episodeId = episode.id,
-                                    )
-                                ) {
+                                when (val result = viewModel.episodePlayback(episode)) {
                                     is ProviderResult.Success -> {
                                         val playback = result.value
                                         when (playback.streams.size) {
@@ -412,7 +466,7 @@ fun CloudSeriesDetailScreen(
 
 @Composable
 private fun CloudEpisodeRow(
-    episode: ProviderEpisode,
+    episode: CanonicalEpisode,
     resolving: Boolean,
     onClick: () -> Unit,
 ) {
@@ -446,8 +500,14 @@ private fun CloudEpisodeRow(
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
+            val episodeMeta = buildList {
+                add("S" + episode.season + " · B" + episode.episodeNumber)
+                if (episode.sources.size > 1) {
+                    add(stringResource(R.string.cloud_sources_count, episode.sources.size))
+                }
+            }.joinToString(" · ")
             Text(
-                "S" + episode.season + " · B" + episode.episodeNumber,
+                episodeMeta,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

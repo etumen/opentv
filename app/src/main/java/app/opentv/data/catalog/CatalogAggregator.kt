@@ -4,6 +4,7 @@ import app.opentv.data.provider.ProviderCatalogRequest
 import app.opentv.data.provider.ProviderItem
 import app.opentv.data.provider.ProviderRepository
 import app.opentv.data.provider.ProviderSearchRequest
+import app.opentv.data.provider.ProviderMediaType
 
 /**
  * Aggregates native providers into one user-facing catalogue.
@@ -29,6 +30,17 @@ class CatalogAggregator(
             failures = batch.failures,
         )
     }
+
+    fun pager(
+        mediaType: ProviderMediaType,
+        sectionId: String? = null,
+    ): UnifiedCatalogPager =
+        UnifiedCatalogPager(
+            repository = repository,
+            matcher = matcher,
+            mediaType = mediaType,
+            sectionId = sectionId,
+        )
 
     fun merge(items: Iterable<ProviderItem>): List<CanonicalContent> =
         matcher.merge(items)

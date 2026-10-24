@@ -7,6 +7,8 @@ package app.opentv.core
 
 import android.content.Context
 import app.opentv.data.catalog.CatalogAggregator
+import app.opentv.data.catalog.ProviderHealthTracker
+import app.opentv.data.catalog.UnifiedSeriesResolver
 import app.opentv.data.db.OpenTvDatabase
 import app.opentv.data.provider.ProviderRegistry
 import app.opentv.data.provider.ProviderRepository
@@ -98,6 +100,18 @@ object ServiceLocator {
         }
         val providerRepository: ProviderRepository by lazy { ProviderRepository(providerRegistry) }
         val unifiedCatalog: CatalogAggregator by lazy { CatalogAggregator(providerRepository) }
+        val providerHealth: ProviderHealthTracker by lazy {
+            ProviderHealthTracker(
+                appContext.getSharedPreferences("provider_health", Context.MODE_PRIVATE),
+            )
+        }
+        val unifiedSeries: UnifiedSeriesResolver by lazy {
+            UnifiedSeriesResolver(
+                repository = providerRepository,
+                catalog = unifiedCatalog,
+                health = providerHealth,
+            )
+        }
 
         val sourceRepository: SourceRepository by lazy {
             SourceRepository(database.sources(), xtreamApi, stalkerApi)

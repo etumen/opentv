@@ -154,6 +154,48 @@ class DiziPalProviderTest {
     }
 
     @Test
+    fun jsonLdEpisodes_readsCurrentNextJsSeriesPayload() {
+        val html = """
+            <html><body>
+              <script type="application/ld+json">
+              {
+                "@context":"https://schema.org",
+                "@type":"TVSeries",
+                "name":"Reacher",
+                "containsSeason":[
+                  {
+                    "@type":"TVSeason",
+                    "url":"http://dizipal1592.com/sezon/reacher/sezon-1",
+                    "episode":[
+                      {
+                        "@type":"TVEpisode",
+                        "name":"1. Bölüm",
+                        "description":"Pilot",
+                        "url":"http://dizipal1592.com/bolum/reacher-1x1-c02",
+                        "episodeNumber":1
+                      }
+                    ]
+                  }
+                ]
+              }
+              </script>
+            </body></html>
+        """.trimIndent()
+
+        val items = provider.parseEpisodes(
+            Jsoup.parse(html, "https://dizipal1592.com/series/reacher-c04"),
+            "https://dizipal1592.com/series/reacher-c04",
+        )
+
+        assertThat(items).hasSize(1)
+        assertThat(items.single().season).isEqualTo(1)
+        assertThat(items.single().episodeNumber).isEqualTo(1)
+        assertThat(items.single().id)
+            .isEqualTo("https://dizipal1592.com/bolum/reacher-1x1-c02")
+        assertThat(items.single().description).isEqualTo("Pilot")
+    }
+
+    @Test
     fun currentSearchPage_readsSeriesTitleYearAndPoster() {
         val html = """
             <div class="wrap">

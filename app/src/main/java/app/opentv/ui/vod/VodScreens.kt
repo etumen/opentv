@@ -229,45 +229,28 @@ fun SeriesScreen(
     val cloudLoading by cloudViewModel.loading.collectAsState()
     val cloudSectionLoading by cloudViewModel.loadingSelectedSection.collectAsState()
     val cloudSectionLoadingMore by cloudViewModel.loadingMoreSelectedSection.collectAsState()
-
-    var diziPalVerified by remember { mutableStateOf(false) }
-    val needsDiziPalVerification =
-        selectedCloudProviderId == "dizipal" && !diziPalVerified
+    val unifiedCloudItems by cloudViewModel.unifiedCatalogItems.collectAsState()
+    val unifiedCloudHasMore by cloudViewModel.unifiedCatalogHasMore.collectAsState()
+    val unifiedCloudLoading by cloudViewModel.loadingUnifiedCatalog.collectAsState()
+    val unifiedCloudLoadingMore by cloudViewModel.loadingMoreUnifiedCatalog.collectAsState()
 
     LaunchedEffect(Unit) {
         if (hasSources) viewModel.ensureVodLoaded()
         viewModel.loadHomeFeeds()
-    }
-
-    LaunchedEffect(selectedCloudProviderId, diziPalVerified) {
-        if (!needsDiziPalVerification) cloudViewModel.loadShelves()
+        cloudViewModel.loadUnifiedCatalog()
     }
 
     var browseCategory by remember { mutableStateOf<String?>(null) }
 
     val hasContent = resume.isNotEmpty() || recentlyAdded.isNotEmpty() ||
-        genreRows.isNotEmpty() || cloudShelves.isNotEmpty()
+        genreRows.isNotEmpty() || unifiedCloudItems.isNotEmpty()
 
     Column(Modifier.fillMaxSize()) {
-        if (selectedCloudProviderId == "dizipal" && diziPalVerified) {
+        if (cloudProviders.any { it.id == "dizipal" }) {
             DiziPalSessionAnchor()
         }
 
         SearchAffordance(onOpenSearch)
-
-        CloudSeriesTvControls(
-            providers = cloudProviders,
-            selectedProviderId = selectedCloudProviderId,
-            selectedSectionId = selectedCloudSectionId,
-            onSelectProvider = { id ->
-                browseCategory = null
-                cloudViewModel.selectProvider(id)
-            },
-            onSelectSection = { id ->
-                browseCategory = null
-                cloudViewModel.selectSection(id)
-            },
-        )
 
         if (sources.size > 1) {
             ProviderChips(
@@ -288,17 +271,9 @@ fun SeriesScreen(
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
-                selectedCloudSectionId != null -> CloudSeriesCategoryGrid(
-                    items = cloudSectionItems,
-                    hasNextPage = cloudSectionNextPage != null,
-                    loading = cloudSectionLoading,
-                    loadingMore = cloudSectionLoadingMore,
-                    onOpenSeries = onOpenCloudSeries,
-                    onLoadMore = cloudViewModel::loadMoreSelectedSection,
-                )
                 browseCategory != null -> SeriesCategoryGrid(categorySeries, onOpenSeries)
                 !hasContent -> when {
-                    cloudLoading || vodLoading || isSyncing ->
+                    unifiedCloudLoading || vodLoading || isSyncing ->
                         LoadingVod(stringResource(R.string.vod_loading_shows))
                     hasSources -> EmptyVod(
                         stringResource(R.string.vod_no_shows),
@@ -321,29 +296,39 @@ fun SeriesScreen(
                     items(genreRows, key = { "g:${it.genre}" }) { group ->
                         SeriesPosterRow(group.genre, group.items, onOpenSeries)
                     }
-                    items(
-                        cloudShelves,
-                        key = { "cloud-series:${it.providerId}:${it.section.id}" },
-                    ) { shelf ->
-                        CloudSeriesPosterRow(
-                            shelf = shelf,
-                            onOpenSeries = onOpenCloudSeries,
-                            onLoadMore = { cloudViewModel.loadMoreShelf(shelf.section.id) },
-                        )
+                    if (unifiedCloudItems.isNotEmpty()) {
+                        item(key = "unified-cloud-series") {
+                            UnifiedSeriesPosterRow(
+                                items = unifiedCloudItems,
+                                hasMore = unifiedCloudHasMore,
+                                loadingMore = unifiedCloudLoadingMore,
+                                onOpenSeries = { content ->
+                                    content.sources.firstOrNull()?.let { source ->
+                                        onOpenCloudSeries(
+                                            ProviderItem(
+                                                providerId = source.providerId,
+                                                id = source.itemId,
+                                                title = content.title,
+                                                mediaType = content.mediaType,
+                                                posterUrl = content.posterUrl,
+                                                backdropUrl = content.backdropUrl,
+                                                description = content.description,
+                                                year = content.year,
+                                                rating = content.rating,
+                                                genres = content.genres,
+                                            ),
+                                        )
+                                    }
+                                },
+                                onLoadMore = cloudViewModel::loadMoreUnifiedCatalog,
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    if (needsDiziPalVerification) {
-        DiziPalChallengeDialog(
-            onVerified = {
-                diziPalVerified = true
-                cloudViewModel.loadShelves(force = true)
-            },
-        )
-    }
 }
 
 // ---- Whole-category browse grids ---------------------------------------------------------------

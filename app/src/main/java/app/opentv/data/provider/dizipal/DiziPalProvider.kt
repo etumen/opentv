@@ -445,7 +445,7 @@ class DiziPalProvider(
             doc.select("a[href*='/bolum/']")
         }
 
-        return anchors.mapNotNull { anchor ->
+        val linkedEpisodes = anchors.mapNotNull { anchor ->
             val href = absoluteFrom(doc.baseUri(), anchor.attr("href"))
                 ?: return@mapNotNull null
             if (!href.contains("/bolum/")) return@mapNotNull null
@@ -459,7 +459,7 @@ class DiziPalProvider(
             ).find(subtitle.ifBlank { text })
 
             val hrefMatch = Regex(
-                """-(\d+)x(\d+)(?:[/?#].*)?$""",
+                """-(\d+)x(\d+)(?:[-/?#].*)?$""",
             ).find(href)
 
             val season = textMatch?.groupValues?.getOrNull(1)?.toIntOrNull()
@@ -483,8 +483,74 @@ class DiziPalProvider(
                 episodeNumber = episode,
                 title = title,
             )
-        }.distinctBy { it.id }
+        }
+
+        val structuredEpisodes = parseJsonLdEpisodes(doc, seriesId)
+        return (linkedEpisodes + structuredEpisodes)
+            .distinctBy { it.season to it.episodeNumber }
+            .sortedWith(compareBy<ProviderEpisode> { it.season }.thenBy { it.episodeNumber })
     }
+
+    internal fun parseJsonLdEpisodes(doc: Document, seriesId: String): List<ProviderEpisode> {
+        val result = mutableListOf<ProviderEpisode>()
+        doc.select("script[type=application/ld+json]").forEach { script ->
+            val root = runCatching { json.parseToJsonElement(script.data()).jsonObject }
+                .getOrNull() ?: return@forEach
+            val type = root["@type"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            if (!type.equals("TVSeries", ignoreCase = true)) return@forEach
+            root["containsSeason"]?.jsonArray.orEmpty().forEach { seasonElement ->
+                val seasonObject = seasonElement.jsonObject
+                val seasonUrl = seasonObject["url"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                val seasonNumber = seasonObject["seasonNumber"]?.jsonPrimitive?.intOrNull
+                    ?: Regex("""(?:sezon-|/season/)(\d+)""")
+                        .find(seasonUrl)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                seasonObject["episode"]?.jsonArray.orEmpty().forEach { episodeElement ->
+                    val episodeObject = episodeElement.jsonObject
+                    val rawUrl = episodeObject["url"]?.jsonPrimitive?.contentOrNull
+                        ?.takeIf { it.isNotBlank() } ?: return@forEach
+                    val urlMatch = Regex("""-(\d+)x(\d+)(?:[-/?#].*)?$""").find(rawUrl)
+                    val season = seasonNumber
+                        ?: urlMatch?.groupValues?.getOrNull(1)?.toIntOrNull()
+                        ?: return@forEach
+                    val episodeNumber = episodeObject["episodeNumber"]?.jsonPrimitive?.intOrNull
+                        ?: urlMatch?.groupValues?.getOrNull(2)?.toIntOrNull()
+                        ?: return@forEach
+                    val href = normalizeDiziPalEpisodeUrl(doc.baseUri(), rawUrl)
+                        ?: return@forEach
+                    val rawName = episodeObject["name"]?.jsonPrimitive?.contentOrNull
+                        ?.trim().orEmpty()
+                    val title = rawName
+                        .takeUnless { it.matches(Regex("""\d+\.\s*Bölüm""", RegexOption.IGNORE_CASE)) }
+                        ?.takeIf { it.isNotBlank() } ?: "Bölüm $episodeNumber"
+                    val description = episodeObject["description"]?.jsonPrimitive?.contentOrNull
+                        ?.trim()?.takeIf { it.isNotBlank() }
+                    result += ProviderEpisode(
+                        providerId = id,
+                        seriesId = seriesId,
+                        id = href,
+                        season = season,
+                        episodeNumber = episodeNumber,
+                        title = title,
+                        description = description,
+                    )
+                }
+            }
+        }
+        return result
+    }
+
+    private fun normalizeDiziPalEpisodeUrl(base: String, raw: String): String? {
+        val absolute = absoluteFrom(base.ifBlank { FALLBACK_BASE_URL }, raw) ?: return null
+        val parsed = runCatching { absolute.toHttpUrl() }.getOrNull() ?: return absolute
+        if (!parsed.host.startsWith("dizipal", ignoreCase = true)) return absolute
+        val active = runCatching { base.toHttpUrl() }.getOrNull()
+        return parsed.newBuilder()
+            .scheme(active?.scheme ?: "https")
+            .host(active?.host ?: parsed.host)
+            .build()
+            .toString()
+    }
+
     internal fun parseSearchPage(doc: Document): List<ProviderItem> {
         val currentCards = doc.select(
             "a.tc[href*='/series/'], a.tc[href*='/dizi/']",

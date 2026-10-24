@@ -128,6 +128,73 @@ class CatalogAggregatorTest {
     }
 
     @Test
+    fun pager_mergesSourcesAcrossDifferentProviderPages() = runTest {
+        val repository = ProviderRepository(
+            ProviderRegistry(
+                listOf(
+                    FakeProvider(
+                        id = "a",
+                        catalogPages = mapOf(
+                            1 to listOf(
+                                ProviderItem("", "a-reacher", "Reacher", ProviderMediaType.SERIES, year = 2022),
+                            ),
+                            2 to listOf(
+                                ProviderItem("", "a-fallout", "Fallout", ProviderMediaType.SERIES, year = 2024),
+                            ),
+                        ),
+                        nextPages = mapOf(1 to 2, 2 to null),
+                    ),
+                    FakeProvider(
+                        id = "b",
+                        catalogPages = mapOf(
+                            1 to listOf(
+                                ProviderItem("", "b-silo", "Silo", ProviderMediaType.SERIES, year = 2023),
+                            ),
+                            2 to listOf(
+                                ProviderItem("", "b-reacher", "Reacher (2022)", ProviderMediaType.SERIES),
+                            ),
+                        ),
+                        nextPages = mapOf(1 to 2, 2 to null),
+                    ),
+                ),
+            ),
+        )
+        val pager = CatalogAggregator(repository).pager(ProviderMediaType.SERIES)
+
+        val first = pager.loadInitial()
+        assertThat(first.hasMore).isTrue()
+        assertThat(first.items.map { it.title }).containsAtLeast("Reacher", "Silo")
+        assertThat(first.items.first { it.title.contains("Reacher") }.sources).hasSize(1)
+
+        val second = pager.loadMore()
+        assertThat(second.hasMore).isFalse()
+        assertThat(second.items.map { it.title }).containsAtLeast("Reacher", "Silo", "Fallout")
+        assertThat(second.items.first { it.title.contains("Reacher") }.sources).hasSize(2)
+    }
+
+    @Test
+    fun pager_stopsProviderWhenPageAddsNoNewItems() = runTest {
+        val repeated = ProviderItem("", "same", "Same", ProviderMediaType.SERIES, year = 2025)
+        val repository = ProviderRepository(
+            ProviderRegistry(
+                listOf(
+                    FakeProvider(
+                        id = "repeat",
+                        catalogPages = mapOf(1 to listOf(repeated), 2 to listOf(repeated)),
+                        nextPages = mapOf(1 to 2, 2 to 3),
+                    ),
+                ),
+            ),
+        )
+        val pager = CatalogAggregator(repository).pager(ProviderMediaType.SERIES)
+
+        assertThat(pager.loadInitial().hasMore).isTrue()
+        val second = pager.loadMore()
+        assertThat(second.items).hasSize(1)
+        assertThat(second.hasMore).isFalse()
+    }
+
+    @Test
     fun matcher_normalizesTurkishCharactersAndPunctuation() {
         val items = listOf(
             ProviderItem("a", "1", "Çağrı: İstanbul", ProviderMediaType.MOVIE, year = 2024),
@@ -144,13 +211,21 @@ class CatalogAggregatorTest {
         override val id: String,
         private val searchItems: List<ProviderItem> = emptyList(),
         private val throwOnSearch: Boolean = false,
+        private val catalogPages: Map<Int, List<ProviderItem>> = emptyMap(),
+        private val nextPages: Map<Int, Int?> = emptyMap(),
     ) : Provider {
         override val name: String = id
         override val supportedMediaTypes =
             setOf(ProviderMediaType.MOVIE, ProviderMediaType.SERIES)
 
         override suspend fun catalog(request: ProviderCatalogRequest) =
-            ProviderResult.Success(ProviderCatalogPage("Test", searchItems))
+            ProviderResult.Success(
+                ProviderCatalogPage(
+                    title = "Test",
+                    items = catalogPages[request.page] ?: searchItems,
+                    nextPage = nextPages[request.page],
+                ),
+            )
 
         override suspend fun search(request: ProviderSearchRequest): ProviderResult<List<ProviderItem>> {
             if (throwOnSearch) error("boom")

@@ -237,15 +237,10 @@ fun SeriesDetailScreen(
 
 /**
  * The hero header, Plex-style: the poster always shown as an elevated card on the left, with the
- * title, meta line and action buttons beside it, over a backdrop background that falls back to the
- * poster and then to a plain gradient.
- *
- * Built so the hero is **never blank**. Two independent failure modes are covered: a provider that
- * ships a non-null but dead `backdropUrl` (real on the user's box — a good poster, a blank blue
- * hero) now falls the *background* through backdrop → poster → gradient via Coil's `onError`; and
- * the poster *card* falls back to a titled gradient tile if its own URL is missing or dead. So even
- * a title with no backdrop at all and a broken poster still shows its name over the app gradient
- * beside an intentional-looking placeholder card, never an empty rectangle.
+ * title, meta line and action buttons beside it, over a real landscape backdrop when one exists.
+ * A missing or dead backdrop falls back to the app gradient — never to a portrait poster stretched
+ * across the television. The poster remains an independent elevated card on the left and has its
+ * own titled fallback, so the hero is always intentional-looking even with incomplete artwork.
  */
 @Composable
 internal fun DetailBackdrop(
@@ -258,21 +253,20 @@ internal fun DetailBackdrop(
     Box(
         Modifier
             .fillMaxWidth()
-            .height(360.dp)
+            .height(410.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        // Background: try the backdrop, fall back to the poster on load error, then to the gradient
-        // alone. Coil silently renders nothing on a failed load, so we drive the fallback from the
-        // error callback rather than trusting a non-null URL to actually resolve.
-        val bgCandidates = remember(backdropUrl, posterUrl) { listOfNotNull(backdropUrl, posterUrl).distinct() }
-        var bgIndex by remember(bgCandidates) { mutableStateOf(0) }
-        bgCandidates.getOrNull(bgIndex)?.let { model ->
+        // A detail hero only uses genuine landscape artwork as its background. If that URL is
+        // missing or fails, the scrim below becomes the background while the portrait poster stays
+        // in its own card on the left.
+        var backdropFailed by remember(backdropUrl) { mutableStateOf(false) }
+        backdropUrl?.takeIf { it.isNotBlank() && !backdropFailed }?.let { model ->
             AsyncImage(
                 model = model,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize(),
-                onError = { if (bgIndex < bgCandidates.lastIndex) bgIndex++ },
+                onError = { backdropFailed = true },
             )
         }
         // Scrim: keeps text readable over any art, and — with no art at all — is itself the tasteful
@@ -330,8 +324,8 @@ private fun HeroPosterCard(posterUrl: String?, title: String) {
     var posterFailed by remember(posterUrl) { mutableStateOf(false) }
     Box(
         Modifier
-            .width(128.dp)
-            .height(192.dp)
+            .width(168.dp)
+            .height(252.dp)
             .shadow(12.dp, RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,

@@ -6,6 +6,9 @@
 package app.opentv.data.provider
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 /**
  * Host-side facade around native providers.
@@ -49,17 +52,10 @@ class ProviderRepository(
 
     suspend fun catalogAll(
         request: ProviderCatalogRequest,
-    ): ProviderBatchResult<ProviderCatalogPage> {
-        val values = linkedMapOf<String, ProviderCatalogPage>()
-        val failures = linkedMapOf<String, ProviderError>()
-        for (provider in registry.supporting(request.mediaType)) {
-            when (val result = catalog(provider.id, request)) {
-                is ProviderResult.Success -> values[provider.id] = result.value
-                is ProviderResult.Failure -> failures[provider.id] = result.error
-            }
+    ): ProviderBatchResult<ProviderCatalogPage> =
+        batch(registry.supporting(request.mediaType)) { provider ->
+            catalog(provider.id, request)
         }
-        return ProviderBatchResult(values, failures)
-    }
 
     suspend fun search(
         providerId: String,
@@ -79,17 +75,10 @@ class ProviderRepository(
 
     suspend fun searchAll(
         request: ProviderSearchRequest,
-    ): ProviderBatchResult<List<ProviderItem>> {
-        val values = linkedMapOf<String, List<ProviderItem>>()
-        val failures = linkedMapOf<String, ProviderError>()
-        for (provider in providers(request.mediaType)) {
-            when (val result = search(provider.id, request)) {
-                is ProviderResult.Success -> values[provider.id] = result.value
-                is ProviderResult.Failure -> failures[provider.id] = result.error
-            }
+    ): ProviderBatchResult<List<ProviderItem>> =
+        batch(providers(request.mediaType)) { provider ->
+            search(provider.id, request)
         }
-        return ProviderBatchResult(values, failures)
-    }
 
     suspend fun load(providerId: String, itemId: String): ProviderResult<ProviderDetails> {
         val provider = registry.find(providerId) ?: return missing(providerId, "load")
@@ -133,6 +122,25 @@ class ProviderRepository(
                 ProviderResult.Success(ProviderResultMapper.subtitles(provider, result.value))
             is ProviderResult.Failure -> result
         }
+    }
+
+    private suspend fun <T> batch(
+        providers: List<Provider>,
+        block: suspend (Provider) -> ProviderResult<T>,
+    ): ProviderBatchResult<T> = coroutineScope {
+        val results = providers.map { provider ->
+            async { provider.id to block(provider) }
+        }.awaitAll()
+
+        val values = linkedMapOf<String, T>()
+        val failures = linkedMapOf<String, ProviderError>()
+        results.forEach { (providerId, result) ->
+            when (result) {
+                is ProviderResult.Success -> values[providerId] = result.value
+                is ProviderResult.Failure -> failures[providerId] = result.error
+            }
+        }
+        ProviderBatchResult(values, failures)
     }
 
     private fun missing(providerId: String, operation: String): ProviderResult.Failure =

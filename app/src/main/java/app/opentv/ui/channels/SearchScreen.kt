@@ -55,6 +55,8 @@ import app.opentv.data.model.shownName
 import app.opentv.data.parser.displayTitle
 import app.opentv.ui.ChannelsViewModel
 import app.opentv.ui.VodViewModel
+import app.opentv.ui.vod.CloudSeriesViewModel
+import app.opentv.ui.vod.CloudVodViewModel
 import coil.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -72,19 +74,28 @@ fun SearchScreen(
     onPlayChannel: (Channel) -> Unit,
     onPlayMovie: (Movie) -> Unit,
     onOpenSeries: (Series) -> Unit,
+    onOpenCloudMovie: (providerId: String, itemId: String) -> Unit,
+    onOpenCloudSeries: (providerId: String, itemId: String) -> Unit,
     onBack: () -> Unit,
     viewModel: ChannelsViewModel = viewModel(),
     vodViewModel: VodViewModel = viewModel(),
+    cloudVodViewModel: CloudVodViewModel = viewModel(),
+    cloudSeriesViewModel: CloudSeriesViewModel = viewModel(),
 ) {
     var query by remember { mutableStateOf("") }
     val channelResults by viewModel.searchResults.collectAsState()
     val movieResults by vodViewModel.movieResults.collectAsState()
     val seriesResults by vodViewModel.seriesResults.collectAsState()
-    val anyResults = channelResults.isNotEmpty() || movieResults.isNotEmpty() || seriesResults.isNotEmpty()
+    val cloudMovieResults by cloudVodViewModel.movieSearchResults.collectAsState()
+    val cloudSeriesResults by cloudSeriesViewModel.searchResults.collectAsState()
+    val anyResults = channelResults.isNotEmpty() || movieResults.isNotEmpty() ||
+        seriesResults.isNotEmpty() || cloudMovieResults.isNotEmpty() || cloudSeriesResults.isNotEmpty()
 
     LaunchedEffect(query) {
         viewModel.setSearchQuery(query)
         vodViewModel.setVodSearchQuery(query)
+        cloudVodViewModel.setMovieSearchQuery(query)
+        cloudSeriesViewModel.setSearchQuery(query)
     }
     BackHandler { onBack() }
 
@@ -130,19 +141,43 @@ fun SearchScreen(
                                 SearchResultRow(row = row, onClick = { onPlayChannel(row.primary) })
                             }
                         }
-                        if (movieResults.isNotEmpty()) {
+                        if (movieResults.isNotEmpty() || cloudMovieResults.isNotEmpty()) {
                             item { SectionHeader(stringResource(R.string.nav_movies)) }
                             items(movieResults, key = { "m${it.id}" }) { movie ->
                                 VodResultRow(movie.displayTitle, movie.posterUrl, movie.year?.toString()) {
                                     onPlayMovie(movie)
                                 }
                             }
+                            items(cloudMovieResults, key = { "cm:" + it.id }) { movie ->
+                                val source = movie.sources.firstOrNull()
+                                val subtitle = buildList {
+                                    movie.year?.let { add(it.toString()) }
+                                    if (movie.sources.size > 1) {
+                                        add(stringResource(R.string.cloud_sources_count, movie.sources.size))
+                                    }
+                                }.joinToString(" · ").takeIf { it.isNotBlank() }
+                                VodResultRow(movie.title, movie.posterUrl, subtitle) {
+                                    source?.let { onOpenCloudMovie(it.providerId, it.itemId) }
+                                }
+                            }
                         }
-                        if (seriesResults.isNotEmpty()) {
+                        if (seriesResults.isNotEmpty() || cloudSeriesResults.isNotEmpty()) {
                             item { SectionHeader(stringResource(R.string.nav_shows)) }
                             items(seriesResults, key = { "s${it.id}" }) { show ->
                                 VodResultRow(show.displayTitle, show.posterUrl, show.year?.toString()) {
                                     onOpenSeries(show)
+                                }
+                            }
+                            items(cloudSeriesResults, key = { "cs:" + it.id }) { show ->
+                                val source = show.sources.firstOrNull()
+                                val subtitle = buildList {
+                                    show.year?.let { add(it.toString()) }
+                                    if (show.sources.size > 1) {
+                                        add(stringResource(R.string.cloud_sources_count, show.sources.size))
+                                    }
+                                }.joinToString(" · ").takeIf { it.isNotBlank() }
+                                VodResultRow(show.title, show.posterUrl, subtitle) {
+                                    source?.let { onOpenCloudSeries(it.providerId, it.itemId) }
                                 }
                             }
                         }

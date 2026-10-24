@@ -16,6 +16,7 @@
     <string name="common_keep_typing">Yazmaya devam edin…</string>
     <string name="common_channels">Kanallar</string>
     <string name="common_try_again">Tekrar dene</string>
+    <string name="cloud_sources_count">%1$d kaynak</string>
     <string name="nav_live_tv">Canlı TV</string>
     <string name="nav_movies">Filmler</string>
     <string name="nav_shows">Diziler</string>

@@ -450,6 +450,12 @@ private fun OpenTvApp(isTelevision: Boolean) {
                         )
                     },
                     onOpenSeries = { series -> navController.navigate(Routes.seriesDetail(series.id)) },
+                    onOpenCloudMovie = { providerId, itemId ->
+                        navController.navigate(Routes.cloudMovieDetail(providerId, itemId))
+                    },
+                    onOpenCloudSeries = { providerId, itemId ->
+                        navController.navigate(Routes.cloudSeriesDetail(providerId, itemId))
+                    },
                     onBack = { navController.popBackStack() },
                 )
             }

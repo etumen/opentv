@@ -9,6 +9,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.opentv.core.ServiceLocator
+import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.provider.Provider
 import app.opentv.data.provider.ProviderCatalogRequest
 import app.opentv.data.provider.ProviderCatalogSection
@@ -53,7 +54,9 @@ data class CloudSeriesPlayback(
 )
 
 class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
-    private val repository = ServiceLocator.get(app).providerRepository
+    private val graph = ServiceLocator.get(app)
+    private val repository = graph.providerRepository
+    private val unifiedCatalog = graph.unifiedCatalog
 
     private fun sections(provider: Provider): List<ProviderCatalogSection> =
         provider.catalogSections
@@ -103,8 +106,8 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
     private val _lastError = MutableStateFlow<ProviderError?>(null)
     val lastError: StateFlow<ProviderError?> = _lastError.asStateFlow()
 
-    private val _searchResults = MutableStateFlow<List<ProviderItem>>(emptyList())
-    val searchResults: StateFlow<List<ProviderItem>> = _searchResults.asStateFlow()
+    private val _searchResults = MutableStateFlow<List<CanonicalContent>>(emptyList())
+    val searchResults: StateFlow<List<CanonicalContent>> = _searchResults.asStateFlow()
 
     private var loadedProviderId: String? = null
     private var searchJob: Job? = null
@@ -322,15 +325,13 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
 
         searchJob = viewModelScope.launch {
             delay(250)
-            val result = repository.searchAll(
+            val result = unifiedCatalog.search(
                 ProviderSearchRequest(
                     query = trimmed,
                     mediaType = ProviderMediaType.SERIES,
                 ),
             )
-            _searchResults.value = result.values.values
-                .flatten()
-                .distinctBy { it.providerId + ":" + it.id }
+            _searchResults.value = result.items
             result.failures.values.firstOrNull()?.let { _lastError.value = it }
         }
     }

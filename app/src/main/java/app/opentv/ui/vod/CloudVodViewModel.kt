@@ -9,6 +9,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.opentv.core.ServiceLocator
+import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.provider.Provider
 import app.opentv.data.provider.ProviderCatalogRequest
 import app.opentv.data.provider.ProviderCatalogSection
@@ -54,6 +55,7 @@ data class CloudPlayback(
 class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
     private val graph = ServiceLocator.get(app)
     private val repository = graph.providerRepository
+    private val unifiedCatalog = graph.unifiedCatalog
 
     private fun sections(provider: Provider): List<ProviderCatalogSection> =
         provider.catalogSections
@@ -122,8 +124,8 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
     private val _lastError = MutableStateFlow<ProviderError?>(null)
     val lastError: StateFlow<ProviderError?> = _lastError.asStateFlow()
 
-    private val _movieSearchResults = MutableStateFlow<List<ProviderItem>>(emptyList())
-    val movieSearchResults: StateFlow<List<ProviderItem>> = _movieSearchResults.asStateFlow()
+    private val _movieSearchResults = MutableStateFlow<List<CanonicalContent>>(emptyList())
+    val movieSearchResults: StateFlow<List<CanonicalContent>> = _movieSearchResults.asStateFlow()
 
     private var loadedProviderId: String? = null
     private var searchJob: Job? = null
@@ -358,15 +360,13 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
 
         searchJob = viewModelScope.launch {
             delay(250)
-            val result = repository.searchAll(
+            val result = unifiedCatalog.search(
                 ProviderSearchRequest(
                     query = trimmed,
                     mediaType = ProviderMediaType.MOVIE,
                 ),
             )
-            _movieSearchResults.value = result.values.values
-                .flatten()
-                .distinctBy { "${it.providerId}:${it.id}" }
+            _movieSearchResults.value = result.items
             result.failures.values.firstOrNull()?.let { _lastError.value = it }
         }
     }

@@ -22,6 +22,7 @@
     <string name="common_keep_typing">Keep typing…</string>
     <string name="common_channels">Channels</string>
     <string name="common_try_again">Try again</string>
+    <string name="cloud_sources_count">%1$d sources</string>
 
     <!-- ============================ Navigation rail ============================ -->
     <string name="nav_live_tv">Live TV</string>

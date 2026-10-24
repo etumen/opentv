@@ -10,6 +10,7 @@ import app.opentv.data.catalog.CatalogAggregator
 import app.opentv.data.db.OpenTvDatabase
 import app.opentv.data.provider.ProviderRegistry
 import app.opentv.data.provider.ProviderRepository
+import app.opentv.data.provider.ddizibox.DiziBoxProvider
 import app.opentv.data.provider.dizipal.DiziPalProvider
 import app.opentv.data.provider.filmmakinesi.FilmMakinesiProvider
 import app.opentv.data.provider.fullhd.FullHdFilmizleseneProvider
@@ -91,6 +92,7 @@ object ServiceLocator {
                     FullHdFilmizleseneProvider(httpClient),
                     FilmMakinesiProvider(httpClient),
                     DiziPalProvider(appContext, httpClient),
+                    DiziBoxProvider(httpClient),
                 ),
             )
         }

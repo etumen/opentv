@@ -25,6 +25,7 @@
     <string name="cloud_sources_count">%1$d sources</string>
 
     <!-- ============================ Navigation rail ============================ -->
+    <string name="nav_home">Home</string>
     <string name="nav_live_tv">Live TV</string>
     <string name="nav_movies">Movies</string>
     <string name="nav_shows">Shows</string>

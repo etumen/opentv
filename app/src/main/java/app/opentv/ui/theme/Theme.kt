@@ -24,14 +24,14 @@ import androidx.compose.ui.unit.sp
  * actively unpleasant on a 55" panel at night, so everything here is anchored near-black with
  * a single restrained accent used only for focus and selection.
  */
-private val Accent = Color(0xFF7C93FF)
-private val AccentDim = Color(0xFF4B5DB8)
+private val Accent = Color(0xFFE53935)
+private val AccentDim = Color(0xFF7A1D1D)
 
 private val DarkScheme = darkColorScheme(
     primary = Accent,
-    onPrimary = Color(0xFF0A0C14),
+    onPrimary = Color.White,
     primaryContainer = AccentDim,
-    onPrimaryContainer = Color(0xFFE6EAFF),
+    onPrimaryContainer = Color.White,
     secondary = Color(0xFF9AA3C0),
     background = Color(0xFF07080C),
     onBackground = Color(0xFFE8EAF0),

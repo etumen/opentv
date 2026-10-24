@@ -6,7 +6,9 @@
 package app.opentv.ui.vod
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -50,7 +52,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -354,6 +359,14 @@ fun CloudSeriesDetailScreen(
             .toSortedMap()
     }
 
+    var selectedSeason by remember(providerId, itemId) { mutableStateOf<Int?>(null) }
+    LaunchedEffect(seasons.keys.toList()) {
+        if (selectedSeason == null || !seasons.containsKey(selectedSeason)) {
+            selectedSeason = seasons.keys.firstOrNull()
+        }
+    }
+    val activeSeason = selectedSeason ?: seasons.keys.firstOrNull()
+
     LazyColumn(Modifier.fillMaxSize()) {
         item(key = "header") {
             DetailBackdrop(
@@ -388,52 +401,60 @@ fun CloudSeriesDetailScreen(
                     CircularProgressIndicator()
                 }
             }
-        } else {
-            seasons.forEach { (season, values) ->
-                item(key = "season:" + season) {
-                    Spacer(Modifier.height(8.dp))
-                    SectionHeader(stringResource(R.string.vod_season, season))
-                }
-                items(
-                    values,
-                    key = { "episode:" + it.id },
-                ) { episode ->
-                    CloudEpisodeRow(
-                        episode = episode,
-                        resolving = resolvingEpisodeId == episode.id,
-                        onClick = {
-                            if (resolvingEpisodeId != null) return@CloudEpisodeRow
-                            resolvingEpisodeId = episode.id
-                            error = null
-                            scope.launch {
-                                when (val result = viewModel.episodePlayback(episode)) {
-                                    is ProviderResult.Success -> {
-                                        val playback = result.value
-                                        when (playback.streams.size) {
-                                            0 -> error = noStreamMessage
-                                            1 -> onPlayEpisode(
-                                                current,
-                                                episode,
-                                                playback.streams.single(),
-                                                preferredSeriesSubtitle(playback.subtitles),
-                                            )
-                                            else -> {
-                                                pickerEpisode = episode
-                                                pickerStreams = playback.streams
-                                                pickerSubtitles = playback.subtitles
+        } else if (activeSeason != null) {
+            item(key = "season-selector") {
+                SeasonSelector(
+                    seasons = seasons.keys.toList(),
+                    selected = activeSeason,
+                    onSelect = { selectedSeason = it },
+                )
+            }
+            item(key = "episodes:" + activeSeason) {
+                SectionHeader(stringResource(R.string.vod_season, activeSeason))
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    items(
+                        seasons[activeSeason].orEmpty(),
+                        key = { "episode:" + it.id },
+                    ) { episode ->
+                        CloudEpisodeCard(
+                            episode = episode,
+                            resolving = resolvingEpisodeId == episode.id,
+                            onClick = {
+                                if (resolvingEpisodeId != null) return@CloudEpisodeCard
+                                resolvingEpisodeId = episode.id
+                                error = null
+                                scope.launch {
+                                    when (val result = viewModel.episodePlayback(episode)) {
+                                        is ProviderResult.Success -> {
+                                            val playback = result.value
+                                            when (playback.streams.size) {
+                                                0 -> error = noStreamMessage
+                                                1 -> onPlayEpisode(
+                                                    current,
+                                                    episode,
+                                                    playback.streams.single(),
+                                                    preferredSeriesSubtitle(playback.subtitles),
+                                                )
+                                                else -> {
+                                                    pickerEpisode = episode
+                                                    pickerStreams = playback.streams
+                                                    pickerSubtitles = playback.subtitles
+                                                }
                                             }
                                         }
+                                        is ProviderResult.Failure -> error = result.error.message
                                     }
-                                    is ProviderResult.Failure -> error = result.error.message
+                                    resolvingEpisodeId = null
                                 }
-                                resolvingEpisodeId = null
-                            }
-                        },
-                    )
+                            },
+                        )
+                    }
                 }
             }
         }
-
         error?.let { message ->
             item(key = "error") {
                 Text(
@@ -465,62 +486,120 @@ fun CloudSeriesDetailScreen(
 }
 
 @Composable
-private fun CloudEpisodeRow(
-    episode: CanonicalEpisode,
-    resolving: Boolean,
-    onClick: () -> Unit,
+private fun SeasonSelector(
+    seasons: List<Int>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
 ) {
-    var focused by remember(episode.id) { mutableStateOf(false) }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 3.dp)
-            .onFocusChanged { focused = it.isFocused }
-            .clip(RoundedCornerShape(10.dp))
-            .background(
-                if (focused) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surface,
-            )
-            .clickable(enabled = !resolving, onClick = onClick)
-            .focusable(enabled = !resolving)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (resolving) {
-            CircularProgressIndicator(
-                modifier = Modifier.width(30.dp).height(30.dp),
-                strokeWidth = 2.dp,
-            )
-        } else {
-            Icon(
-                Icons.Filled.PlayArrow,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            val episodeMeta = buildList {
-                add("S" + episode.season + " · B" + episode.episodeNumber)
-                if (episode.sources.size > 1) {
-                    add(stringResource(R.string.cloud_sources_count, episode.sources.size))
-                }
-            }.joinToString(" · ")
-            Text(
-                episodeMeta,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        items(seasons, key = { "season-pill:" + it }) { season ->
+            var focused by remember(season) { mutableStateOf(false) }
+            val isSelected = season == selected
+            val scale by animateFloatAsState(
+                targetValue = if (focused) 1.04f else 1f,
+                label = "seasonScale",
             )
             Text(
-                episode.title,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                text = stringResource(R.string.vod_season, season),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .graphicsLayer { scaleX = scale; scaleY = scale }
+                    .onFocusChanged { focused = it.isFocused }
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(
+                        if (isSelected) Color.White
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                    )
+                    .then(
+                        if (focused) Modifier.border(
+                            2.dp,
+                            MaterialTheme.colorScheme.primary,
+                            RoundedCornerShape(20.dp),
+                        ) else Modifier,
+                    )
+                    .clickable { onSelect(season) }
+                    .padding(horizontal = 18.dp, vertical = 9.dp),
             )
         }
     }
 }
 
+@Composable
+private fun CloudEpisodeCard(
+    episode: CanonicalEpisode,
+    resolving: Boolean,
+    onClick: () -> Unit,
+) {
+    var focused by remember(episode.id) { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (focused) 1.045f else 1f,
+        label = "episodeCardScale",
+    )
+    Column(
+        Modifier
+            .width(300.dp)
+            .height(168.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .onFocusChanged { focused = it.isFocused }
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .then(
+                if (focused) Modifier.border(
+                    3.dp,
+                    MaterialTheme.colorScheme.primary,
+                    RoundedCornerShape(12.dp),
+                ) else Modifier,
+            )
+            .clickable(enabled = !resolving, onClick = onClick)
+            .focusable(enabled = !resolving)
+            .padding(16.dp),
+    ) {
+        Box(
+            Modifier.fillMaxWidth().weight(1f),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (resolving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.width(34.dp).height(34.dp),
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Icon(
+                    Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    tint = if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.82f),
+                    modifier = Modifier.width(42.dp).height(42.dp),
+                )
+            }
+        }
+
+        val episodeMeta = buildList {
+            add("S" + episode.season + " \u00B7 B" + episode.episodeNumber)
+            if (episode.sources.size > 1) {
+                add(stringResource(R.string.cloud_sources_count, episode.sources.size))
+            }
+        }.joinToString(" \u00B7 ")
+        Text(
+            episodeMeta,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            episode.title,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
 private fun preferredSeriesSubtitle(
     values: List<ProviderSubtitle>,
 ): ProviderSubtitle? =

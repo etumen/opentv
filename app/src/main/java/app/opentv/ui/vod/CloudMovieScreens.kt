@@ -7,6 +7,7 @@ package app.opentv.ui.vod
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -151,11 +152,9 @@ fun CloudMovieDetailScreen(
     }
 
     val item = current.item
-    val providerName = viewModel.providerName(providerId)
     val meta = buildList {
         item.year?.let { add(it.toString()) }
         item.rating?.takeIf { it > 0.0 }?.let { add("★ %.1f".format(it)) }
-        add(providerName)
     }.joinToString("  ·  ")
 
     LazyColumn(Modifier.fillMaxSize()) {
@@ -282,9 +281,10 @@ private fun CloudStreamRow(
             .fillMaxWidth()
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(10.dp))
-            .background(
-                if (focused) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surfaceVariant,
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .then(
+                if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp))
+                else Modifier,
             )
             .clickable { onPick(stream) }
             .padding(horizontal = 14.dp, vertical = 12.dp),

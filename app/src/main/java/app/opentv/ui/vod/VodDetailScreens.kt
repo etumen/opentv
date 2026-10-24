@@ -471,8 +471,8 @@ private fun GenreChip(label: String) {
 @Composable
 private fun PersonChip(name: String, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val container = if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    val content = if (focused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val container = MaterialTheme.colorScheme.surfaceVariant
+    val content = if (focused) Color.White else MaterialTheme.colorScheme.onSurface
     Text(
         name,
         style = MaterialTheme.typography.titleSmall,
@@ -503,13 +503,13 @@ internal fun DetailButton(
 ) {
     var focused by remember { mutableStateOf(false) }
     val container = when {
-        focused -> MaterialTheme.colorScheme.primary
-        primary -> MaterialTheme.colorScheme.primaryContainer
-        else -> Color.White.copy(alpha = 0.16f)
+        focused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.92f)
+        primary -> Color.White.copy(alpha = 0.96f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.96f)
     }
     val content = when {
-        focused -> MaterialTheme.colorScheme.onPrimary
-        primary -> MaterialTheme.colorScheme.onPrimaryContainer
+        focused -> Color.White
+        primary -> Color.Black
         else -> Color.White
     }
     Row(
@@ -542,7 +542,7 @@ private fun EpisodeRow(ep: Episode, onPlay: (mediaKey: String, url: String, titl
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(8.dp))
             .background(
-                if (focused) MaterialTheme.colorScheme.primaryContainer
+                if (focused) MaterialTheme.colorScheme.surfaceVariant
                 else MaterialTheme.colorScheme.surface,
             )
             .then(

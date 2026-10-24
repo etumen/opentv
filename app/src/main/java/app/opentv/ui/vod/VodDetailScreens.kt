@@ -248,6 +248,7 @@ internal fun DetailBackdrop(
     backdropUrl: String?,
     posterUrl: String?,
     meta: String,
+    imdbBadge: Boolean = false,
     actions: @Composable RowScope.() -> Unit,
 ) {
     Box(
@@ -297,9 +298,31 @@ internal fun DetailBackdrop(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (meta.isNotBlank()) {
+                if (meta.isNotBlank() || imdbBadge) {
                     Spacer(Modifier.height(8.dp))
-                    Text(meta, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.85f))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        if (meta.isNotBlank()) {
+                            Text(
+                                meta,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White.copy(alpha = 0.85f),
+                            )
+                        }
+                        if (imdbBadge) {
+                            Text(
+                                "IMDb",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color(0xFF121212),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(Color(0xFFF5C518))
+                                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                            )
+                        }
+                    }
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(

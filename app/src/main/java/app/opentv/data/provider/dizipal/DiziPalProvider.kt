@@ -42,6 +42,10 @@ class DiziPalProvider(
 
     private val browser = context?.let(::DiziPalBrowserSession)
     internal fun browserSession(): DiziPalBrowserSession? = browser
+    private val domainPrefs = context?.applicationContext?.getSharedPreferences(
+        DOMAIN_PREFS,
+        Context.MODE_PRIVATE,
+    )
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     @Volatile private var resolvedBaseUrl: String? = null
@@ -198,14 +202,49 @@ class DiziPalProvider(
         if (query.isBlank()) return@guarded emptyList()
 
         val base = baseUrl()
-        val url = base + "/ajax-search?q=" +
+        val rendered = runCatching { searchRenderedPage(base, query) }
+            .onFailure { Log.w(TAG, "Rendered search failed, trying legacy API", it) }
+            .getOrDefault(emptyList())
+        if (rendered.isNotEmpty()) return@guarded rendered
+
+        val legacyUrl = base + "/ajax-search?q=" +
             URLEncoder.encode(query, StandardCharsets.UTF_8.name())
+        val legacy = runCatching {
+            val response = siteRequest(
+                url = legacyUrl,
+                referer = base + "/",
+                ajax = true,
+            )
+            parseSearch(response.body)
+        }.onFailure {
+            Log.w(TAG, "Legacy DiziPal search unavailable", it)
+        }.getOrDefault(emptyList())
+
+        legacy
+    }
+
+    private suspend fun searchRenderedPage(
+        base: String,
+        query: String,
+    ): List<ProviderItem> {
+        val url = base + "/arama-yap?s=" +
+            URLEncoder.encode(query, StandardCharsets.UTF_8.name())
+
+        val direct = directPageRequest(url, base + "/")
+        if (direct != null) {
+            val parsed = parseSearchPage(Jsoup.parse(direct, url))
+            if (parsed.isNotEmpty() || direct.contains("arama-yap", ignoreCase = true)) {
+                return parsed
+            }
+        }
+
         val response = siteRequest(
             url = url,
             referer = base + "/",
-            ajax = true,
+            ajax = false,
+            noCache = true,
         )
-        parseSearch(response.body)
+        return parseSearchPage(Jsoup.parse(response.body, url))
     }
     override suspend fun load(itemId: String): ProviderResult<ProviderDetails> =
         guarded("load") {
@@ -269,7 +308,7 @@ class DiziPalProvider(
         ) ?: return null
         if (!href.contains("/series/") && !href.contains("/dizi/")) return null
 
-        val title = scope.selectFirst("div.card-info h3, .card-title, .poster-title, h3, h2")
+        val title = scope.selectFirst("div.card-info h3, .card-title, .poster-title, .tt, h3, h2")
             ?.text()?.trim()?.takeIf { it.isNotBlank() }
             ?: anchor.attr("aria-label").trim().takeIf { it.isNotBlank() }
             ?: anchor.attr("title").trim().takeIf { it.isNotBlank() }
@@ -281,12 +320,20 @@ class DiziPalProvider(
             scope.selectFirst("img") ?: anchor.selectFirst("img"),
             doc.baseUri(),
         )
+        val year = sequenceOf(
+            anchor.attr("aria-label"),
+            scope.attr("aria-label"),
+            scope.text(),
+        ).mapNotNull { value ->
+            Regex("""\b(?:19|20)\d{2}\b""").find(value)?.value?.toIntOrNull()
+        }.firstOrNull()
         return ProviderItem(
             providerId = id,
             id = href,
             title = title,
             mediaType = ProviderMediaType.SERIES,
             posterUrl = poster,
+            year = year,
         )
     }
 
@@ -438,6 +485,24 @@ class DiziPalProvider(
             )
         }.distinctBy { it.id }
     }
+    internal fun parseSearchPage(doc: Document): List<ProviderItem> {
+        val currentCards = doc.select(
+            "a.tc[href*='/series/'], a.tc[href*='/dizi/']",
+        ).mapNotNull { anchor ->
+            parseSeriesAnchor(anchor, anchor, doc)
+        }.distinctBy { it.id }
+        if (currentCards.isNotEmpty()) return currentCards
+
+        val legacyCards = doc.select("ul.content-grid > li").mapNotNull { element ->
+            val anchor = element.selectFirst("a[href*='/series/'], a[href*='/dizi/']")
+                ?: return@mapNotNull null
+            parseSeriesAnchor(anchor, element, doc)
+        }.distinctBy { it.id }
+        if (legacyCards.isNotEmpty()) return legacyCards
+
+        return emptyList()
+    }
+
     internal fun parseSearch(body: String): List<ProviderItem> {
         val root = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
             ?: return emptyList()
@@ -992,23 +1057,114 @@ class DiziPalProvider(
             ?.takeIf { now - resolvedAtMillis < DOMAIN_CACHE_MILLIS }
             ?.let { return it }
 
-        val resolved = runCatching {
-            val request = Request.Builder()
-                .url(DOMAIN_SOURCE)
-                .header("User-Agent", "OpenTV/0.1 (Android)")
-                .build()
-            val body = execute(request).body
-            Regex(
-                """(?m)^\|DiziPalOrijinal:(https?://[^\s]+)\s*$""",
-            ).find(body)?.groupValues?.getOrNull(1)
-        }.getOrNull()?.trimEnd('/').orEmpty()
+        val source = runCatching { resolveDomainSource() }.getOrDefault("")
+        val stored = domainPrefs?.getString(PREF_CURRENT_DOMAIN, null).orEmpty()
+        val storedNext = domainPrefs?.getString(PREF_NEXT_DOMAIN, null).orEmpty()
+        val seeds = listOf(source, stored, storedNext, FALLBACK_BASE_URL)
+            .map { it.trim().trimEnd('/') }
+            .filter { it.startsWith("https://") || it.startsWith("http://") }
+            .distinct()
 
-        val candidate = resolved.ifBlank { FALLBACK_BASE_URL }
-        val value = resolveRedirectedBase(candidate) ?: candidate
+        var softFallback: String? = null
+        var verified: String? = null
+        for (seed in seeds) {
+            val redirected = resolveRedirectedBase(seed) ?: seed
+            if (softFallback == null) softFallback = redirected
+            val working = verifyDiziPalBase(redirected)
+            if (working != null) {
+                verified = working
+                break
+            }
+        }
+
+        val value = verified
+            ?: probeForwardDomains(seeds)
+            ?: softFallback
+            ?: FALLBACK_BASE_URL
+
+        rememberDomain(value)
+        refreshAdvertisedNextDomain(value)
         Log.d(TAG, "Resolved DiziPal base: " + value)
         resolvedBaseUrl = value
         resolvedAtMillis = now
         return value
+    }
+
+    private suspend fun resolveDomainSource(): String {
+        val request = Request.Builder()
+            .url(DOMAIN_SOURCE)
+            .header("User-Agent", "OpenTV/0.1 (Android)")
+            .build()
+        val body = execute(request).body
+        return Regex(
+            """(?m)^\|DiziPalOrijinal:(https?://[^\s]+)\s*$""",
+        ).find(body)?.groupValues?.getOrNull(1)?.trimEnd('/').orEmpty()
+    }
+
+    private suspend fun verifyDiziPalBase(seed: String): String? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val request = Request.Builder()
+                    .url(seed)
+                    .header("User-Agent", SITE_USER_AGENT)
+                    .header("Accept-Language", "tr-TR,tr;q=0.9,en-US;q=0.7,en;q=0.6")
+                    .build()
+                http.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@use null
+                    val body = response.body?.string().orEmpty()
+                    val looksReal = body.contains("Dizipal", ignoreCase = true) &&
+                        (body.contains("/series/", ignoreCase = true) ||
+                            body.contains("arama-yap", ignoreCase = true) ||
+                            body.contains("/_next/static/", ignoreCase = true))
+                    if (!looksReal) return@use null
+                    response.request.url.newBuilder()
+                        .encodedPath("/")
+                        .query(null)
+                        .fragment(null)
+                        .build()
+                        .toString()
+                        .trimEnd('/')
+                }
+            }.getOrNull()
+        }
+
+    private suspend fun probeForwardDomains(seeds: List<String>): String? {
+        val highest = seeds.mapNotNull(::domainNumber).maxOrNull() ?: return null
+        for (offset in 1..MAX_DOMAIN_PROBE_STEPS) {
+            val candidate = "https://dizipal" + (highest + offset) + ".com"
+            verifyDiziPalBase(candidate)?.let { return it }
+        }
+        return null
+    }
+
+    private fun domainNumber(url: String): Int? =
+        Regex("""dizipal(\d+)\.com""", RegexOption.IGNORE_CASE)
+            .find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
+
+    private fun rememberDomain(value: String) {
+        domainPrefs?.edit()?.putString(PREF_CURRENT_DOMAIN, value)?.apply()
+    }
+
+    private suspend fun refreshAdvertisedNextDomain(base: String) {
+        val body = directPageRequest(base + "/", base + "/") ?: return
+        val next = extractAdvertisedNextDomain(body, domainNumber(base)) ?: return
+        domainPrefs?.edit()?.putString(PREF_NEXT_DOMAIN, next)?.apply()
+    }
+
+    internal fun extractAdvertisedNextDomain(
+        body: String,
+        currentNumber: Int? = null,
+    ): String? {
+        val candidates = Regex("""(?:https?://)?dizipal(\d+)\.com""", RegexOption.IGNORE_CASE)
+            .findAll(body)
+            .mapNotNull { match ->
+                match.groupValues.getOrNull(1)?.toIntOrNull()
+            }
+            .filter { currentNumber == null || it > currentNumber }
+            .distinct()
+            .sortedDescending()
+            .toList()
+        return candidates.firstOrNull()?.let { "https://dizipal$it.com" }
     }
 
     private suspend fun resolveRedirectedBase(seed: String): String? =
@@ -1030,6 +1186,28 @@ class DiziPalProvider(
                 }
             }.getOrNull()
         }
+
+    private suspend fun directPageRequest(
+        url: String,
+        referer: String,
+    ): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", SITE_USER_AGENT)
+                .header("Referer", referer)
+                .header(
+                    "Accept",
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                )
+                .header("Accept-Language", "tr-TR,tr;q=0.9,en-US;q=0.7,en;q=0.6")
+                .build()
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use null
+                response.body?.string()
+            }
+        }.getOrNull()
+    }
 
     private suspend fun siteRequest(
         url: String,
@@ -1164,7 +1342,7 @@ class DiziPalProvider(
     companion object {
         private const val TAG = "DiziPalProvider"
         const val PROVIDER_ID = "dizipal"
-        const val FALLBACK_BASE_URL = "https://dizipal1587.com"
+        const val FALLBACK_BASE_URL = "https://dizipal1592.com"
         private const val DOMAIN_SOURCE =
             "https://raw.githubusercontent.com/aytzey/cs-kraptor/master/doms/eklenti_domainleri.txt"
         private const val HLS_MIME = "application/x-mpegURL"
@@ -1172,6 +1350,10 @@ class DiziPalProvider(
             "Mozilla/5.0 (Linux; Android 16; SM-S938B) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36"
         private const val EXTERNAL_USER_AGENT = SITE_USER_AGENT
+        private const val DOMAIN_PREFS = "dizipal_provider"
+        private const val PREF_CURRENT_DOMAIN = "current_domain"
+        private const val PREF_NEXT_DOMAIN = "next_domain"
+        private const val MAX_DOMAIN_PROBE_STEPS = 4
         private const val DOMAIN_CACHE_MILLIS = 30 * 60 * 1000L
         private const val PLAYBACK_CACHE_MILLIS = 90_000L
         private const val PLAYBACK_CACHE_SIZE = 8

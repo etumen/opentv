@@ -154,6 +154,42 @@ class DiziPalProviderTest {
     }
 
     @Test
+    fun currentSearchPage_readsSeriesTitleYearAndPoster() {
+        val html = """
+            <div class="wrap">
+              <div class="g6">
+                <a class="tc" aria-label="Reacher, 2022" href="/series/reacher-c04">
+                  <span class="fr"><img src="/poster/reacher.jpg" /></span>
+                  <span class="tt">Reacher</span>
+                </a>
+              </div>
+            </div>
+        """.trimIndent()
+
+        val items = provider.parseSearchPage(
+            Jsoup.parse(html, DiziPalProvider.FALLBACK_BASE_URL + "/arama-yap?s=Reacher"),
+        )
+
+        assertThat(items).hasSize(1)
+        assertThat(items.single().title).isEqualTo("Reacher")
+        assertThat(items.single().year).isEqualTo(2022)
+        assertThat(items.single().id).contains("/series/reacher-c04")
+        assertThat(items.single().posterUrl).contains("/poster/reacher.jpg")
+    }
+
+    @Test
+    fun advertisedNextDomain_prefersFutureDomain() {
+        val html = """
+            <html><body>
+              Dizipal tekrar yenilendi. Sonraki adresimiz dizipal1593.com olacaktÄ±r.
+              <a href="https://dizipal1592.com/">Åimdiki adres</a>
+            </body></html>
+        """.trimIndent()
+
+        assertThat(provider.extractAdvertisedNextDomain(html, 1592))
+            .isEqualTo("https://dizipal1593.com")
+    }
+    @Test
     fun dplayerMaster_preservesExternalAudioAndAbsolutizesUris() {
         val master = """
             #EXTM3U

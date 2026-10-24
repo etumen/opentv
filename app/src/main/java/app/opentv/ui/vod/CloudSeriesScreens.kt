@@ -582,8 +582,8 @@ private fun CloudEpisodeCard(
 
     Box(
         Modifier
-            .width(380.dp)
-            .height(214.dp)
+            .width(320.dp)
+            .height(180.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .onFocusChanged { focused = it.isFocused }
             .clip(shape)

@@ -824,7 +824,7 @@ private fun LoadingVod(message: String) {
 }
 
 /** Poster shelf card width; the grid uses an adaptive min size close to this. */
-private val POSTER_WIDTH = 140.dp
+private val POSTER_WIDTH = 108.dp
 
 /** Rating to one decimal place, locale-independent (the "★" is drawn beside it). */
 internal fun formatRating(rating: Double): String = String.format(java.util.Locale.US, "%.1f", rating)

@@ -134,7 +134,7 @@ private fun DiscoveryHero(
     Box(
         Modifier
             .fillMaxWidth()
-            .height(490.dp),
+            .height(300.dp),
     ) {
         when {
             backdropModel != null -> {
@@ -153,9 +153,9 @@ private fun DiscoveryHero(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .padding(end = 72.dp, top = 24.dp, bottom = 24.dp)
-                        .width(286.dp)
-                        .height(430.dp)
+                        .padding(end = 36.dp, top = 18.dp, bottom = 18.dp)
+                        .width(152.dp)
+                        .height(228.dp)
                         .clip(RoundedCornerShape(18.dp)),
                 )
             }
@@ -193,8 +193,8 @@ private fun DiscoveryHero(
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 44.dp, end = 32.dp)
-                .width(760.dp),
+                .padding(start = 32.dp, end = 24.dp)
+                .width(460.dp),
         ) {
             Text(
                 text = content.title,
@@ -340,12 +340,12 @@ private fun PlatformShelf(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 6.dp, bottom = 2.dp),
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
         )
 
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(shelf.items, key = { shelf.id + ":" + it.id }) { content ->
                 val source = content.sources.firstOrNull()

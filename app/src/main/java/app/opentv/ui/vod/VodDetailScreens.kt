@@ -254,7 +254,7 @@ internal fun DetailBackdrop(
     Box(
         Modifier
             .fillMaxWidth()
-            .height(410.dp)
+            .height(360.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         // A detail hero only uses genuine landscape artwork as its background. If that URL is

@@ -22,3 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "OpenTV"
 include(":app")
+include(":opentv-core")
+project(":opentv-core").projectDir = file("shared/opentv-core")

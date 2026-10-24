@@ -164,6 +164,7 @@ fun CloudMovieDetailScreen(
                 backdropUrl = item.backdropUrl ?: item.posterUrl,
                 posterUrl = item.posterUrl,
                 meta = meta,
+                imdbBadge = item.externalIds.containsKey("imdb"),
             ) {
                 DetailButton(
                     icon = Icons.AutoMirrored.Filled.ArrowBack,

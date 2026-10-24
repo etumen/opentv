@@ -122,9 +122,12 @@ private fun DiscoveryHero(
     onClick: () -> Unit,
 ) {
     val source = content.sources.firstOrNull()
-    val imageUrl = content.backdropUrl ?: content.posterUrl
-    val imageModel = rememberProviderImageModel(
-        url = imageUrl,
+    val backdropModel = rememberProviderImageModel(
+        url = content.backdropUrl,
+        providerId = source?.providerId,
+    )
+    val posterModel = rememberProviderImageModel(
+        url = content.posterUrl,
         providerId = source?.providerId,
     )
 
@@ -133,13 +136,29 @@ private fun DiscoveryHero(
             .fillMaxWidth()
             .height(490.dp),
     ) {
-        if (imageModel != null) {
-            AsyncImage(
-                model = imageModel,
-                contentDescription = content.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
+        when {
+            backdropModel != null -> {
+                AsyncImage(
+                    model = backdropModel,
+                    contentDescription = content.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+
+            posterModel != null -> {
+                AsyncImage(
+                    model = posterModel,
+                    contentDescription = content.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 72.dp, top = 24.dp, bottom = 24.dp)
+                        .width(286.dp)
+                        .height(430.dp)
+                        .clip(RoundedCornerShape(18.dp)),
+                )
+            }
         }
 
         Box(

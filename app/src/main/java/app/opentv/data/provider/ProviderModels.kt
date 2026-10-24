@@ -47,6 +47,7 @@ data class ProviderItem(
     val year: Int? = null,
     val rating: Double? = null,
     val genres: List<String> = emptyList(),
+    val externalIds: Map<String, String> = emptyMap(),
 )
 
 data class ProviderDetails(

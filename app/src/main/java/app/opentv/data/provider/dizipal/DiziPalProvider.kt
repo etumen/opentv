@@ -419,6 +419,18 @@ class DiziPalProvider(
             .filter { it.isNotBlank() }
             .distinct()
 
+        val imdbId = doc.selectFirst("a[href*='imdb.com/title/tt']")
+            ?.attr("href")
+            ?.let { Regex("""tt\d{5,12}""", RegexOption.IGNORE_CASE).find(it)?.value }
+            ?.lowercase()
+            ?: Regex(
+                """imdb\.com/title/(tt\d{5,12})""",
+                RegexOption.IGNORE_CASE,
+            ).find(doc.html())?.groupValues?.getOrNull(1)?.lowercase()
+        val externalIds = buildMap {
+            imdbId?.let { put("imdb", it) }
+        }
+
         return ProviderDetails(
             item = ProviderItem(
                 providerId = id,
@@ -429,8 +441,10 @@ class DiziPalProvider(
                 description = description,
                 year = year,
                 genres = genres,
+                externalIds = externalIds,
             ),
             description = description,
+            externalIds = externalIds,
         )
     }
 

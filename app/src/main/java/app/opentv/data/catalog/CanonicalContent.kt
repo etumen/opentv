@@ -20,6 +20,7 @@ data class CanonicalContent(
     val year: Int? = null,
     val rating: Double? = null,
     val genres: List<String> = emptyList(),
+    val externalIds: Map<String, String> = emptyMap(),
     val sources: List<ContentSource>,
 )
 
@@ -34,6 +35,7 @@ data class ContentSource(
     val year: Int? = null,
     val rating: Double? = null,
     val genres: List<String> = emptyList(),
+    val externalIds: Map<String, String> = emptyMap(),
 )
 
 data class UnifiedCatalogResult(
@@ -53,4 +55,5 @@ internal fun ProviderItem.toContentSource(): ContentSource =
         year = year,
         rating = rating,
         genres = genres,
+        externalIds = externalIds,
     )

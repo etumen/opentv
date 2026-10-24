@@ -6,6 +6,7 @@ import java.text.Normalizer
 import java.util.Locale
 
 enum class ContentMatchConfidence {
+    EXTERNAL_ID,
     TITLE_AND_YEAR,
     EXACT_TITLE,
     NONE,
@@ -34,11 +35,27 @@ class ContentMatcher {
         rightTitle: String,
         rightType: ProviderMediaType,
         rightYear: Int?,
+        leftExternalIds: Map<String, String> = emptyMap(),
+        rightExternalIds: Map<String, String> = emptyMap(),
     ): ContentMatch {
         if (leftType != rightType) return ContentMatch(ContentMatchConfidence.NONE, "", null)
 
         val left = identity(leftTitle, leftYear)
         val right = identity(rightTitle, rightYear)
+        val leftIds = normalizeExternalIds(leftExternalIds)
+        val rightIds = normalizeExternalIds(rightExternalIds)
+        val sharedIdKeys = leftIds.keys.intersect(rightIds.keys)
+        if (sharedIdKeys.any { key -> leftIds[key] != rightIds[key] }) {
+            return ContentMatch(ContentMatchConfidence.NONE, left.title, left.year)
+        }
+        if (sharedIdKeys.isNotEmpty()) {
+            return ContentMatch(
+                ContentMatchConfidence.EXTERNAL_ID,
+                left.title.ifBlank { right.title },
+                left.year ?: right.year,
+            )
+        }
+
         if (left.title.isBlank() || left.title != right.title) {
             return ContentMatch(ContentMatchConfidence.NONE, left.title, left.year)
         }
@@ -70,6 +87,8 @@ class ContentMatcher {
                         rightTitle = item.title,
                         rightType = item.mediaType,
                         rightYear = item.year,
+                        leftExternalIds = existing.externalIds,
+                        rightExternalIds = item.externalIds,
                     ).isMatch
                 }
             }
@@ -86,9 +105,10 @@ class ContentMatcher {
         val year = identities.firstNotNullOfOrNull { it.year }
         val normalizedTitle = identities.first().title
         val best = group.maxByOrNull(::metadataScore) ?: first
+        val externalIds = mergeExternalIds(group)
 
         return CanonicalContent(
-            id = canonicalId(first.mediaType, normalizedTitle, year),
+            id = canonicalIdNormalized(first.mediaType, normalizedTitle, year, externalIds),
             title = best.title.trim(),
             mediaType = first.mediaType,
             posterUrl = group.firstNotNullOfOrNull { it.posterUrl?.takeIf(String::isNotBlank) },
@@ -99,6 +119,7 @@ class ContentMatcher {
             year = year,
             rating = group.mapNotNull { it.rating }.maxOrNull(),
             genres = group.flatMap { it.genres }.distinct(),
+            externalIds = externalIds,
             sources = group
                 .distinctBy { it.providerId to it.id }
                 .map(ProviderItem::toContentSource),
@@ -113,18 +134,62 @@ class ContentMatcher {
         ).count { !it.isNullOrBlank() } +
             if (item.year != null) 1 else 0 +
             if (item.rating != null) 1 else 0 +
-            if (item.genres.isNotEmpty()) 1 else 0
+            if (item.genres.isNotEmpty()) 1 else 0 +
+            if (item.externalIds.isNotEmpty()) 2 else 0
 
-    private fun canonicalId(
+    fun canonicalId(
+        mediaType: ProviderMediaType,
+        title: String,
+        year: Int?,
+        externalIds: Map<String, String> = emptyMap(),
+    ): String = canonicalIdNormalized(
+        mediaType = mediaType,
+        normalizedTitle = identity(title, year).title,
+        year = year,
+        externalIds = normalizeExternalIds(externalIds),
+    )
+
+    private fun canonicalIdNormalized(
         mediaType: ProviderMediaType,
         normalizedTitle: String,
         year: Int?,
+        externalIds: Map<String, String>,
     ): String {
+        val stableId = listOf("imdb", "tmdb")
+            .firstNotNullOfOrNull { key -> externalIds[key]?.let { key to it } }
+        if (stableId != null) {
+            return mediaType.name.lowercase(Locale.ROOT) + ":" +
+                stableId.first + ":" + stableId.second
+        }
+
         val slug = normalizedTitle
             .replace(Regex("""[^a-z0-9]+"""), "-")
             .trim('-')
             .ifBlank { "untitled" }
         return mediaType.name.lowercase(Locale.ROOT) + ":" + slug + ":" + (year ?: "unknown")
+    }
+
+    private fun normalizeExternalIds(values: Map<String, String>): Map<String, String> =
+        values.mapNotNull { (rawKey, rawValue) ->
+            val key = rawKey.trim().lowercase(Locale.ROOT)
+            val value = rawValue.trim().lowercase(Locale.ROOT)
+            if (key.isBlank() || value.isBlank()) null else key to value
+        }.toMap()
+
+    private fun mergeExternalIds(group: List<ProviderItem>): Map<String, String> {
+        val merged = linkedMapOf<String, String>()
+        val conflicts = mutableSetOf<String>()
+        group.forEach { item ->
+            normalizeExternalIds(item.externalIds).forEach { (key, value) ->
+                val existing = merged[key]
+                when {
+                    existing == null -> merged[key] = value
+                    existing != value -> conflicts += key
+                }
+            }
+        }
+        conflicts.forEach(merged::remove)
+        return merged
     }
 
     private fun identity(title: String, explicitYear: Int?): Identity {

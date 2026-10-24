@@ -40,6 +40,27 @@ class UnifiedSeriesResolverTest {
     }
 
     @Test
+    fun resolve_promotesPrimaryExternalIdToCanonicalIdentity() = runTest {
+        val resolver = resolver(
+            FakeSeriesProvider(
+                "a",
+                streamFails = false,
+                detailExternalIds = mapOf("imdb" to "tt9288030"),
+            ),
+            FakeSeriesProvider("b", streamFails = false),
+        )
+
+        val result = resolver.resolve("a", "a-series") as ProviderResult.Success
+
+        assertThat(result.value.content.id).isEqualTo("series:imdb:tt9288030")
+        assertThat(result.value.content.externalIds)
+            .containsEntry("imdb", "tt9288030")
+        assertThat(
+            result.value.content.sources.first { it.providerId == "a" }.externalIds,
+        ).containsEntry("imdb", "tt9288030")
+    }
+
+    @Test
     fun playback_fallsBackToNextProviderWhenFirstSourceFails() = runTest {
         val resolver = resolver(
             FakeSeriesProvider("a", streamFails = true),
@@ -84,6 +105,8 @@ class UnifiedSeriesResolverTest {
     private class FakeSeriesProvider(
         override val id: String,
         private val streamFails: Boolean,
+        private val searchExternalIds: Map<String, String> = emptyMap(),
+        private val detailExternalIds: Map<String, String> = emptyMap(),
     ) : Provider {
         override val name: String = id
         override val supportedMediaTypes = setOf(ProviderMediaType.SERIES)
@@ -100,6 +123,7 @@ class UnifiedSeriesResolverTest {
                         title = "Reacher",
                         mediaType = ProviderMediaType.SERIES,
                         year = 2022,
+                        externalIds = searchExternalIds,
                     ),
                 ),
             )
@@ -113,7 +137,9 @@ class UnifiedSeriesResolverTest {
                         title = "Reacher",
                         mediaType = ProviderMediaType.SERIES,
                         year = 2022,
+                        externalIds = detailExternalIds,
                     ),
+                    externalIds = detailExternalIds,
                 ),
             )
 

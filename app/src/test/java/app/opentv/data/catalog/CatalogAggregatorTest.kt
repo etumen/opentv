@@ -103,6 +103,58 @@ class CatalogAggregatorTest {
     }
 
     @Test
+    fun merge_prefersSharedExternalIdOverTitleDifferences() {
+        val items = listOf(
+            ProviderItem(
+                "a",
+                "reacher-a",
+                "Reacher",
+                ProviderMediaType.SERIES,
+                year = 2022,
+                externalIds = mapOf("imdb" to "tt9288030"),
+            ),
+            ProviderItem(
+                "b",
+                "reacher-b",
+                "Jack Reacher Dizisi",
+                ProviderMediaType.SERIES,
+                externalIds = mapOf("IMDB" to "TT9288030"),
+            ),
+        )
+
+        val result = ContentMatcher().merge(items)
+
+        assertThat(result).hasSize(1)
+        assertThat(result.single().id).isEqualTo("series:imdb:tt9288030")
+        assertThat(result.single().externalIds).containsEntry("imdb", "tt9288030")
+        assertThat(result.single().sources).hasSize(2)
+    }
+
+    @Test
+    fun merge_keepsConflictingExternalIdsSeparate() {
+        val items = listOf(
+            ProviderItem(
+                "a",
+                "same-a",
+                "Same",
+                ProviderMediaType.SERIES,
+                year = 2022,
+                externalIds = mapOf("imdb" to "tt1111111"),
+            ),
+            ProviderItem(
+                "b",
+                "same-b",
+                "Same",
+                ProviderMediaType.SERIES,
+                year = 2022,
+                externalIds = mapOf("imdb" to "tt2222222"),
+            ),
+        )
+
+        assertThat(ContentMatcher().merge(items)).hasSize(2)
+    }
+
+    @Test
     fun search_keepsHealthyResultsWhenProviderFails() = runTest {
         val repository = ProviderRepository(
             ProviderRegistry(

@@ -106,6 +106,7 @@ class DiziPalProviderTest {
               <body>
                 <h1 class="series-title">Örnek Dizi</h1>
                 <p class="series-description">Açıklama.</p>
+                <a href="https://www.imdb.com/title/tt9288030/">IMDb</a>
                 <div class="info-row">Yıl <span class="info-value">2026</span></div>
                 <div class="info-row">Kategoriler
                   <span class="info-value categories"><a>Dram</a><a>Gizem</a></span>
@@ -131,6 +132,8 @@ class DiziPalProviderTest {
         assertThat(details?.item?.title).isEqualTo("Örnek Dizi")
         assertThat(details?.item?.year).isEqualTo(2026)
         assertThat(details?.item?.genres).containsExactly("Dram", "Gizem")
+        assertThat(details?.item?.externalIds).containsEntry("imdb", "tt9288030")
+        assertThat(details?.externalIds).containsEntry("imdb", "tt9288030")
         assertThat(episodes).hasSize(1)
         assertThat(episodes.single().season).isEqualTo(1)
         assertThat(episodes.single().episodeNumber).isEqualTo(3)

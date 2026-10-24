@@ -82,6 +82,8 @@ class UnifiedSeriesResolver(
                 rightTitle = candidate.title,
                 rightType = candidate.mediaType,
                 rightYear = candidate.year,
+                leftExternalIds = primary.item.externalIds,
+                rightExternalIds = candidate.externalIds,
             ).isMatch
         }
 
@@ -185,13 +187,15 @@ class UnifiedSeriesResolver(
         content: CanonicalContent,
         primary: ProviderItem,
     ): CanonicalContent {
-        if (content.sources.any {
-                it.providerId == primary.providerId && it.itemId == primary.id
-            }
-        ) {
-            return content
-        }
+        val externalIds = content.externalIds + primary.externalIds
         return content.copy(
+            id = matcher.canonicalId(
+                mediaType = content.mediaType,
+                title = content.title,
+                year = content.year,
+                externalIds = externalIds,
+            ),
+            externalIds = externalIds,
             sources = (listOf(primary.toContentSource()) + content.sources)
                 .distinctBy { it.providerId to it.itemId },
         )

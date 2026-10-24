@@ -1,5 +1,9 @@
 package app.opentv.data.catalog
 
+import app.opentv.data.metadata.ContentMetadata
+import app.opentv.data.metadata.MetadataIdentity
+import app.opentv.data.metadata.MetadataRepository
+import app.opentv.data.metadata.MetadataSource
 import app.opentv.data.provider.Provider
 import app.opentv.data.provider.ProviderCatalogPage
 import app.opentv.data.provider.ProviderCatalogRequest
@@ -58,6 +62,52 @@ class UnifiedSeriesResolverTest {
         assertThat(
             result.value.content.sources.first { it.providerId == "a" }.externalIds,
         ).containsEntry("imdb", "tt9288030")
+    }
+
+    @Test
+    fun resolve_enrichesMetadataFromExternalSourceFoundOnSecondaryProvider() = runTest {
+        val providers = listOf(
+            FakeSeriesProvider("a", streamFails = false),
+            FakeSeriesProvider(
+                "b",
+                streamFails = false,
+                detailExternalIds = mapOf("imdb" to "tt9288030"),
+            ),
+        )
+        val repository = ProviderRepository(ProviderRegistry(providers))
+        val catalog = CatalogAggregator(repository)
+        val metadata = MetadataRepository(
+            sources = listOf(
+                object : MetadataSource {
+                    override val id: String = "fake-imdb"
+
+                    override suspend fun resolve(identity: MetadataIdentity): ContentMetadata? {
+                        if (identity.externalIds["imdb"] != "tt9288030") return null
+                        return ContentMetadata(
+                            sourceId = id,
+                            externalIds = mapOf("imdb" to "tt9288030"),
+                            title = "Reacher",
+                            year = 2022,
+                            posterUrl = "https://metadata.test/reacher.jpg",
+                            cast = listOf("Alan Ritchson", "Maria Sten"),
+                        )
+                    }
+                },
+            ),
+        )
+        val resolver = UnifiedSeriesResolver(
+            repository = repository,
+            catalog = catalog,
+            metadata = metadata,
+        )
+
+        val result = resolver.resolve("a", "a-series") as ProviderResult.Success
+
+        assertThat(result.value.content.id).isEqualTo("series:imdb:tt9288030")
+        assertThat(result.value.content.posterUrl)
+            .isEqualTo("https://metadata.test/reacher.jpg")
+        assertThat(result.value.content.externalIds)
+            .containsEntry("imdb", "tt9288030")
     }
 
     @Test

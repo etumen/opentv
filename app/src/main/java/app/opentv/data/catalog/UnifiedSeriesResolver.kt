@@ -1,5 +1,7 @@
 package app.opentv.data.catalog
 
+import app.opentv.data.metadata.MetadataIdentity
+import app.opentv.data.metadata.MetadataRepository
 import app.opentv.data.provider.ProviderDetails
 import app.opentv.data.provider.ProviderEpisode
 import app.opentv.data.provider.ProviderError
@@ -58,6 +60,7 @@ class UnifiedSeriesResolver(
     private val catalog: CatalogAggregator,
     private val matcher: ContentMatcher = ContentMatcher(),
     private val health: ProviderHealthTracker = ProviderHealthTracker(),
+    private val metadata: MetadataRepository? = null,
 ) {
     suspend fun resolve(
         providerId: String,
@@ -87,10 +90,45 @@ class UnifiedSeriesResolver(
             ).isMatch
         }
 
-        val canonical = ensurePrimarySource(
+        var canonical = ensurePrimarySource(
             matched ?: catalog.merge(listOf(primary.item)).single(),
             primary.item,
         )
+
+        val detailFailures = linkedMapOf<String, ProviderError>()
+        val detailResults = coroutineScope {
+            canonical.sources.map { source ->
+                async {
+                    source to if (
+                        source.providerId == providerId &&
+                        source.itemId == itemId
+                    ) {
+                        ProviderResult.Success(primary)
+                    } else {
+                        repository.load(source.providerId, source.itemId)
+                    }
+                }
+            }.awaitAll()
+        }
+
+        val detailedItems = mutableListOf(primary.item)
+        detailResults.forEach { (source, result) ->
+            when (result) {
+                is ProviderResult.Success -> detailedItems += result.value.item
+                is ProviderResult.Failure -> detailFailures[source.providerId] = result.error
+            }
+        }
+        val detailedCanonical = catalog.merge(detailedItems)
+            .firstOrNull { content ->
+                content.sources.any {
+                    it.providerId == providerId && it.itemId == itemId
+                }
+            }
+        if (detailedCanonical != null) {
+            canonical = mergeCanonicalContent(canonical, detailedCanonical)
+        }
+        canonical = enrichMetadata(canonical)
+
         val orderedSources = canonical.sources.sortedWith(
             compareByDescending<ContentSource> { health.score(it.providerId) }
                 .thenBy { source ->
@@ -107,6 +145,7 @@ class UnifiedSeriesResolver(
         }
 
         val failures = linkedMapOf<String, ProviderError>()
+        failures.putAll(detailFailures)
         val episodeGroups = linkedMapOf<Pair<Int, Int>, MutableList<ProviderEpisode>>()
         episodeResults.forEach { (source, result) ->
             when (result) {
@@ -180,6 +219,65 @@ class UnifiedSeriesResolver(
                 message = "No playable source found for S" +
                     episode.season + "E" + episode.episodeNumber,
             ),
+        )
+    }
+
+    private fun mergeCanonicalContent(
+        base: CanonicalContent,
+        detailed: CanonicalContent,
+    ): CanonicalContent {
+        val externalIds = base.externalIds + detailed.externalIds
+        val title = detailed.title.ifBlank { base.title }
+        val year = detailed.year ?: base.year
+        return base.copy(
+            id = matcher.canonicalId(
+                mediaType = base.mediaType,
+                title = title,
+                year = year,
+                externalIds = externalIds,
+            ),
+            title = title,
+            posterUrl = detailed.posterUrl ?: base.posterUrl,
+            backdropUrl = detailed.backdropUrl ?: base.backdropUrl,
+            description = detailed.description ?: base.description,
+            year = year,
+            rating = detailed.rating ?: base.rating,
+            genres = (detailed.genres + base.genres).distinct(),
+            externalIds = externalIds,
+            sources = (detailed.sources + base.sources)
+                .distinctBy { it.providerId to it.itemId },
+        )
+    }
+
+    private suspend fun enrichMetadata(content: CanonicalContent): CanonicalContent {
+        val repository = metadata ?: return content
+        if (content.externalIds.isEmpty()) return content
+        val resolved = repository.resolve(
+            MetadataIdentity(content.externalIds),
+        ) ?: return content
+
+        val externalIds = content.externalIds + resolved.externalIds
+        val title = resolved.title?.takeIf { it.isNotBlank() } ?: content.title
+        val year = resolved.year ?: content.year
+        return content.copy(
+            id = matcher.canonicalId(
+                mediaType = content.mediaType,
+                title = title,
+                year = year,
+                externalIds = externalIds,
+            ),
+            title = title,
+            posterUrl = resolved.posterUrl ?: content.posterUrl,
+            backdropUrl = resolved.backdropUrl ?: content.backdropUrl,
+            description = resolved.description ?: content.description,
+            year = year,
+            rating = resolved.rating ?: content.rating,
+            genres = if (resolved.genres.isNotEmpty()) {
+                resolved.genres
+            } else {
+                content.genres
+            },
+            externalIds = externalIds,
         )
     }
 

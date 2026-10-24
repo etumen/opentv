@@ -10,6 +10,9 @@ import app.opentv.data.catalog.CatalogAggregator
 import app.opentv.data.catalog.ProviderHealthTracker
 import app.opentv.data.catalog.UnifiedSeriesResolver
 import app.opentv.data.db.OpenTvDatabase
+import app.opentv.data.metadata.ImdbSuggestionMetadataSource
+import app.opentv.data.metadata.MetadataRepository
+import app.opentv.data.metadata.SharedPreferencesMetadataCache
 import app.opentv.data.provider.ProviderRegistry
 import app.opentv.data.provider.ProviderRepository
 import app.opentv.data.provider.ddizibox.DiziBoxProvider
@@ -105,11 +108,20 @@ object ServiceLocator {
                 appContext.getSharedPreferences("provider_health", Context.MODE_PRIVATE),
             )
         }
+        val metadataRepository: MetadataRepository by lazy {
+            MetadataRepository(
+                sources = listOf(ImdbSuggestionMetadataSource(httpClient)),
+                cache = SharedPreferencesMetadataCache(
+                    appContext.getSharedPreferences("content_metadata", Context.MODE_PRIVATE),
+                ),
+            )
+        }
         val unifiedSeries: UnifiedSeriesResolver by lazy {
             UnifiedSeriesResolver(
                 repository = providerRepository,
                 catalog = unifiedCatalog,
                 health = providerHealth,
+                metadata = metadataRepository,
             )
         }
 

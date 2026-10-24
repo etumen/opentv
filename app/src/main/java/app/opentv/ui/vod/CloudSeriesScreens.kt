@@ -52,8 +52,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,6 +71,7 @@ import app.opentv.data.provider.ProviderItem
 import app.opentv.data.provider.ProviderResult
 import app.opentv.data.provider.ProviderStream
 import app.opentv.data.provider.ProviderSubtitle
+import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 
 @Composable
@@ -537,67 +540,111 @@ private fun CloudEpisodeCard(
 ) {
     var focused by remember(episode.id) { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.045f else 1f,
+        targetValue = if (focused) 1.05f else 1f,
         label = "episodeCardScale",
     )
-    Column(
+    val shape = RoundedCornerShape(14.dp)
+    val episodeMeta = buildList {
+        add("S" + episode.season + " · B" + episode.episodeNumber)
+        if (episode.sources.size > 1) {
+            add(stringResource(R.string.cloud_sources_count, episode.sources.size))
+        }
+    }.joinToString(" · ")
+
+    Box(
         Modifier
-            .width(300.dp)
-            .height(168.dp)
+            .width(380.dp)
+            .height(214.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .onFocusChanged { focused = it.isFocused }
-            .clip(RoundedCornerShape(12.dp))
+            .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .then(
                 if (focused) Modifier.border(
                     3.dp,
                     MaterialTheme.colorScheme.primary,
-                    RoundedCornerShape(12.dp),
+                    shape,
                 ) else Modifier,
             )
             .clickable(enabled = !resolving, onClick = onClick)
-            .focusable(enabled = !resolving)
-            .padding(16.dp),
+            .focusable(enabled = !resolving),
     ) {
-        Box(
-            Modifier.fillMaxWidth().weight(1f),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (resolving) {
-                CircularProgressIndicator(
-                    modifier = Modifier.width(34.dp).height(34.dp),
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Icon(
-                    Icons.Filled.PlayArrow,
-                    contentDescription = null,
-                    tint = if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.82f),
-                    modifier = Modifier.width(42.dp).height(42.dp),
-                )
-            }
+        episode.stillUrl?.takeIf { it.isNotBlank() }?.let { stillUrl ->
+            AsyncImage(
+                model = stillUrl,
+                contentDescription = episode.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
 
-        val episodeMeta = buildList {
-            add("S" + episode.season + " \u00B7 B" + episode.episodeNumber)
-            if (episode.sources.size > 1) {
-                add(stringResource(R.string.cloud_sources_count, episode.sources.size))
-            }
-        }.joinToString(" \u00B7 ")
-        Text(
-            episodeMeta,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        if (episode.stillUrl.isNullOrBlank()) {
+            Icon(
+                Icons.Filled.PlayArrow,
+                contentDescription = null,
+                tint = if (focused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    Color.White.copy(alpha = 0.72f)
+                },
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .width(48.dp)
+                    .height(48.dp),
+            )
+        }
+
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.18f),
+                            Color.Black.copy(alpha = 0.88f),
+                        ),
+                        startY = 55f,
+                    ),
+                ),
         )
-        Spacer(Modifier.height(3.dp))
-        Text(
-            episode.title,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+
+        if (resolving) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .width(38.dp)
+                    .height(38.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            Text(
+                episodeMeta,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (focused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    Color.White.copy(alpha = 0.78f)
+                },
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                episode.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 private fun preferredSeriesSubtitle(

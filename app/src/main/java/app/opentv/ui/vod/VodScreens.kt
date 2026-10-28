@@ -494,24 +494,24 @@ internal fun PosterCard(
         }
     }
     var posterFailed by remember(posterUrl) { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.06f else 1f, label = "posterScale")
+    val scale by animateFloatAsState(if (focused) 1.055f else 1f, label = "posterScale")
     Column(
         modifier
             .width(POSTER_WIDTH)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .onFocusChanged { focused = it.isFocused }
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(6.dp))
             .clickable(onClick = onClick)
-            .padding(4.dp),
+            .padding(2.dp),
     ) {
         Box(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(5.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .then(
-                    if (focused) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                    if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(5.dp))
                     else Modifier,
                 ),
         ) {
@@ -552,7 +552,13 @@ internal fun PosterCard(
                 Badge(
                     text = it,
                     highlight = true,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+                    modifier = Modifier.align(Alignment.TopStart).padding(5.dp),
+                )
+            }
+            subtitle?.takeIf { it.matches(Regex("""\d{4}""")) }?.let {
+                Badge(
+                    text = it,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(5.dp),
                 )
             }
             progress?.let {
@@ -562,20 +568,21 @@ internal fun PosterCard(
                 )
             }
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
         Text(
             title,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = if (focused) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        subtitle?.let {
+        subtitle?.takeUnless { it.matches(Regex("""\d{4}""")) }?.let {
             Text(
                 it,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -824,7 +831,7 @@ private fun LoadingVod(message: String) {
 }
 
 /** Poster shelf card width; the grid uses an adaptive min size close to this. */
-private val POSTER_WIDTH = 108.dp
+private val POSTER_WIDTH = 112.dp
 
 /** Rating to one decimal place, locale-independent (the "★" is drawn beside it). */
 internal fun formatRating(rating: Double): String = String.format(java.util.Locale.US, "%.1f", rating)

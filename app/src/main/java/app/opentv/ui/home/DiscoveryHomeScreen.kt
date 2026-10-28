@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -91,8 +92,8 @@ fun DiscoveryHomeScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 36.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             hero?.let { item ->
                 item(key = "hero:" + item.id) {
@@ -134,7 +135,7 @@ private fun DiscoveryHero(
     Box(
         Modifier
             .fillMaxWidth()
-            .height(300.dp),
+            .aspectRatio(1920f / 560f),
     ) {
         when {
             backdropModel != null -> {
@@ -193,31 +194,31 @@ private fun DiscoveryHero(
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 32.dp, end = 24.dp)
-                .width(460.dp),
+                .padding(start = 26.dp, end = 24.dp)
+                .width(370.dp),
         ) {
             Text(
                 text = content.title,
-                style = MaterialTheme.typography.displaySmall,
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(6.dp))
 
             HeroMetadata(content)
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(7.dp))
 
             content.description?.takeIf { it.isNotBlank() }?.let { description ->
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f),
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(12.dp))
             }
 
             HeroAction(onClick = onClick)
@@ -229,7 +230,7 @@ private fun DiscoveryHero(
 private fun HeroMetadata(content: CanonicalContent) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         content.rating?.takeIf { it > 0.0 }?.let { rating ->
             Text(
@@ -249,7 +250,7 @@ private fun HeroMetadata(content: CanonicalContent) {
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
                     .background(Color(0xFFF5C518))
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = 5.dp, vertical = 2.dp),
             )
         }
 
@@ -264,12 +265,12 @@ private fun HeroMetadata(content: CanonicalContent) {
         content.genres.take(3).forEach { genre ->
             Text(
                 text = "•",
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
             )
             Text(
                 text = genre,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
             )
@@ -302,15 +303,15 @@ private fun HeroAction(onClick: () -> Unit) {
                 scaleY = scale
             }
             .onFocusChanged { focused = it.isFocused }
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(6.dp))
             .background(background)
             .border(
                 width = if (focused) 2.dp else 0.dp,
                 color = MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(6.dp),
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 11.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -318,7 +319,7 @@ private fun HeroAction(onClick: () -> Unit) {
             contentDescription = null,
             tint = foreground,
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(5.dp))
         Text(
             text = "İzle",
             style = MaterialTheme.typography.titleMedium,
@@ -340,12 +341,12 @@ private fun PlatformShelf(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 1.dp),
         )
 
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             items(shelf.items, key = { shelf.id + ":" + it.id }) { content ->
                 val source = content.sources.firstOrNull()

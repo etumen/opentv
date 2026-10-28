@@ -281,23 +281,23 @@ private fun TopNavigationBar(
     Row(
         Modifier
             .fillMaxWidth()
-            .height(58.dp)
+            .height(40.dp)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
             .focusGroup()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(
-            modifier = Modifier.padding(end = 12.dp),
+            modifier = Modifier.padding(end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Image(
                 painter = painterResource(R.drawable.ic_opentv_logo),
                 contentDescription = "OpenTV",
-                modifier = Modifier.size(30.dp),
+                modifier = Modifier.size(24.dp),
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(5.dp))
             Text(
                 text = "OpenTV",
                 style = MaterialTheme.typography.titleLarge,
@@ -319,6 +319,7 @@ private fun TopNavigationBar(
                 icon = tab.icon,
                 label = stringResource(tab.labelRes),
                 selected = current == tab,
+                showIcon = false,
                 onClick = { onSelect(tab) },
             )
         }
@@ -348,6 +349,7 @@ private fun TopNavItem(
     label: String,
     selected: Boolean,
     compact: Boolean = false,
+    showIcon: Boolean = true,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -376,28 +378,30 @@ private fun TopNavItem(
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(background)
-            .border(2.dp, borderColor, RoundedCornerShape(18.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(
-                horizontal = if (compact) 10.dp else 14.dp,
-                vertical = 7.dp,
+                horizontal = if (compact) 8.dp else 11.dp,
+                vertical = 5.dp,
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = foreground,
-            modifier = Modifier.size(18.dp),
-        )
+        if (showIcon) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = foreground,
+                modifier = Modifier.size(16.dp),
+            )
+        }
         if (!compact) {
-            Spacer(Modifier.width(7.dp))
+            if (showIcon) Spacer(Modifier.width(5.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.labelLarge,
                 color = foreground,
                 fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,

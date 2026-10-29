@@ -290,12 +290,12 @@ private fun TopNavigationBar(
     Row(
         Modifier
             .fillMaxWidth()
-            .height(58.dp)
+            .height(64.dp)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
             .focusGroup()
-            .padding(horizontal = 20.dp, vertical = 6.dp),
+            .padding(horizontal = 20.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
         Row(
             modifier = Modifier.padding(end = 12.dp),
@@ -304,7 +304,7 @@ private fun TopNavigationBar(
             Image(
                 painter = painterResource(R.drawable.ic_opentv_logo),
                 contentDescription = "OpenTV",
-                modifier = Modifier.size(30.dp),
+                modifier = Modifier.size(32.dp),
             )
             Spacer(Modifier.width(8.dp))
             Text(
@@ -393,8 +393,8 @@ private fun TopNavItem(
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(
-                horizontal = if (compact) 10.dp else 15.dp,
-                vertical = 8.dp,
+                horizontal = if (compact) 11.dp else 16.dp,
+                vertical = 9.dp,
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -410,7 +410,7 @@ private fun TopNavItem(
             if (showIcon) Spacer(Modifier.width(8.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 color = foreground,
                 fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,

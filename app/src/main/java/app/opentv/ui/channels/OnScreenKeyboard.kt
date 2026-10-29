@@ -52,13 +52,13 @@ internal fun OnScreenKeyboard(
     onBackspace: () -> Unit,
     onClear: () -> Unit,
 ) {
-    val keyRows = listOf("1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM")
+    val keyRows = listOf("1234567890", "QWERTYUIOPĞÜ", "ASDFGHJKLŞİ", "ZXCVBNMÖÇ")
     val firstKey = remember { FocusRequester() }
     val context = LocalContext.current
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         keyRows.forEachIndexed { rowIndex, line ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 line.forEachIndexed { colIndex, ch ->
                     KeyCap(
                         label = ch.toString(),
@@ -68,7 +68,7 @@ internal fun OnScreenKeyboard(
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             KeyCap(label = stringResource(R.string.kbd_space), wide = 3, onClick = onSpace)
             // Paste the clipboard through the same onKey callback the letter keys use, so it lands
             // in whatever field this keyboard is driving. Empty clipboard just says so, no crash.
@@ -102,8 +102,8 @@ private fun KeyCap(
     val fg = if (focused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     Box(
         Modifier
-            .height(48.dp)
-            .width((48 * wide + (wide - 1) * 8).dp)
+            .height(46.dp)
+            .width((44 * wide + (wide - 1) * 6).dp)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(8.dp))

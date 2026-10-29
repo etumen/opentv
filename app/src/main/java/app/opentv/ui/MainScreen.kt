@@ -73,6 +73,7 @@ import app.opentv.data.provider.ProviderItem
 import app.opentv.ui.channels.HomeScreen
 import app.opentv.ui.home.DiscoveryHomeScreen
 import app.opentv.ui.recordings.RecordingsScreen
+import app.opentv.ui.vod.AsianDramaScreen
 import app.opentv.ui.vod.MoviesScreen
 import app.opentv.ui.vod.SeriesScreen
 
@@ -85,6 +86,7 @@ enum class Tab(val labelRes: Int, val icon: ImageVector) {
     LIVE(R.string.nav_live_tv, Icons.Filled.LiveTv),
     MOVIES(R.string.nav_movies, Icons.Filled.Movie),
     SHOWS(R.string.nav_shows, Icons.Filled.Tv),
+    ASIAN_DRAMA(R.string.nav_asian_drama, Icons.Filled.Tv),
     RECORDINGS(R.string.nav_recordings, Icons.Filled.FiberManualRecord),
 }
 
@@ -120,7 +122,10 @@ fun MainScreen(
         buildList {
             add(Tab.HOME)
             if (moviesEnabled) add(Tab.MOVIES)
-            if (seriesEnabled) add(Tab.SHOWS)
+            if (seriesEnabled) {
+                add(Tab.SHOWS)
+                add(Tab.ASIAN_DRAMA)
+            }
             if (liveEnabled) add(Tab.LIVE)
             add(Tab.RECORDINGS)
         }
@@ -210,6 +215,10 @@ fun MainScreen(
                     onOpenSearch = onOpenSearch,
                     hasSources = hasSources,
                     isSyncing = isSyncing,
+                )
+                Tab.ASIAN_DRAMA -> AsianDramaScreen(
+                    onOpenCloudSeries = onOpenCloudSeries,
+                    onOpenSearch = onOpenSearch,
                 )
                 Tab.RECORDINGS -> RecordingsScreen(onPlay = onPlayRecording)
             }

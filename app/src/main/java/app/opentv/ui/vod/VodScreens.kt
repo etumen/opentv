@@ -173,7 +173,7 @@ fun MoviesScreen(
 @Composable
 fun SeriesScreen(
     onOpenSeries: (Series) -> Unit,
-    onOpenCloudSeries: (app.opentv.data.provider.ProviderItem) -> Unit,
+    onOpenCloudSeries: (ProviderItem) -> Unit,
     onResume: (mediaKey: String, url: String, title: String) -> Unit,
     onOpenSearch: () -> Unit,
     hasSources: Boolean,
@@ -181,45 +181,46 @@ fun SeriesScreen(
     viewModel: VodViewModel = viewModel(),
     cloudViewModel: CloudSeriesViewModel = viewModel(),
 ) {
+    val categories by viewModel.seriesCategories.collectAsState()
     val resume by viewModel.continueWatching.collectAsState()
-    val cloudProviders by cloudViewModel.providers.collectAsState()
-    val unifiedItems by cloudViewModel.unifiedCatalogItems.collectAsState()
-    val unifiedHasMore by cloudViewModel.unifiedCatalogHasMore.collectAsState()
-    val unifiedLoading by cloudViewModel.loadingUnifiedCatalog.collectAsState()
-    val unifiedLoadingMore by cloudViewModel.loadingMoreUnifiedCatalog.collectAsState()
-    val asianItems by cloudViewModel.asianDramaItems.collectAsState()
-    val asianHasMore by cloudViewModel.asianDramaHasMore.collectAsState()
-    val asianLoading by cloudViewModel.loadingAsianDrama.collectAsState()
-    val asianLoadingMore by cloudViewModel.loadingMoreAsianDrama.collectAsState()
+    val recentlyAdded by viewModel.recentlyAddedSeries.collectAsState()
+    val genreRows by viewModel.seriesGenreRows.collectAsState()
+    val categorySeries by viewModel.series.collectAsState()
+    val vodLoading by viewModel.vodLoading.collectAsState()
+    val sources by viewModel.sources.collectAsState()
+    val selectedSource by viewModel.selectedVodSource.collectAsState()
+
+    val allCloudProviders by cloudViewModel.providers.collectAsState()
+    val cloudProviders = remember(allCloudProviders) {
+        allCloudProviders.filterNot { it.id == "dramadizilerim" }
+    }
+    val selectedCloudProviderId by cloudViewModel.selectedProviderId.collectAsState()
+    val selectedCloudSectionId by cloudViewModel.selectedSectionId.collectAsState()
+    val cloudShelves by cloudViewModel.shelves.collectAsState()
+    val cloudSectionItems by cloudViewModel.selectedSectionItems.collectAsState()
+    val cloudSectionNextPage by cloudViewModel.selectedSectionNextPage.collectAsState()
+    val cloudLoading by cloudViewModel.loading.collectAsState()
+    val cloudSectionLoading by cloudViewModel.loadingSelectedSection.collectAsState()
+    val cloudSectionLoadingMore by cloudViewModel.loadingMoreSelectedSection.collectAsState()
 
     LaunchedEffect(Unit) {
         if (hasSources) viewModel.ensureVodLoaded()
         viewModel.loadHomeFeeds()
-        cloudViewModel.loadUnifiedCatalog()
-        cloudViewModel.loadAsianDrama()
     }
 
-    fun openCanonical(content: app.opentv.data.catalog.CanonicalContent) {
-        content.sources.firstOrNull()?.let { source ->
-            onOpenCloudSeries(
-                ProviderItem(
-                    providerId = source.providerId,
-                    id = source.itemId,
-                    title = content.title,
-                    mediaType = content.mediaType,
-                    posterUrl = content.posterUrl,
-                    backdropUrl = content.backdropUrl,
-                    description = content.description,
-                    year = content.year,
-                    rating = content.rating,
-                    genres = content.genres,
-                    externalIds = content.externalIds,
-                ),
-            )
+    LaunchedEffect(cloudProviders, selectedCloudProviderId) {
+        val selectedIsVisible = cloudProviders.any { it.id == selectedCloudProviderId }
+        if (!selectedIsVisible) {
+            cloudProviders.firstOrNull()?.let { cloudViewModel.selectProvider(it.id) }
+        } else if (selectedCloudSectionId == null) {
+            cloudViewModel.loadShelves()
         }
     }
 
-    val hasContent = resume.isNotEmpty() || unifiedItems.isNotEmpty() || asianItems.isNotEmpty()
+    var browseCategory by remember { mutableStateOf<String?>(null) }
+
+    val hasContent = resume.isNotEmpty() || recentlyAdded.isNotEmpty() ||
+        genreRows.isNotEmpty() || cloudShelves.isNotEmpty()
 
     Column(Modifier.fillMaxSize()) {
         if (cloudProviders.any { it.id == "dizipal" }) {
@@ -228,48 +229,143 @@ fun SeriesScreen(
 
         SearchAffordance(onOpenSearch)
 
+        CloudSeriesTvControls(
+            providers = cloudProviders,
+            selectedProviderId = selectedCloudProviderId,
+            selectedSectionId = selectedCloudSectionId,
+            onSelectProvider = { id ->
+                browseCategory = null
+                cloudViewModel.selectProvider(id)
+            },
+            onSelectSection = { id ->
+                browseCategory = null
+                cloudViewModel.selectSection(id)
+            },
+        )
+
+        if (sources.size > 1) {
+            ProviderChips(
+                sources = sources,
+                selected = selectedSource,
+                onSelectAll = { browseCategory = null; viewModel.selectVodSource(null) },
+                onSelectSource = { id -> browseCategory = null; viewModel.selectVodSource(id) },
+            )
+        }
+        if (categories.isNotEmpty()) {
+            CategoryChips(
+                entries = categories.map { it.id to it.name },
+                selected = browseCategory,
+                onSelectHome = { browseCategory = null },
+                onSelectCategory = { id -> browseCategory = id; viewModel.selectSeriesCategory(id) },
+            )
+        }
+
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (!hasContent && (unifiedLoading || asianLoading || isSyncing)) {
-                LoadingVod(stringResource(R.string.vod_loading_shows))
-            } else if (!hasContent) {
-                EmptyVod(
-                    stringResource(R.string.vod_no_shows),
-                    stringResource(R.string.vod_no_shows_provider),
+            when {
+                selectedCloudSectionId != null -> CloudSeriesCategoryGrid(
+                    items = cloudSectionItems,
+                    hasNextPage = cloudSectionNextPage != null,
+                    loading = cloudSectionLoading,
+                    loadingMore = cloudSectionLoadingMore,
+                    onOpenSeries = onOpenCloudSeries,
+                    onLoadMore = cloudViewModel::loadMoreSelectedSection,
                 )
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(top = 8.dp, bottom = 28.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                browseCategory != null -> SeriesCategoryGrid(categorySeries, onOpenSeries)
+                !hasContent -> when {
+                    cloudLoading || vodLoading || isSyncing ->
+                        LoadingVod(stringResource(R.string.vod_loading_shows))
+                    hasSources -> EmptyVod(
+                        stringResource(R.string.vod_no_shows),
+                        stringResource(R.string.vod_no_shows_provider),
+                    )
+                    else -> EmptyVod(
+                        stringResource(R.string.vod_no_shows),
+                        stringResource(R.string.vod_no_shows_add),
+                    )
+                }
+                else -> LazyColumn(
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     if (resume.isNotEmpty()) {
                         item(key = "cw") { ContinueWatchingRow(resume, onResume) }
                     }
-                    if (unifiedItems.isNotEmpty()) {
-                        item(key = "unified-cloud-series") {
-                            UnifiedSeriesPosterRow(
-                                items = unifiedItems,
-                                hasMore = unifiedHasMore,
-                                loadingMore = unifiedLoadingMore,
-                                onOpenSeries = ::openCanonical,
-                                onLoadMore = cloudViewModel::loadMoreUnifiedCatalog,
+                    if (recentlyAdded.isNotEmpty()) {
+                        item(key = "recent") {
+                            SeriesPosterRow(
+                                stringResource(R.string.vod_recently_added),
+                                recentlyAdded,
+                                onOpenSeries,
                             )
                         }
                     }
-                    if (asianItems.isNotEmpty()) {
-                        item(key = "asian-drama-series") {
-                            UnifiedSeriesPosterRow(
-                                items = asianItems,
-                                title = stringResource(R.string.vod_asian_drama),
-                                hasMore = asianHasMore,
-                                loadingMore = asianLoadingMore,
-                                onOpenSeries = ::openCanonical,
-                                onLoadMore = cloudViewModel::loadMoreAsianDrama,
-                            )
-                        }
+                    items(genreRows, key = { "g:" + it.genre }) { group ->
+                        SeriesPosterRow(group.genre, group.items, onOpenSeries)
+                    }
+                    items(
+                        cloudShelves,
+                        key = { "cloud-series:" + it.providerId + ":" + it.section.id },
+                    ) { shelf ->
+                        CloudSeriesPosterRow(
+                            shelf = shelf,
+                            onOpenSeries = onOpenCloudSeries,
+                            onLoadMore = { cloudViewModel.loadMoreShelf(shelf.section.id) },
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun AsianDramaScreen(
+    onOpenCloudSeries: (ProviderItem) -> Unit,
+    onOpenSearch: () -> Unit,
+    cloudViewModel: CloudSeriesViewModel = viewModel(),
+) {
+    val items by cloudViewModel.asianDramaItems.collectAsState()
+    val hasMore by cloudViewModel.asianDramaHasMore.collectAsState()
+    val loading by cloudViewModel.loadingAsianDrama.collectAsState()
+    val loadingMore by cloudViewModel.loadingMoreAsianDrama.collectAsState()
+
+    LaunchedEffect(Unit) {
+        cloudViewModel.loadAsianDrama()
+    }
+
+    val providerItems = remember(items) {
+        items.mapNotNull { content ->
+            val source = content.sources.firstOrNull { it.providerId == "dramadizilerim" }
+                ?: content.sources.firstOrNull()
+                ?: return@mapNotNull null
+            ProviderItem(
+                providerId = source.providerId,
+                id = source.itemId,
+                title = content.title,
+                mediaType = content.mediaType,
+                posterUrl = content.posterUrl,
+                backdropUrl = content.backdropUrl,
+                description = content.description,
+                year = content.year,
+                rating = content.rating,
+                genres = content.genres,
+                externalIds = content.externalIds,
+            )
+        }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        SearchAffordance(onOpenSearch)
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            CloudSeriesCategoryGrid(
+                items = providerItems,
+                hasNextPage = hasMore,
+                loading = loading,
+                loadingMore = loadingMore,
+                onOpenSeries = onOpenCloudSeries,
+                onLoadMore = cloudViewModel::loadMoreAsianDrama,
+            )
         }
     }
 }

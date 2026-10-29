@@ -93,7 +93,7 @@ fun DiscoveryHomeScreen(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             hero?.let { item ->
                 item(key = "hero:" + item.id) {
@@ -194,8 +194,8 @@ private fun DiscoveryHero(
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 26.dp, end = 24.dp)
-                .width(370.dp),
+                .padding(start = 32.dp, end = 28.dp)
+                .width(460.dp),
         ) {
             Text(
                 text = content.title,
@@ -341,12 +341,12 @@ private fun PlatformShelf(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 1.dp),
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 3.dp),
         )
 
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 7.dp),
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(shelf.items, key = { shelf.id + ":" + it.id }) { content ->
                 val source = content.sources.firstOrNull()

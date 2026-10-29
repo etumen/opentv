@@ -146,8 +146,8 @@ internal fun CloudSeriesPosterRow(
         SectionHeader(shelf.section.title)
         LazyRow(
             state = rowState,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(shelf.items, key = { shelf.providerId + ":" + it.id }) { item ->
                 PosterCard(
@@ -176,6 +176,7 @@ internal fun CloudSeriesPosterRow(
 @Composable
 internal fun UnifiedSeriesPosterRow(
     items: List<CanonicalContent>,
+    title: String? = null,
     hasMore: Boolean,
     loadingMore: Boolean,
     onOpenSeries: (CanonicalContent) -> Unit,
@@ -193,11 +194,11 @@ internal fun UnifiedSeriesPosterRow(
     }
 
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(stringResource(R.string.nav_shows))
+        SectionHeader(title ?: stringResource(R.string.nav_shows))
         LazyRow(
             state = rowState,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(items, key = { "unified:" + it.id }) { item ->
                 val providerId = item.sources.firstOrNull()?.providerId.orEmpty()
@@ -323,6 +324,7 @@ fun CloudSeriesDetailScreen(
     var pickerSubtitles by remember(providerId, itemId) { mutableStateOf<List<ProviderSubtitle>>(emptyList()) }
     val scope = rememberCoroutineScope()
     val noStreamMessage = stringResource(R.string.cloud_no_stream)
+    val playbackFailedMessage = stringResource(R.string.vod_playback_failed)
 
     BackHandler { onBack() }
 
@@ -409,7 +411,7 @@ fun CloudSeriesDetailScreen(
                             }
                         }
                     }
-                    is ProviderResult.Failure -> error = result.error.message
+                    is ProviderResult.Failure -> error = playbackFailedMessage
                 }
                 resolvingEpisodeId = null
             }
@@ -462,6 +464,7 @@ fun CloudSeriesDetailScreen(
             }
         } else if (activeSeason != null) {
             item(key = "season-selector") {
+                SectionHeader(stringResource(R.string.vod_seasons))
                 SeasonSelector(
                     seasons = seasons.keys.toList(),
                     selected = activeSeason,
@@ -469,10 +472,10 @@ fun CloudSeriesDetailScreen(
                 )
             }
             item(key = "episodes:" + activeSeason) {
-                SectionHeader(stringResource(R.string.vod_season, activeSeason))
+                SectionHeader(stringResource(R.string.vod_episodes))
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                     items(
                         seasons[activeSeason].orEmpty(),
@@ -524,38 +527,39 @@ private fun SeasonSelector(
     onSelect: (Int) -> Unit,
 ) {
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         items(seasons, key = { "season-pill:" + it }) { season ->
             var focused by remember(season) { mutableStateOf(false) }
             val isSelected = season == selected
             val scale by animateFloatAsState(
-                targetValue = if (focused) 1.04f else 1f,
+                targetValue = if (focused) 1.07f else 1f,
                 label = "seasonScale",
             )
             Text(
                 text = stringResource(R.string.vod_season, season),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                 color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
                     .graphicsLayer { scaleX = scale; scaleY = scale }
                     .onFocusChanged { focused = it.isFocused }
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(
                         if (isSelected) Color.White
                         else MaterialTheme.colorScheme.surfaceVariant,
                     )
                     .then(
                         if (focused) Modifier.border(
-                            2.dp,
+                            3.dp,
                             MaterialTheme.colorScheme.primary,
-                            RoundedCornerShape(20.dp),
+                            RoundedCornerShape(16.dp),
                         ) else Modifier,
                     )
                     .clickable { onSelect(season) }
-                    .padding(horizontal = 18.dp, vertical = 9.dp),
+                    .focusable()
+                    .padding(horizontal = 24.dp, vertical = 11.dp),
             )
         }
     }
@@ -582,8 +586,8 @@ private fun CloudEpisodeCard(
 
     Box(
         Modifier
-            .width(320.dp)
-            .height(180.dp)
+            .width(360.dp)
+            .height(203.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .onFocusChanged { focused = it.isFocused }
             .clip(shape)

@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -62,12 +63,64 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.provider.ProviderDetails
 import app.opentv.data.provider.ProviderItem
 import app.opentv.data.provider.ProviderResult
 import app.opentv.data.provider.ProviderStream
 import app.opentv.data.provider.ProviderSubtitle
 import kotlinx.coroutines.launch
+
+@Composable
+internal fun UnifiedMoviePosterRow(
+    items: List<CanonicalContent>,
+    hasMore: Boolean,
+    loadingMore: Boolean,
+    onOpenMovie: (CanonicalContent) -> Unit,
+    onLoadMore: () -> Unit,
+) {
+    if (items.isEmpty()) return
+    val rowState = rememberLazyListState()
+
+    LaunchedEffect(items.size, hasMore) {
+        if (!hasMore) return@LaunchedEffect
+        snapshotFlow { rowState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .collect { lastVisible ->
+                if (lastVisible >= items.lastIndex - 4) onLoadMore()
+            }
+    }
+
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(stringResource(R.string.vod_all_movies))
+        LazyRow(
+            state = rowState,
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(items, key = { "unified-movie:" + it.id }) { item ->
+                val source = item.sources.firstOrNull()
+                PosterCard(
+                    title = item.title,
+                    posterUrl = item.posterUrl,
+                    providerId = source?.providerId,
+                    subtitle = item.year?.toString(),
+                    rating = item.rating,
+                    onClick = { onOpenMovie(item) },
+                )
+            }
+            if (loadingMore) {
+                item(key = "unified-movie-loading") {
+                    Box(
+                        Modifier.width(72.dp).height(180.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 internal fun CloudMoviePosterRow(

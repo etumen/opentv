@@ -445,6 +445,11 @@
     <string name="vod_cast">Cast</string>
     <string name="vod_director">Director</string>
     <string name="vod_season">Season %1$d</string>
+    <string name="vod_seasons">Seasons</string>
+    <string name="vod_episodes">Episodes</string>
+    <string name="vod_all_movies">All Movies</string>
+    <string name="vod_asian_drama">Asian / Drama</string>
+    <string name="vod_playback_failed">No playable source was found. Other sources were also tried.</string>
     <string name="vod_detail_loading">Loading…</string>
     <string name="vod_person_title">With %1$s</string>
     <string name="vod_person_empty">Nothing else with %1$s in your library.</string>

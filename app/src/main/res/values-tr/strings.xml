@@ -18,7 +18,7 @@
     <string name="common_try_again">Tekrar dene</string>
     <string name="cloud_sources_count">%1$d kaynak</string>
     <string name="nav_home">Ana Sayfa</string>
-    <string name="nav_live_tv">Canlı TV</string>
+    <string name="nav_live_tv">Super TV</string>
     <string name="nav_movies">Filmler</string>
     <string name="nav_shows">Diziler</string>
     <string name="nav_recordings">Kayıtlar</string>
@@ -392,6 +392,11 @@
     <string name="vod_cast">Oyuncular</string>
     <string name="vod_director">Yönetmen</string>
     <string name="vod_season">%1$d. Sezon</string>
+    <string name="vod_seasons">Sezonlar</string>
+    <string name="vod_episodes">Bölümler</string>
+    <string name="vod_all_movies">Tüm Filmler</string>
+    <string name="vod_asian_drama">Asya / Drama</string>
+    <string name="vod_playback_failed">Oynatılabilir kaynak bulunamadı. Diğer kaynaklar da denendi.</string>
     <string name="vod_detail_loading">Yükleniyor…</string>
     <string name="vod_person_title">%1$s ile</string>
     <string name="vod_person_empty">Kitaplığınızda %1$s ile başka içerik yok.</string>

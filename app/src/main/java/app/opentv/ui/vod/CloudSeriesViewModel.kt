@@ -125,9 +125,22 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
     private val _loadingMoreUnifiedCatalog = MutableStateFlow(false)
     val loadingMoreUnifiedCatalog: StateFlow<Boolean> = _loadingMoreUnifiedCatalog.asStateFlow()
 
+    private val _asianDramaItems = MutableStateFlow<List<CanonicalContent>>(emptyList())
+    val asianDramaItems: StateFlow<List<CanonicalContent>> = _asianDramaItems.asStateFlow()
+
+    private val _asianDramaHasMore = MutableStateFlow(false)
+    val asianDramaHasMore: StateFlow<Boolean> = _asianDramaHasMore.asStateFlow()
+
+    private val _loadingAsianDrama = MutableStateFlow(false)
+    val loadingAsianDrama: StateFlow<Boolean> = _loadingAsianDrama.asStateFlow()
+
+    private val _loadingMoreAsianDrama = MutableStateFlow(false)
+    val loadingMoreAsianDrama: StateFlow<Boolean> = _loadingMoreAsianDrama.asStateFlow()
+
     private var loadedProviderId: String? = null
     private var searchJob: Job? = null
     private var unifiedPager: UnifiedCatalogPager? = null
+    private var asianDramaPager: UnifiedCatalogPager? = null
 
     fun selectProvider(providerId: String) {
         if (_selectedProviderId.value == providerId && loadedProviderId == providerId) return
@@ -368,6 +381,48 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
                 page.failures.values.firstOrNull()?.let { _lastError.value = it }
             } finally {
                 _loadingMoreUnifiedCatalog.value = false
+            }
+        }
+    }
+
+    fun loadAsianDrama(force: Boolean = false) {
+        if (_loadingAsianDrama.value) return
+        if (!force && _asianDramaItems.value.isNotEmpty()) return
+
+        viewModelScope.launch {
+            _loadingAsianDrama.value = true
+            try {
+                val pager = unifiedCatalog.pager(
+                    mediaType = ProviderMediaType.SERIES,
+                    sectionId = "asian",
+                )
+                asianDramaPager = pager
+                val page = pager.loadInitial()
+                _asianDramaItems.value = page.items
+                _asianDramaHasMore.value = page.hasMore
+                page.failures.values.firstOrNull()?.let { _lastError.value = it }
+            } finally {
+                _loadingAsianDrama.value = false
+            }
+        }
+    }
+
+    fun loadMoreAsianDrama() {
+        val pager = asianDramaPager ?: return loadAsianDrama()
+        if (!_asianDramaHasMore.value ||
+            _loadingAsianDrama.value ||
+            _loadingMoreAsianDrama.value
+        ) return
+
+        viewModelScope.launch {
+            _loadingMoreAsianDrama.value = true
+            try {
+                val page = pager.loadMore()
+                _asianDramaItems.value = page.items
+                _asianDramaHasMore.value = page.hasMore
+                page.failures.values.firstOrNull()?.let { _lastError.value = it }
+            } finally {
+                _loadingMoreAsianDrama.value = false
             }
         }
     }

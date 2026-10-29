@@ -281,23 +281,23 @@ private fun TopNavigationBar(
     Row(
         Modifier
             .fillMaxWidth()
-            .height(40.dp)
+            .height(58.dp)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
             .focusGroup()
-            .padding(horizontal = 12.dp, vertical = 3.dp),
+            .padding(horizontal = 20.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
-            modifier = Modifier.padding(end = 8.dp),
+            modifier = Modifier.padding(end = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Image(
                 painter = painterResource(R.drawable.ic_opentv_logo),
                 contentDescription = "OpenTV",
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(30.dp),
             )
-            Spacer(Modifier.width(5.dp))
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = "OpenTV",
                 style = MaterialTheme.typography.titleLarge,
@@ -354,7 +354,7 @@ private fun TopNavItem(
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.045f else 1f,
+        targetValue = if (focused) 1.05f else 1f,
         label = "topNavScale",
     )
     val background = when {
@@ -378,14 +378,14 @@ private fun TopNavItem(
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(background)
-            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+            .border(2.dp, borderColor, RoundedCornerShape(18.dp))
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(
-                horizontal = if (compact) 8.dp else 11.dp,
-                vertical = 5.dp,
+                horizontal = if (compact) 10.dp else 15.dp,
+                vertical = 8.dp,
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -394,14 +394,14 @@ private fun TopNavItem(
                 imageVector = icon,
                 contentDescription = label,
                 tint = foreground,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(18.dp),
             )
         }
         if (!compact) {
-            if (showIcon) Spacer(Modifier.width(5.dp))
+            if (showIcon) Spacer(Modifier.width(8.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = foreground,
                 fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,

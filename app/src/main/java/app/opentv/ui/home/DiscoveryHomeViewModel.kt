@@ -37,6 +37,7 @@ class DiscoveryHomeViewModel(app: Application) : AndroidViewModel(app) {
         Collection("prime", "Prime Video", "prime"),
         Collection("disney", "Disney+", "disney"),
         Collection("exxen", "Exxen", "exxen"),
+        Collection("asian", "Asya / Drama", "asian"),
     )
 
     private val _shelves = MutableStateFlow<List<DiscoveryShelf>>(emptyList())

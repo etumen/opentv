@@ -17,6 +17,7 @@ import app.opentv.data.provider.ProviderRegistry
 import app.opentv.data.provider.ProviderRepository
 import app.opentv.data.provider.ddizibox.DiziBoxProvider
 import app.opentv.data.provider.dizipal.DiziPalProvider
+import app.opentv.data.provider.dramadizilerim.DramaDizilerimProvider
 import app.opentv.data.provider.filmmakinesi.FilmMakinesiProvider
 import app.opentv.data.provider.fullhd.FullHdFilmizleseneProvider
 import app.opentv.data.remote.StalkerApi
@@ -98,6 +99,7 @@ object ServiceLocator {
                     FilmMakinesiProvider(httpClient),
                     DiziPalProvider(appContext, httpClient),
                     DiziBoxProvider(httpClient),
+                    DramaDizilerimProvider(httpClient),
                 ),
             )
         }

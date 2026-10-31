@@ -6,12 +6,13 @@
 package app.opentv.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import app.opentv.R
 import app.opentv.core.findActivity
 import app.opentv.core.StatusBus
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Person
@@ -52,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -68,25 +71,24 @@ import app.opentv.data.model.Recording
 import app.opentv.data.model.Series
 import app.opentv.data.provider.ProviderItem
 import app.opentv.ui.channels.HomeScreen
+import app.opentv.ui.home.DiscoveryHomeScreen
 import app.opentv.ui.recordings.RecordingsScreen
+import app.opentv.ui.vod.AsianDramaScreen
 import app.opentv.ui.vod.MoviesScreen
 import app.opentv.ui.vod.SeriesScreen
 
 /**
- * The shell: a slim navigation rail down the left over a content area. The rail sits collapsed as
- * an icon strip and expands to show labels the moment focus lands in it — the TiviMate-style side
- * menu people asked for, instead of a top bar that ate a row of the guide. It overlays the content
- * rather than pushing it, so expanding the menu never reflows the guide underneath.
+ * The TV shell: a compact cinematic top navigation bar inspired by living-room streaming apps.
+ * Search and primary destinations stay visible at a glance while the content keeps the full width.
  */
 enum class Tab(val labelRes: Int, val icon: ImageVector) {
+    HOME(R.string.nav_home, Icons.Filled.Home),
     LIVE(R.string.nav_live_tv, Icons.Filled.LiveTv),
     MOVIES(R.string.nav_movies, Icons.Filled.Movie),
     SHOWS(R.string.nav_shows, Icons.Filled.Tv),
+    ASIAN_DRAMA(R.string.nav_asian_drama, Icons.Filled.Tv),
     RECORDINGS(R.string.nav_recordings, Icons.Filled.FiberManualRecord),
 }
-
-private val RAIL_COLLAPSED = 76.dp
-private val RAIL_EXPANDED = 236.dp
 
 @Composable
 fun MainScreen(
@@ -118,15 +120,19 @@ fun MainScreen(
     val seriesEnabled by settings.seriesEnabled.collectAsState()
     val visibleTabs = remember(liveEnabled, moviesEnabled, seriesEnabled) {
         buildList {
-            if (liveEnabled) add(Tab.LIVE)
+            add(Tab.HOME)
             if (moviesEnabled) add(Tab.MOVIES)
-            if (seriesEnabled) add(Tab.SHOWS)
+            if (seriesEnabled) {
+                add(Tab.SHOWS)
+                add(Tab.ASIAN_DRAMA)
+            }
+            if (liveEnabled) add(Tab.LIVE)
             add(Tab.RECORDINGS)
         }
     }
     // The default/home tab is the first visible one — Live TV normally, otherwise the first type
     // still switched on (or Recordings if none are).
-    val homeTab = visibleTabs.first()
+    val homeTab = Tab.HOME
 
     var tab by rememberSaveable { mutableStateOf(homeTab) }
 
@@ -160,12 +166,12 @@ fun MainScreen(
         )
     }
 
-    // The rail sits beside the content and pushes it, rather than floating over it. The Live TV
-    // screen has its own category rail down its left edge, and an overlaying menu would land on top
-    // of it and leave a sliver poking out — so they live side by side and never collide.
-    Column(Modifier.fillMaxSize()) {
-      Row(Modifier.weight(1f).fillMaxWidth()) {
-        NavRail(
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        TopNavigationBar(
             tabs = visibleTabs,
             current = tab,
             onSelect = { tab = it },
@@ -175,8 +181,16 @@ fun MainScreen(
             activeProfileName = activeProfileName,
         )
 
-        Box(Modifier.weight(1f).fillMaxHeight()) {
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
             when (tab) {
+                Tab.HOME -> DiscoveryHomeScreen(
+                    onOpenMovie = onOpenCloudMovie,
+                    onOpenSeries = onOpenCloudSeries,
+                )
                 Tab.LIVE -> HomeScreen(
                     isTelevision = isTelevision,
                     hasSources = hasSources,
@@ -202,11 +216,15 @@ fun MainScreen(
                     hasSources = hasSources,
                     isSyncing = isSyncing,
                 )
+                Tab.ASIAN_DRAMA -> AsianDramaScreen(
+                    onOpenCloudSeries = onOpenCloudSeries,
+                    onOpenSearch = onOpenSearch,
+                )
                 Tab.RECORDINGS -> RecordingsScreen(onPlay = onPlayRecording)
             }
         }
-      }
-      StatusBar()
+
+        StatusBar()
     }
 }
 
@@ -260,7 +278,7 @@ private fun StatusBar() {
 }
 
 @Composable
-private fun NavRail(
+private fun TopNavigationBar(
     tabs: List<Tab>,
     current: Tab,
     onSelect: (Tab) -> Unit,
@@ -268,100 +286,133 @@ private fun NavRail(
     onOpenSettings: () -> Unit,
     onOpenProfiles: () -> Unit,
     activeProfileName: String,
-    modifier: Modifier = Modifier,
 ) {
-    // Expand whenever focus is anywhere inside the rail; collapse back to icons when it leaves.
-    var expanded by remember { mutableStateOf(false) }
-    val width by animateDpAsState(
-        targetValue = if (expanded) RAIL_EXPANDED else RAIL_COLLAPSED,
-        label = "railWidth",
-    )
-
-    Column(
-        modifier
-            .width(width)
-            .fillMaxHeight()
-            .background(MaterialTheme.colorScheme.surface)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
             .focusGroup()
-            .onFocusChanged { expanded = it.hasFocus }
-            .padding(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(horizontal = 20.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
-        // Brand: the logo mark alone when collapsed, the mark + "OpenTV" wordmark when open. The
-        // name stays on purpose — it's what people search for.
         Row(
-            Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+            modifier = Modifier.padding(end = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Image(
                 painter = painterResource(R.drawable.ic_opentv_logo),
                 contentDescription = "OpenTV",
-                modifier = Modifier.size(34.dp),
+                modifier = Modifier.size(32.dp),
             )
-            if (expanded) {
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    "OpenTV",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-
-        tabs.forEach { t ->
-            RailItem(t.icon, stringResource(t.labelRes), expanded, current == t) { onSelect(t) }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "OpenTV",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+            )
         }
 
-        Spacer(Modifier.height(1.dp).fillMaxWidth())
+        TopNavItem(
+            icon = Icons.Filled.Search,
+            label = stringResource(R.string.nav_search),
+            selected = false,
+            onClick = onOpenSearch,
+        )
+
+        tabs.forEach { tab ->
+            TopNavItem(
+                icon = tab.icon,
+                label = stringResource(tab.labelRes),
+                selected = current == tab,
+                showIcon = false,
+                onClick = { onSelect(tab) },
+            )
+        }
+
         Spacer(Modifier.weight(1f))
 
-        RailItem(Icons.Filled.Search, stringResource(R.string.nav_search), expanded, false, onOpenSearch)
-        RailItem(Icons.Filled.Person, activeProfileName, expanded, false, onOpenProfiles)
-        RailItem(Icons.Filled.Settings, stringResource(R.string.nav_settings), expanded, false, onOpenSettings)
+        TopNavItem(
+            icon = Icons.Filled.Person,
+            label = activeProfileName,
+            selected = false,
+            compact = true,
+            onClick = onOpenProfiles,
+        )
+        TopNavItem(
+            icon = Icons.Filled.Settings,
+            label = stringResource(R.string.nav_settings),
+            selected = false,
+            compact = true,
+            onClick = onOpenSettings,
+        )
     }
 }
 
 @Composable
-private fun RailItem(
+private fun TopNavItem(
     icon: ImageVector,
     label: String,
-    expanded: Boolean,
     selected: Boolean,
+    compact: Boolean = false,
+    showIcon: Boolean = true,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val bg = when {
-        focused -> MaterialTheme.colorScheme.primary
-        selected -> MaterialTheme.colorScheme.surfaceVariant
-        else -> MaterialTheme.colorScheme.surface
+    val scale by animateFloatAsState(
+        targetValue = if (focused) 1.05f else 1f,
+        label = "topNavScale",
+    )
+    val background = when {
+        selected -> androidx.compose.ui.graphics.Color.White
+        focused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        else -> androidx.compose.ui.graphics.Color.Transparent
     }
-    val tint = if (focused) MaterialTheme.colorScheme.onPrimary
-    else if (selected) MaterialTheme.colorScheme.onSurface
-    else MaterialTheme.colorScheme.onSurfaceVariant
+    val foreground = when {
+        selected -> androidx.compose.ui.graphics.Color.Black
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val borderColor = if (focused && !selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        androidx.compose.ui.graphics.Color.Transparent
+    }
 
     Row(
         Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(bg)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(RoundedCornerShape(18.dp))
+            .background(background)
+            .border(2.dp, borderColor, RoundedCornerShape(18.dp))
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(
+                horizontal = if (compact) 11.dp else 16.dp,
+                vertical = 9.dp,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = label, tint = tint)
-        if (expanded) {
-            Spacer(Modifier.width(14.dp))
+        if (showIcon) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = foreground,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        if (!compact) {
+            if (showIcon) Spacer(Modifier.width(8.dp))
             Text(
-                label,
-                style = MaterialTheme.typography.titleMedium,
-                color = tint,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                text = label,
+                style = MaterialTheme.typography.titleLarge,
+                color = foreground,
+                fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

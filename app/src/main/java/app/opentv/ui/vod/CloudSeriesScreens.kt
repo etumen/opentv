@@ -6,7 +6,9 @@
 package app.opentv.ui.vod
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -50,18 +52,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.data.catalog.CanonicalContent
+import app.opentv.data.catalog.CanonicalEpisode
+import app.opentv.data.catalog.UnifiedSeriesDetails
 import app.opentv.data.provider.ProviderDetails
-import app.opentv.data.provider.ProviderEpisode
 import app.opentv.data.provider.ProviderItem
 import app.opentv.data.provider.ProviderResult
 import app.opentv.data.provider.ProviderStream
 import app.opentv.data.provider.ProviderSubtitle
+import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 
 @Composable
@@ -136,8 +146,8 @@ internal fun CloudSeriesPosterRow(
         SectionHeader(shelf.section.title)
         LazyRow(
             state = rowState,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(shelf.items, key = { shelf.providerId + ":" + it.id }) { item ->
                 PosterCard(
@@ -151,6 +161,64 @@ internal fun CloudSeriesPosterRow(
             }
             if (shelf.loadingMore) {
                 item(key = "loading:" + shelf.section.id) {
+                    Box(
+                        Modifier.width(72.dp).height(180.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun UnifiedSeriesPosterRow(
+    items: List<CanonicalContent>,
+    title: String? = null,
+    hasMore: Boolean,
+    loadingMore: Boolean,
+    onOpenSeries: (CanonicalContent) -> Unit,
+    onLoadMore: () -> Unit,
+) {
+    if (items.isEmpty()) return
+    val rowState = rememberLazyListState()
+
+    LaunchedEffect(items.size, hasMore) {
+        if (!hasMore) return@LaunchedEffect
+        snapshotFlow { rowState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .collect { lastVisible ->
+                if (lastVisible >= items.lastIndex - 4) onLoadMore()
+            }
+    }
+
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(title ?: stringResource(R.string.nav_shows))
+        LazyRow(
+            state = rowState,
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            items(items, key = { "unified:" + it.id }) { item ->
+                val providerId = item.sources.firstOrNull()?.providerId.orEmpty()
+                val subtitle = buildList {
+                    item.year?.let { add(it.toString()) }
+                    if (item.sources.size > 1) {
+                        add(stringResource(R.string.cloud_sources_count, item.sources.size))
+                    }
+                }.joinToString(" · ").takeIf { it.isNotBlank() }
+                PosterCard(
+                    title = item.title,
+                    posterUrl = item.posterUrl,
+                    providerId = providerId,
+                    subtitle = subtitle,
+                    rating = item.rating,
+                    onClick = { onOpenSeries(item) },
+                )
+            }
+            if (loadingMore) {
+                item(key = "unified-loading") {
                     Box(
                         Modifier.width(72.dp).height(180.dp),
                         contentAlignment = Alignment.Center,
@@ -238,7 +306,7 @@ fun CloudSeriesDetailScreen(
     itemId: String,
     onPlayEpisode: (
         ProviderDetails,
-        ProviderEpisode,
+        CanonicalEpisode,
         ProviderStream,
         ProviderSubtitle?,
     ) -> Unit,
@@ -246,29 +314,31 @@ fun CloudSeriesDetailScreen(
     viewModel: CloudSeriesViewModel = viewModel(),
 ) {
     var details by remember(providerId, itemId) { mutableStateOf<ProviderDetails?>(null) }
-    var episodes by remember(providerId, itemId) { mutableStateOf<List<ProviderEpisode>>(emptyList()) }
+    var unified by remember(providerId, itemId) { mutableStateOf<UnifiedSeriesDetails?>(null) }
+    var episodes by remember(providerId, itemId) { mutableStateOf<List<CanonicalEpisode>>(emptyList()) }
     var loadingEpisodes by remember(providerId, itemId) { mutableStateOf(true) }
     var error by remember(providerId, itemId) { mutableStateOf<String?>(null) }
     var resolvingEpisodeId by remember(providerId, itemId) { mutableStateOf<String?>(null) }
-    var pickerEpisode by remember(providerId, itemId) { mutableStateOf<ProviderEpisode?>(null) }
+    var pickerEpisode by remember(providerId, itemId) { mutableStateOf<CanonicalEpisode?>(null) }
     var pickerStreams by remember(providerId, itemId) { mutableStateOf<List<ProviderStream>>(emptyList()) }
     var pickerSubtitles by remember(providerId, itemId) { mutableStateOf<List<ProviderSubtitle>>(emptyList()) }
     val scope = rememberCoroutineScope()
     val noStreamMessage = stringResource(R.string.cloud_no_stream)
+    val playbackFailedMessage = stringResource(R.string.vod_playback_failed)
 
     BackHandler { onBack() }
 
-    if (providerId == "dizipal") {
+    if (providerId == "dizipal" || unified?.content?.sources?.any { it.providerId == "dizipal" } == true) {
         DiziPalSessionAnchor()
     }
 
     LaunchedEffect(providerId, itemId) {
-        when (val result = viewModel.details(providerId, itemId)) {
-            is ProviderResult.Success -> details = result.value
-            is ProviderResult.Failure -> error = result.error.message
-        }
-        when (val result = viewModel.episodes(providerId, itemId)) {
-            is ProviderResult.Success -> episodes = result.value
+        when (val result = viewModel.unifiedDetails(providerId, itemId)) {
+            is ProviderResult.Success -> {
+                unified = result.value
+                details = result.value.details
+                episodes = result.value.episodes
+            }
             is ProviderResult.Failure -> error = result.error.message
         }
         loadingEpisodes = false
@@ -281,12 +351,28 @@ fun CloudSeriesDetailScreen(
         return
     }
 
-    val item = current.item
-    val providerName = viewModel.providerName(providerId)
+    val providerItem = current.item
+    val canonical = unified?.content
+    val displayItem = providerItem.copy(
+        title = canonical?.title?.takeIf { it.isNotBlank() } ?: providerItem.title,
+        posterUrl = canonical?.posterUrl ?: providerItem.posterUrl,
+        backdropUrl = canonical?.backdropUrl ?: providerItem.backdropUrl,
+        description = canonical?.description ?: providerItem.description,
+        year = canonical?.year ?: providerItem.year,
+        rating = canonical?.rating ?: providerItem.rating,
+        genres = canonical?.genres?.takeIf { it.isNotEmpty() } ?: providerItem.genres,
+        externalIds = providerItem.externalIds + canonical?.externalIds.orEmpty(),
+    )
+    val displayDetails = current.copy(
+        item = displayItem,
+        description = canonical?.description ?: current.description,
+        externalIds = current.externalIds + canonical?.externalIds.orEmpty(),
+    )
+    val sourceCount = canonical?.sources?.size ?: 1
     val meta = buildList {
-        item.year?.let { add(it.toString()) }
-        item.rating?.takeIf { it > 0.0 }?.let { add("★ %.1f".format(it)) }
-        add(providerName)
+        displayItem.year?.let { add(it.toString()) }
+        displayItem.rating?.takeIf { it > 0.0 }?.let { add("★ %.1f".format(it)) }
+        if (sourceCount > 1) add(stringResource(R.string.cloud_sources_count, sourceCount))
     }.joinToString("  ·  ")
     val seasons = remember(episodes) {
         episodes.groupBy { it.season }
@@ -294,14 +380,62 @@ fun CloudSeriesDetailScreen(
             .toSortedMap()
     }
 
+    var selectedSeason by remember(providerId, itemId) { mutableStateOf<Int?>(null) }
+    LaunchedEffect(seasons.keys.toList()) {
+        if (selectedSeason == null || !seasons.containsKey(selectedSeason)) {
+            selectedSeason = seasons.keys.firstOrNull()
+        }
+    }
+    val activeSeason = selectedSeason ?: seasons.keys.firstOrNull()
+    val firstEpisode = seasons.values.firstOrNull()?.firstOrNull()
+    val playEpisode: (CanonicalEpisode) -> Unit = { episode ->
+        if (resolvingEpisodeId == null) {
+            resolvingEpisodeId = episode.id
+            error = null
+            scope.launch {
+                when (val result = viewModel.episodePlayback(episode)) {
+                    is ProviderResult.Success -> {
+                        val playback = result.value
+                        when (playback.streams.size) {
+                            0 -> error = noStreamMessage
+                            1 -> onPlayEpisode(
+                                displayDetails,
+                                episode,
+                                playback.streams.single(),
+                                preferredSeriesSubtitle(playback.subtitles),
+                            )
+                            else -> {
+                                pickerEpisode = episode
+                                pickerStreams = playback.streams
+                                pickerSubtitles = playback.subtitles
+                            }
+                        }
+                    }
+                    is ProviderResult.Failure -> error = playbackFailedMessage
+                }
+                resolvingEpisodeId = null
+            }
+        }
+    }
+
     LazyColumn(Modifier.fillMaxSize()) {
         item(key = "header") {
             DetailBackdrop(
-                title = item.title,
-                backdropUrl = item.backdropUrl ?: item.posterUrl,
-                posterUrl = item.posterUrl,
+                title = displayItem.title,
+                backdropUrl = displayItem.backdropUrl,
+                posterUrl = displayItem.posterUrl,
                 meta = meta,
+                imdbBadge = displayItem.externalIds.containsKey("imdb"),
             ) {
+                firstEpisode?.let { episode ->
+                    DetailButton(
+                        icon = Icons.Filled.PlayArrow,
+                        label = stringResource(R.string.vod_watch_now) +
+                            " · S" + episode.season + " B" + episode.episodeNumber,
+                        primary = true,
+                        onClick = { playEpisode(episode) },
+                    )
+                }
                 DetailButton(
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
                     label = stringResource(R.string.common_back),
@@ -311,10 +445,10 @@ fun CloudSeriesDetailScreen(
         }
         item(key = "info") {
             DetailInfo(
-                plot = current.description,
-                cast = current.cast.joinToString(", ").takeIf { it.isNotBlank() },
-                director = current.director,
-                genre = item.genres.joinToString(", ").takeIf { it.isNotBlank() },
+                plot = displayDetails.description,
+                cast = displayDetails.cast.joinToString(", ").takeIf { it.isNotBlank() },
+                director = displayDetails.director,
+                genre = displayItem.genres.joinToString(", ").takeIf { it.isNotBlank() },
                 onOpenPerson = {},
             )
         }
@@ -328,58 +462,34 @@ fun CloudSeriesDetailScreen(
                     CircularProgressIndicator()
                 }
             }
-        } else {
-            seasons.forEach { (season, values) ->
-                item(key = "season:" + season) {
-                    Spacer(Modifier.height(8.dp))
-                    SectionHeader(stringResource(R.string.vod_season, season))
-                }
-                items(
-                    values,
-                    key = { "episode:" + it.id },
-                ) { episode ->
-                    CloudEpisodeRow(
-                        episode = episode,
-                        resolving = resolvingEpisodeId == episode.id,
-                        onClick = {
-                            if (resolvingEpisodeId != null) return@CloudEpisodeRow
-                            resolvingEpisodeId = episode.id
-                            error = null
-                            scope.launch {
-                                when (
-                                    val result = viewModel.episodePlayback(
-                                        providerId = providerId,
-                                        seriesId = itemId,
-                                        episodeId = episode.id,
-                                    )
-                                ) {
-                                    is ProviderResult.Success -> {
-                                        val playback = result.value
-                                        when (playback.streams.size) {
-                                            0 -> error = noStreamMessage
-                                            1 -> onPlayEpisode(
-                                                current,
-                                                episode,
-                                                playback.streams.single(),
-                                                preferredSeriesSubtitle(playback.subtitles),
-                                            )
-                                            else -> {
-                                                pickerEpisode = episode
-                                                pickerStreams = playback.streams
-                                                pickerSubtitles = playback.subtitles
-                                            }
-                                        }
-                                    }
-                                    is ProviderResult.Failure -> error = result.error.message
-                                }
-                                resolvingEpisodeId = null
-                            }
-                        },
-                    )
+        } else if (activeSeason != null) {
+            item(key = "season-selector") {
+                SectionHeader(stringResource(R.string.vod_seasons))
+                SeasonSelector(
+                    seasons = seasons.keys.toList(),
+                    selected = activeSeason,
+                    onSelect = { selectedSeason = it },
+                )
+            }
+            item(key = "episodes:" + activeSeason) {
+                SectionHeader(stringResource(R.string.vod_episodes))
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
+                    items(
+                        seasons[activeSeason].orEmpty(),
+                        key = { "episode:" + it.id },
+                    ) { episode ->
+                        CloudEpisodeCard(
+                            episode = episode,
+                            resolving = resolvingEpisodeId == episode.id,
+                            onClick = { playEpisode(episode) },
+                        )
+                    }
                 }
             }
         }
-
         error?.let { message ->
             item(key = "error") {
                 Text(
@@ -399,7 +509,7 @@ fun CloudSeriesDetailScreen(
             onPick = { stream ->
                 pickerEpisode = null
                 onPlayEpisode(
-                    current,
+                    displayDetails,
                     selectedEpisode,
                     stream,
                     preferredSeriesSubtitle(pickerSubtitles),
@@ -411,56 +521,165 @@ fun CloudSeriesDetailScreen(
 }
 
 @Composable
-private fun CloudEpisodeRow(
-    episode: ProviderEpisode,
+private fun SeasonSelector(
+    seasons: List<Int>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        items(seasons, key = { "season-pill:" + it }) { season ->
+            var focused by remember(season) { mutableStateOf(false) }
+            val isSelected = season == selected
+            val scale by animateFloatAsState(
+                targetValue = if (focused) 1.07f else 1f,
+                label = "seasonScale",
+            )
+            Text(
+                text = stringResource(R.string.vod_season, season),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .graphicsLayer { scaleX = scale; scaleY = scale }
+                    .onFocusChanged { focused = it.isFocused }
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        if (isSelected) Color.White
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                    )
+                    .then(
+                        if (focused) Modifier.border(
+                            3.dp,
+                            MaterialTheme.colorScheme.primary,
+                            RoundedCornerShape(16.dp),
+                        ) else Modifier,
+                    )
+                    .clickable { onSelect(season) }
+                    .focusable()
+                    .padding(horizontal = 24.dp, vertical = 11.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CloudEpisodeCard(
+    episode: CanonicalEpisode,
     resolving: Boolean,
     onClick: () -> Unit,
 ) {
     var focused by remember(episode.id) { mutableStateOf(false) }
-    Row(
+    val scale by animateFloatAsState(
+        targetValue = if (focused) 1.05f else 1f,
+        label = "episodeCardScale",
+    )
+    val shape = RoundedCornerShape(14.dp)
+    val episodeMeta = buildList {
+        add("S" + episode.season + " · B" + episode.episodeNumber)
+        if (episode.sources.size > 1) {
+            add(stringResource(R.string.cloud_sources_count, episode.sources.size))
+        }
+    }.joinToString(" · ")
+
+    Box(
         Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 3.dp)
+            .width(360.dp)
+            .height(203.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .onFocusChanged { focused = it.isFocused }
-            .clip(RoundedCornerShape(10.dp))
-            .background(
-                if (focused) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surface,
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .then(
+                if (focused) Modifier.border(
+                    3.dp,
+                    MaterialTheme.colorScheme.primary,
+                    shape,
+                ) else Modifier,
             )
             .clickable(enabled = !resolving, onClick = onClick)
-            .focusable(enabled = !resolving)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .focusable(enabled = !resolving),
     ) {
-        if (resolving) {
-            CircularProgressIndicator(
-                modifier = Modifier.width(30.dp).height(30.dp),
-                strokeWidth = 2.dp,
+        episode.stillUrl?.takeIf { it.isNotBlank() }?.let { stillUrl ->
+            AsyncImage(
+                model = stillUrl,
+                contentDescription = episode.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
             )
-        } else {
+        }
+
+        if (episode.stillUrl.isNullOrBlank()) {
             Icon(
                 Icons.Filled.PlayArrow,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = if (focused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    Color.White.copy(alpha = 0.72f)
+                },
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .width(48.dp)
+                    .height(48.dp),
             )
         }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                "S" + episode.season + " · B" + episode.episodeNumber,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.18f),
+                            Color.Black.copy(alpha = 0.88f),
+                        ),
+                        startY = 55f,
+                    ),
+                ),
+        )
+
+        if (resolving) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .width(38.dp)
+                    .height(38.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary,
             )
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            Text(
+                episodeMeta,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (focused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    Color.White.copy(alpha = 0.78f)
+                },
+            )
+            Spacer(Modifier.height(3.dp))
             Text(
                 episode.title,
                 style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
     }
 }
-
 private fun preferredSeriesSubtitle(
     values: List<ProviderSubtitle>,
 ): ProviderSubtitle? =

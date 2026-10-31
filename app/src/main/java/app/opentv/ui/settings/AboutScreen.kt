@@ -31,6 +31,7 @@ import app.opentv.pairing.QrCodes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -62,6 +63,7 @@ fun AboutScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val graph = remember(context) { ServiceLocator.get(context) }
     val sporbEnabled by graph.settings.sporbEnabled.collectAsState()
+    val sporbKnown by graph.settings.sporbKnown.collectAsState()
     var updateLine by remember { mutableStateOf<String?>(null) }
     var checking by remember { mutableStateOf(false) }
     var versionTapCount by remember { mutableStateOf(0) }
@@ -129,15 +131,51 @@ fun AboutScreen(onBack: () -> Unit) {
                 }
             }
 
-            if (showFeatureCode || sporbEnabled) {
+            if (showFeatureCode || sporbKnown || sporbEnabled) {
                 Spacer(Modifier.height(14.dp))
-                if (sporbEnabled) {
-                    Text(
-                        stringResource(R.string.about_sporb_enabled),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                } else {
+                if (sporbKnown || sporbEnabled) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(
+                                if (sporbEnabled) R.string.about_sporb_enabled
+                                else R.string.about_sporb_disabled,
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(
+                            checked = sporbEnabled,
+                            enabled = !featureBusy,
+                            onCheckedChange = { enabled ->
+                                if (enabled) {
+                                    // Turning back on always requires the feature code.
+                                    showFeatureCode = true
+                                } else {
+                                    featureBusy = true
+                                    scope.launch {
+                                        val disabled = runCatching {
+                                            graph.sourceRepository.disableSporbSource()
+                                        }.isSuccess
+                                        if (disabled) {
+                                            graph.settings.setSporbEnabled(false)
+                                            featureCode = ""
+                                            showFeatureCode = false
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                R.string.about_sporb_disable_failed,
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
+                                        featureBusy = false
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+                if (!sporbEnabled && showFeatureCode) {
                     OutlinedTextField(
                         value = featureCode,
                         onValueChange = { featureCode = it },
@@ -153,36 +191,39 @@ fun AboutScreen(onBack: () -> Unit) {
                             if (!featureCode.trim().equals("sporb", ignoreCase = true)) {
                                 Toast.makeText(
                                     context,
-                                    context.getString(R.string.about_feature_code_invalid),
+                                    R.string.about_feature_code_invalid,
                                     Toast.LENGTH_SHORT,
                                 ).show()
                                 return@OutlinedButton
                             }
-
-                            // The code is only a local feature switch, not a password. Persist it
-                            // immediately; if GitHub is temporarily unreachable, startup will retry
-                            // the still-empty managed source on the next launch.
-                            graph.settings.setSporbEnabled(true)
                             featureBusy = true
                             scope.launch {
-                                val synced = runCatching {
+                                val activation = runCatching {
                                     val ensured = graph.sourceRepository.ensureSporbSource()
                                     graph.catalogRepository.syncLive(
                                         ensured.source,
                                         System.currentTimeMillis(),
                                     )
-                                }.isSuccess
-
-                                featureCode = ""
-                                featureBusy = false
+                                }
+                                if (activation.isSuccess) {
+                                    graph.settings.setSporbKnown()
+                                    graph.settings.setSporbEnabled(true)
+                                    featureCode = ""
+                                    showFeatureCode = false
+                                } else {
+                                    // If source enabling partially succeeded, keep the playlist
+                                    // hidden until a later, successful code activation.
+                                    runCatching { graph.sourceRepository.disableSporbSource() }
+                                }
                                 Toast.makeText(
                                     context,
-                                    context.getString(
-                                        if (synced) R.string.about_sporb_enabled_synced
-                                        else R.string.about_sporb_enabled_sync_pending,
-                                    ),
+                                    if (activation.isFailure) R.string.about_sporb_activation_failed
+                                    else if (activation.getOrNull() is app.opentv.data.repo.CatalogRepository.SyncResult.Success) {
+                                        R.string.about_sporb_enabled_synced
+                                    } else R.string.about_sporb_enabled_sync_pending,
                                     Toast.LENGTH_LONG,
                                 ).show()
+                                featureBusy = false
                             }
                         },
                     ) {

@@ -10,6 +10,7 @@ import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
@@ -85,6 +86,7 @@ class PlayerController(
      * is a network round-trip — rides over the gaps instead of stalling on every one.
      */
     private val liveRecording: Boolean = false,
+    private val autoRetryOnFailure: Boolean = true,
 ) {
 
     /** Channel-surf debounce for this controller — longer for the preview so browsing is calm. */
@@ -251,7 +253,7 @@ class PlayerController(
                     )
                     // One silent restart covers the common case of a provider dropping the
                     // connection when another device on the account starts streaming.
-                    if (consecutiveFailures < MAX_AUTO_RESTARTS && request != null) {
+                    if (autoRetryOnFailure && consecutiveFailures < MAX_AUTO_RESTARTS && request != null) {
                         scope.launch {
                             delay(AUTO_RESTART_DELAY_MILLIS)
                             if (current == request) play(request, debounce = false)
@@ -288,7 +290,7 @@ class PlayerController(
             val mediaItem = MediaItem.Builder()
                 .setUri(request.url)
                 .apply {
-                    request.streamMimeType?.takeIf { it.isNotBlank() }?.let(::setMimeType)
+                    normalizeStreamMimeType(request.streamMimeType)?.let(::setMimeType)
                     request.subtitleUrl?.takeIf { it.isNotBlank() }?.let { subtitleUrl ->
                         setSubtitleConfigurations(
                             listOf(
@@ -399,6 +401,15 @@ class PlayerController(
     fun release() {
         switchJob?.cancel()
         player.release()
+    }
+
+    private fun normalizeStreamMimeType(value: String?): String? {
+        val mimeType = value?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return when (mimeType.lowercase()) {
+            "application/vnd.apple.mpegurl",
+            "application/x-mpegurl" -> MimeTypes.APPLICATION_M3U8
+            else -> mimeType
+        }
     }
 
     private companion object {

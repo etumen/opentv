@@ -22,11 +22,14 @@
     <string name="common_keep_typing">Keep typing…</string>
     <string name="common_channels">Channels</string>
     <string name="common_try_again">Try again</string>
+    <string name="cloud_sources_count">%1$d sources</string>
 
     <!-- ============================ Navigation rail ============================ -->
+    <string name="nav_home">Home</string>
     <string name="nav_live_tv">Live TV</string>
     <string name="nav_movies">Movies</string>
     <string name="nav_shows">Shows</string>
+    <string name="nav_asian_drama">Drama</string>
     <string name="nav_recordings">Recordings</string>
     <string name="nav_search">Search</string>
     <string name="nav_settings">Settings</string>
@@ -443,6 +446,11 @@
     <string name="vod_cast">Cast</string>
     <string name="vod_director">Director</string>
     <string name="vod_season">Season %1$d</string>
+    <string name="vod_seasons">Seasons</string>
+    <string name="vod_episodes">Episodes</string>
+    <string name="vod_all_movies">All Movies</string>
+    <string name="vod_asian_drama">Asian / Drama</string>
+    <string name="vod_playback_failed">No playable source was found. Other sources were also tried.</string>
     <string name="vod_detail_loading">Loading…</string>
     <string name="vod_person_title">With %1$s</string>
     <string name="vod_person_empty">Nothing else with %1$s in your library.</string>
@@ -505,4 +513,7 @@
     <string name="cloud_filter_categories">Filter categories</string>
     <string name="player_trying_alternative_stream">Trying another stream…</string>
     <string name="player_all_streams_unavailable">This channel is temporarily unavailable.</string>
+    <string name="about_sporb_disabled">SporB is off</string>
+    <string name="about_sporb_activation_failed">SporB could not be enabled. Please try again.</string>
+    <string name="about_sporb_disable_failed">SporB could not be disabled.</string>
 </resources>

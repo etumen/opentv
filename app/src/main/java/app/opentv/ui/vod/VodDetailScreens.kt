@@ -237,15 +237,10 @@ fun SeriesDetailScreen(
 
 /**
  * The hero header, Plex-style: the poster always shown as an elevated card on the left, with the
- * title, meta line and action buttons beside it, over a backdrop background that falls back to the
- * poster and then to a plain gradient.
- *
- * Built so the hero is **never blank**. Two independent failure modes are covered: a provider that
- * ships a non-null but dead `backdropUrl` (real on the user's box — a good poster, a blank blue
- * hero) now falls the *background* through backdrop → poster → gradient via Coil's `onError`; and
- * the poster *card* falls back to a titled gradient tile if its own URL is missing or dead. So even
- * a title with no backdrop at all and a broken poster still shows its name over the app gradient
- * beside an intentional-looking placeholder card, never an empty rectangle.
+ * title, meta line and action buttons beside it, over a real landscape backdrop when one exists.
+ * A missing or dead backdrop falls back to the app gradient — never to a portrait poster stretched
+ * across the television. The poster remains an independent elevated card on the left and has its
+ * own titled fallback, so the hero is always intentional-looking even with incomplete artwork.
  */
 @Composable
 internal fun DetailBackdrop(
@@ -253,6 +248,7 @@ internal fun DetailBackdrop(
     backdropUrl: String?,
     posterUrl: String?,
     meta: String,
+    imdbBadge: Boolean = false,
     actions: @Composable RowScope.() -> Unit,
 ) {
     Box(
@@ -261,18 +257,17 @@ internal fun DetailBackdrop(
             .height(360.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        // Background: try the backdrop, fall back to the poster on load error, then to the gradient
-        // alone. Coil silently renders nothing on a failed load, so we drive the fallback from the
-        // error callback rather than trusting a non-null URL to actually resolve.
-        val bgCandidates = remember(backdropUrl, posterUrl) { listOfNotNull(backdropUrl, posterUrl).distinct() }
-        var bgIndex by remember(bgCandidates) { mutableStateOf(0) }
-        bgCandidates.getOrNull(bgIndex)?.let { model ->
+        // A detail hero only uses genuine landscape artwork as its background. If that URL is
+        // missing or fails, the scrim below becomes the background while the portrait poster stays
+        // in its own card on the left.
+        var backdropFailed by remember(backdropUrl) { mutableStateOf(false) }
+        backdropUrl?.takeIf { it.isNotBlank() && !backdropFailed }?.let { model ->
             AsyncImage(
                 model = model,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize(),
-                onError = { if (bgIndex < bgCandidates.lastIndex) bgIndex++ },
+                onError = { backdropFailed = true },
             )
         }
         // Scrim: keeps text readable over any art, and — with no art at all — is itself the tasteful
@@ -303,9 +298,31 @@ internal fun DetailBackdrop(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (meta.isNotBlank()) {
+                if (meta.isNotBlank() || imdbBadge) {
                     Spacer(Modifier.height(8.dp))
-                    Text(meta, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.85f))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        if (meta.isNotBlank()) {
+                            Text(
+                                meta,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White.copy(alpha = 0.85f),
+                            )
+                        }
+                        if (imdbBadge) {
+                            Text(
+                                "IMDb",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color(0xFF121212),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(Color(0xFFF5C518))
+                                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                            )
+                        }
+                    }
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(
@@ -330,8 +347,8 @@ private fun HeroPosterCard(posterUrl: String?, title: String) {
     var posterFailed by remember(posterUrl) { mutableStateOf(false) }
     Box(
         Modifier
-            .width(128.dp)
-            .height(192.dp)
+            .width(168.dp)
+            .height(252.dp)
             .shadow(12.dp, RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
@@ -471,8 +488,8 @@ private fun GenreChip(label: String) {
 @Composable
 private fun PersonChip(name: String, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val container = if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    val content = if (focused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val container = MaterialTheme.colorScheme.surfaceVariant
+    val content = if (focused) Color.White else MaterialTheme.colorScheme.onSurface
     Text(
         name,
         style = MaterialTheme.typography.titleSmall,
@@ -503,13 +520,13 @@ internal fun DetailButton(
 ) {
     var focused by remember { mutableStateOf(false) }
     val container = when {
-        focused -> MaterialTheme.colorScheme.primary
-        primary -> MaterialTheme.colorScheme.primaryContainer
-        else -> Color.White.copy(alpha = 0.16f)
+        focused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.92f)
+        primary -> Color.White.copy(alpha = 0.96f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.96f)
     }
     val content = when {
-        focused -> MaterialTheme.colorScheme.onPrimary
-        primary -> MaterialTheme.colorScheme.onPrimaryContainer
+        focused -> Color.White
+        primary -> Color.Black
         else -> Color.White
     }
     Row(
@@ -542,7 +559,7 @@ private fun EpisodeRow(ep: Episode, onPlay: (mediaKey: String, url: String, titl
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(8.dp))
             .background(
-                if (focused) MaterialTheme.colorScheme.primaryContainer
+                if (focused) MaterialTheme.colorScheme.surfaceVariant
                 else MaterialTheme.colorScheme.surface,
             )
             .then(

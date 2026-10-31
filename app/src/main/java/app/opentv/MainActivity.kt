@@ -74,6 +74,7 @@ import app.opentv.ui.settings.ProvidersScreen
 import app.opentv.ui.settings.RecordingSettingsScreen
 import app.opentv.ui.settings.SyncScreen
 import app.opentv.ui.settings.SettingsHubScreen
+import app.opentv.ui.settings.ProviderDiagnosticsScreen
 import app.opentv.ui.settings.WebManagerScreen
 import app.opentv.ui.theme.OpenTvTheme
 import app.opentv.ui.vod.MovieDetailScreen
@@ -199,6 +200,7 @@ object Routes {
     const val SYNC = "sync"
     const val REC_SETTINGS = "recording-settings"
     const val ABOUT = "about"
+    const val PROVIDER_DIAGNOSTICS = "provider-diagnostics"
     const val SERIES_DETAIL = "series/{seriesId}"
     const val MOVIE_DETAIL = "movie/{movieId}"
     const val CLOUD_MOVIE_DETAIL = "cloud-movie/{providerId}?itemId={itemId}"
@@ -238,6 +240,7 @@ object Routes {
         subtitleMimeType: String = "",
         returnRoute: String = "",
         returnRoutePattern: String = "",
+        fallback: app.opentv.ui.vod.UnifiedFallbackContext? = null,
     ): String {
         val token = app.opentv.ui.vod.VodPlaybackHandoff.put(
             app.opentv.ui.vod.VodPlaybackHandoff.Request(
@@ -256,6 +259,7 @@ object Routes {
                 subtitleMimeType = subtitleMimeType,
                 returnRoute = returnRoute,
                 returnRoutePattern = returnRoutePattern,
+                fallback = fallback,
             ),
         )
         return "vod/$token"
@@ -450,6 +454,12 @@ private fun OpenTvApp(isTelevision: Boolean) {
                         )
                     },
                     onOpenSeries = { series -> navController.navigate(Routes.seriesDetail(series.id)) },
+                    onOpenCloudMovie = { providerId, itemId ->
+                        navController.navigate(Routes.cloudMovieDetail(providerId, itemId))
+                    },
+                    onOpenCloudSeries = { providerId, itemId ->
+                        navController.navigate(Routes.cloudSeriesDetail(providerId, itemId))
+                    },
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -465,8 +475,15 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     onOpenSync = { navController.navigate(Routes.SYNC) },
                     onOpenRecordings = { navController.navigate(Routes.REC_SETTINGS) },
                     onOpenAbout = { navController.navigate(Routes.ABOUT) },
+                    onOpenProviderDiagnostics = { navController.navigate(Routes.PROVIDER_DIAGNOSTICS) },
                     onBack = { navController.popBackStack() },
                 )
+            }
+
+            if (BuildConfig.DEBUG) {
+                composable(Routes.PROVIDER_DIAGNOSTICS) {
+                    ProviderDiagnosticsScreen(onBack = { navController.popBackStack() })
+                }
             }
 
             composable(Routes.SYNC) {
@@ -590,6 +607,12 @@ private fun OpenTvApp(isTelevision: Boolean) {
                                 subtitleMimeType = subtitle?.mimeType.orEmpty(),
                                 returnRoute = Routes.cloudMovieDetail(providerId, itemId),
                                 returnRoutePattern = Routes.CLOUD_MOVIE_DETAIL,
+                                fallback = app.opentv.ui.vod.UnifiedFallbackContext(
+                                    app.opentv.data.provider.ProviderMediaType.MOVIE,
+                                    app.opentv.ui.vod.UnifiedCatalogAlternatives
+                                        .alternatives(providerId, itemId)
+                                        .filterNot { it.providerId == stream.providerId },
+                                ),
                             ),
                         )
                     },
@@ -627,6 +650,14 @@ private fun OpenTvApp(isTelevision: Boolean) {
                                 subtitleMimeType = subtitle?.mimeType.orEmpty(),
                                 returnRoute = Routes.cloudSeriesDetail(providerId, itemId),
                                 returnRoutePattern = Routes.CLOUD_SERIES_DETAIL,
+                                fallback = app.opentv.ui.vod.UnifiedFallbackContext(
+                                    app.opentv.data.provider.ProviderMediaType.SERIES,
+                                    app.opentv.ui.vod.UnifiedCatalogAlternatives
+                                        .alternatives(providerId, itemId)
+                                        .filterNot { it.providerId == stream.providerId },
+                                    season = episode.season,
+                                    episodeNumber = episode.episodeNumber,
+                                ),
                             ),
                         )
                     },
@@ -677,6 +708,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     subtitleLabel = request.subtitleLabel,
                     subtitleLanguage = request.subtitleLanguage,
                     subtitleMimeType = request.subtitleMimeType,
+                    fallbackContext = request.fallback,
                     onBack = leavePlayer,
                 )
             }

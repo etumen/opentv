@@ -9,6 +9,10 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.opentv.core.ServiceLocator
+import app.opentv.data.catalog.CanonicalContent
+import app.opentv.data.catalog.UnifiedCatalogPager
+import app.opentv.data.catalog.CanonicalEpisode
+import app.opentv.data.catalog.UnifiedSeriesDetails
 import app.opentv.data.provider.Provider
 import app.opentv.data.provider.ProviderCatalogRequest
 import app.opentv.data.provider.ProviderCatalogSection
@@ -53,7 +57,10 @@ data class CloudSeriesPlayback(
 )
 
 class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
-    private val repository = ServiceLocator.get(app).providerRepository
+    private val graph = ServiceLocator.get(app)
+    private val repository = graph.providerRepository
+    private val unifiedCatalog = graph.unifiedCatalog
+    private val unifiedSeries = graph.unifiedSeries
 
     private fun sections(provider: Provider): List<ProviderCatalogSection> =
         provider.catalogSections
@@ -103,11 +110,37 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
     private val _lastError = MutableStateFlow<ProviderError?>(null)
     val lastError: StateFlow<ProviderError?> = _lastError.asStateFlow()
 
-    private val _searchResults = MutableStateFlow<List<ProviderItem>>(emptyList())
-    val searchResults: StateFlow<List<ProviderItem>> = _searchResults.asStateFlow()
+    private val _searchResults = MutableStateFlow<List<CanonicalContent>>(emptyList())
+    val searchResults: StateFlow<List<CanonicalContent>> = _searchResults.asStateFlow()
+
+    private val _unifiedCatalogItems = MutableStateFlow<List<CanonicalContent>>(emptyList())
+    val unifiedCatalogItems: StateFlow<List<CanonicalContent>> = _unifiedCatalogItems.asStateFlow()
+
+    private val _unifiedCatalogHasMore = MutableStateFlow(false)
+    val unifiedCatalogHasMore: StateFlow<Boolean> = _unifiedCatalogHasMore.asStateFlow()
+
+    private val _loadingUnifiedCatalog = MutableStateFlow(false)
+    val loadingUnifiedCatalog: StateFlow<Boolean> = _loadingUnifiedCatalog.asStateFlow()
+
+    private val _loadingMoreUnifiedCatalog = MutableStateFlow(false)
+    val loadingMoreUnifiedCatalog: StateFlow<Boolean> = _loadingMoreUnifiedCatalog.asStateFlow()
+
+    private val _asianDramaItems = MutableStateFlow<List<CanonicalContent>>(emptyList())
+    val asianDramaItems: StateFlow<List<CanonicalContent>> = _asianDramaItems.asStateFlow()
+
+    private val _asianDramaHasMore = MutableStateFlow(false)
+    val asianDramaHasMore: StateFlow<Boolean> = _asianDramaHasMore.asStateFlow()
+
+    private val _loadingAsianDrama = MutableStateFlow(false)
+    val loadingAsianDrama: StateFlow<Boolean> = _loadingAsianDrama.asStateFlow()
+
+    private val _loadingMoreAsianDrama = MutableStateFlow(false)
+    val loadingMoreAsianDrama: StateFlow<Boolean> = _loadingMoreAsianDrama.asStateFlow()
 
     private var loadedProviderId: String? = null
     private var searchJob: Job? = null
+    private var unifiedPager: UnifiedCatalogPager? = null
+    private var asianDramaPager: UnifiedCatalogPager? = null
 
     fun selectProvider(providerId: String) {
         if (_selectedProviderId.value == providerId && loadedProviderId == providerId) return
@@ -312,6 +345,88 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun loadUnifiedCatalog(force: Boolean = false) {
+        if (_loadingUnifiedCatalog.value) return
+        if (!force && _unifiedCatalogItems.value.isNotEmpty()) return
+
+        viewModelScope.launch {
+            _loadingUnifiedCatalog.value = true
+            _lastError.value = null
+            try {
+                val pager = unifiedCatalog.pager(ProviderMediaType.SERIES)
+                unifiedPager = pager
+                val page = pager.loadInitial()
+                _unifiedCatalogItems.value = page.items
+                _unifiedCatalogHasMore.value = page.hasMore
+                page.failures.values.firstOrNull()?.let { _lastError.value = it }
+            } finally {
+                _loadingUnifiedCatalog.value = false
+            }
+        }
+    }
+
+    fun loadMoreUnifiedCatalog() {
+        val pager = unifiedPager ?: return loadUnifiedCatalog()
+        if (!_unifiedCatalogHasMore.value ||
+            _loadingUnifiedCatalog.value ||
+            _loadingMoreUnifiedCatalog.value
+        ) return
+
+        viewModelScope.launch {
+            _loadingMoreUnifiedCatalog.value = true
+            try {
+                val page = pager.loadMore()
+                _unifiedCatalogItems.value = page.items
+                _unifiedCatalogHasMore.value = page.hasMore
+                page.failures.values.firstOrNull()?.let { _lastError.value = it }
+            } finally {
+                _loadingMoreUnifiedCatalog.value = false
+            }
+        }
+    }
+
+    fun loadAsianDrama(force: Boolean = false) {
+        if (_loadingAsianDrama.value) return
+        if (!force && _asianDramaItems.value.isNotEmpty()) return
+
+        viewModelScope.launch {
+            _loadingAsianDrama.value = true
+            try {
+                val pager = unifiedCatalog.pager(
+                    mediaType = ProviderMediaType.SERIES,
+                    sectionId = "asian",
+                )
+                asianDramaPager = pager
+                val page = pager.loadInitial()
+                _asianDramaItems.value = page.items
+                _asianDramaHasMore.value = page.hasMore
+                page.failures.values.firstOrNull()?.let { _lastError.value = it }
+            } finally {
+                _loadingAsianDrama.value = false
+            }
+        }
+    }
+
+    fun loadMoreAsianDrama() {
+        val pager = asianDramaPager ?: return loadAsianDrama()
+        if (!_asianDramaHasMore.value ||
+            _loadingAsianDrama.value ||
+            _loadingMoreAsianDrama.value
+        ) return
+
+        viewModelScope.launch {
+            _loadingMoreAsianDrama.value = true
+            try {
+                val page = pager.loadMore()
+                _asianDramaItems.value = page.items
+                _asianDramaHasMore.value = page.hasMore
+                page.failures.values.firstOrNull()?.let { _lastError.value = it }
+            } finally {
+                _loadingMoreAsianDrama.value = false
+            }
+        }
+    }
+
     fun setSearchQuery(query: String) {
         searchJob?.cancel()
         val trimmed = query.trim()
@@ -322,15 +437,13 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
 
         searchJob = viewModelScope.launch {
             delay(250)
-            val result = repository.searchAll(
+            val result = unifiedCatalog.search(
                 ProviderSearchRequest(
                     query = trimmed,
                     mediaType = ProviderMediaType.SERIES,
                 ),
             )
-            _searchResults.value = result.values.values
-                .flatten()
-                .distinctBy { it.providerId + ":" + it.id }
+            _searchResults.value = result.items
             result.failures.values.firstOrNull()?.let { _lastError.value = it }
         }
     }
@@ -349,6 +462,25 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
         seriesId: String,
     ): ProviderResult<List<ProviderEpisode>> =
         repository.episodes(providerId, seriesId)
+
+    suspend fun unifiedDetails(
+        providerId: String,
+        itemId: String,
+    ): ProviderResult<UnifiedSeriesDetails> =
+        unifiedSeries.resolve(providerId, itemId)
+
+    suspend fun episodePlayback(
+        episode: CanonicalEpisode,
+    ): ProviderResult<CloudSeriesPlayback> =
+        when (val result = unifiedSeries.playback(episode)) {
+            is ProviderResult.Success -> ProviderResult.Success(
+                CloudSeriesPlayback(
+                    streams = result.value.streams,
+                    subtitles = result.value.subtitles,
+                ),
+            )
+            is ProviderResult.Failure -> result
+        }
 
     suspend fun episodePlayback(
         providerId: String,

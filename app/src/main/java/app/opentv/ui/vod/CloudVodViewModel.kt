@@ -9,6 +9,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.opentv.core.ServiceLocator
+import app.opentv.data.catalog.CanonicalContent
+import app.opentv.data.catalog.UnifiedCatalogPager
 import app.opentv.data.provider.Provider
 import app.opentv.data.provider.ProviderCatalogRequest
 import app.opentv.data.provider.ProviderCatalogSection
@@ -54,6 +56,7 @@ data class CloudPlayback(
 class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
     private val graph = ServiceLocator.get(app)
     private val repository = graph.providerRepository
+    private val unifiedCatalog = graph.unifiedCatalog
 
     private fun sections(provider: Provider): List<ProviderCatalogSection> =
         provider.catalogSections
@@ -122,11 +125,136 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
     private val _lastError = MutableStateFlow<ProviderError?>(null)
     val lastError: StateFlow<ProviderError?> = _lastError.asStateFlow()
 
-    private val _movieSearchResults = MutableStateFlow<List<ProviderItem>>(emptyList())
-    val movieSearchResults: StateFlow<List<ProviderItem>> = _movieSearchResults.asStateFlow()
+    private val _movieSearchResults = MutableStateFlow<List<CanonicalContent>>(emptyList())
+    val movieSearchResults: StateFlow<List<CanonicalContent>> = _movieSearchResults.asStateFlow()
+
+    private val _unifiedCatalogItems = MutableStateFlow<List<CanonicalContent>>(emptyList())
+    val unifiedCatalogItems: StateFlow<List<CanonicalContent>> = _unifiedCatalogItems.asStateFlow()
+
+    private val _unifiedCatalogHasMore = MutableStateFlow(false)
+    val unifiedCatalogHasMore: StateFlow<Boolean> = _unifiedCatalogHasMore.asStateFlow()
+
+    private val _loadingUnifiedCatalog = MutableStateFlow(false)
+    val loadingUnifiedCatalog: StateFlow<Boolean> = _loadingUnifiedCatalog.asStateFlow()
+
+    private val _loadingMoreUnifiedCatalog = MutableStateFlow(false)
+    val loadingMoreUnifiedCatalog: StateFlow<Boolean> = _loadingMoreUnifiedCatalog.asStateFlow()
 
     private var loadedProviderId: String? = null
+    private var loadedAllShelves = false
     private var searchJob: Job? = null
+    private var unifiedPager: UnifiedCatalogPager? = null
+
+    fun loadUnifiedCatalog(force: Boolean = false) {
+        if (_loadingUnifiedCatalog.value) return
+        if (!force && _unifiedCatalogItems.value.isNotEmpty()) return
+
+        viewModelScope.launch {
+            _loadingUnifiedCatalog.value = true
+            _lastError.value = null
+            try {
+                val pager = unifiedCatalog.pager(ProviderMediaType.MOVIE)
+                unifiedPager = pager
+                val page = pager.loadInitial()
+                _unifiedCatalogItems.value = page.items
+                _unifiedCatalogHasMore.value = page.hasMore
+                page.failures.values.firstOrNull()?.let { _lastError.value = it }
+            } finally {
+                _loadingUnifiedCatalog.value = false
+            }
+        }
+    }
+
+    fun loadMoreUnifiedCatalog() {
+        val pager = unifiedPager ?: return loadUnifiedCatalog()
+        if (!_unifiedCatalogHasMore.value ||
+            _loadingUnifiedCatalog.value ||
+            _loadingMoreUnifiedCatalog.value
+        ) return
+
+        viewModelScope.launch {
+            _loadingMoreUnifiedCatalog.value = true
+            try {
+                val page = pager.loadMore()
+                _unifiedCatalogItems.value = page.items
+                _unifiedCatalogHasMore.value = page.hasMore
+                page.failures.values.firstOrNull()?.let { _lastError.value = it }
+            } finally {
+                _loadingMoreUnifiedCatalog.value = false
+            }
+        }
+    }
+
+    fun loadAllMovieShelves(force: Boolean = false) {
+        if (_loadingMovies.value || (!force && loadedAllShelves)) return
+
+        viewModelScope.launch {
+            _loadingMovies.value = true
+            _lastError.value = null
+            try {
+                val providers = repository.providers(ProviderMediaType.MOVIE)
+                val loaded = coroutineScope {
+                    providers.map { provider ->
+                        async {
+                            val allSections = refreshSections(provider)
+                            val homeSections = allSections
+                                .filter { it.showOnHome }
+                                .ifEmpty { allSections.take(1) }
+                            coroutineScope {
+                                homeSections.map { section ->
+                                    async {
+                                        when (
+                                            val result = repository.catalog(
+                                                provider.id,
+                                                ProviderCatalogRequest(
+                                                    mediaType = ProviderMediaType.MOVIE,
+                                                    sectionId = section.id,
+                                                    page = 1,
+                                                ),
+                                            )
+                                        ) {
+                                            is ProviderResult.Success -> CloudMovieShelf(
+                                                providerId = provider.id,
+                                                providerName = provider.name,
+                                                section = section,
+                                                items = result.value.items,
+                                                nextPage = null,
+                                            )
+                                            is ProviderResult.Failure -> {
+                                                _lastError.value = result.error
+                                                null
+                                            }
+                                        }
+                                    }
+                                }.awaitAll().filterNotNull()
+                            }
+                        }
+                    }.awaitAll().flatten()
+                }
+
+                _movieShelves.value = loaded
+                    .filter { it.items.isNotEmpty() }
+                    .groupBy { it.section.title.trim().lowercase() }
+                    .map { (key, group) ->
+                        val first = group.first()
+                        first.copy(
+                            providerId = "unified:" + key,
+                            providerName = "",
+                            section = first.section.copy(id = "unified:" + key),
+                            items = group.flatMap { it.items }
+                                .distinctBy { item ->
+                                    item.title.trim().lowercase() + "|" + (item.year ?: 0)
+                                },
+                            nextPage = null,
+                            loadingMore = false,
+                        )
+                    }
+                loadedAllShelves = true
+            } finally {
+                _loadingMovies.value = false
+            }
+        }
+    }
 
     fun selectMovieProvider(providerId: String) {
         if (_selectedMovieProviderId.value == providerId && loadedProviderId == providerId) return
@@ -358,15 +486,13 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
 
         searchJob = viewModelScope.launch {
             delay(250)
-            val result = repository.searchAll(
+            val result = unifiedCatalog.search(
                 ProviderSearchRequest(
                     query = trimmed,
                     mediaType = ProviderMediaType.MOVIE,
                 ),
             )
-            _movieSearchResults.value = result.values.values
-                .flatten()
-                .distinctBy { "${it.providerId}:${it.id}" }
+            _movieSearchResults.value = result.items
             result.failures.values.firstOrNull()?.let { _lastError.value = it }
         }
     }
@@ -386,7 +512,23 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
     ): ProviderResult<CloudPlayback> {
         val target = ProviderPlaybackTarget.Movie(providerId, itemId)
         val streams = repository.streams(target)
-        if (streams is ProviderResult.Failure) return streams
+        if (streams is ProviderResult.Failure ||
+            (streams is ProviderResult.Success && streams.value.isEmpty())
+        ) {
+            val recovered = UnifiedPlaybackResolver.first(
+                repository,
+                UnifiedFallbackContext(
+                    ProviderMediaType.MOVIE,
+                    UnifiedCatalogAlternatives.alternatives(providerId, itemId),
+                ),
+            )
+            if (recovered != null) {
+                return ProviderResult.Success(
+                    CloudPlayback(listOf(recovered.stream), listOfNotNull(recovered.subtitle)),
+                )
+            }
+            if (streams is ProviderResult.Failure) return streams
+        }
 
         val subtitles = repository.subtitles(target)
         val subtitleValues = when (subtitles) {

@@ -7,8 +7,10 @@ package app.opentv.ui.vod
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -61,12 +63,64 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.provider.ProviderDetails
 import app.opentv.data.provider.ProviderItem
 import app.opentv.data.provider.ProviderResult
 import app.opentv.data.provider.ProviderStream
 import app.opentv.data.provider.ProviderSubtitle
 import kotlinx.coroutines.launch
+
+@Composable
+internal fun UnifiedMoviePosterRow(
+    items: List<CanonicalContent>,
+    hasMore: Boolean,
+    loadingMore: Boolean,
+    onOpenMovie: (CanonicalContent) -> Unit,
+    onLoadMore: () -> Unit,
+) {
+    if (items.isEmpty()) return
+    val rowState = rememberLazyListState()
+
+    LaunchedEffect(items.size, hasMore) {
+        if (!hasMore) return@LaunchedEffect
+        snapshotFlow { rowState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .collect { lastVisible ->
+                if (lastVisible >= items.lastIndex - 4) onLoadMore()
+            }
+    }
+
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(stringResource(R.string.vod_all_movies))
+        LazyRow(
+            state = rowState,
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(items, key = { "unified-movie:" + it.id }) { item ->
+                val source = item.sources.firstOrNull()
+                PosterCard(
+                    title = item.title,
+                    posterUrl = item.posterUrl,
+                    providerId = source?.providerId,
+                    subtitle = item.year?.toString(),
+                    rating = item.rating,
+                    onClick = { onOpenMovie(item) },
+                )
+            }
+            if (loadingMore) {
+                item(key = "unified-movie-loading") {
+                    Box(
+                        Modifier.width(72.dp).height(180.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 internal fun CloudMoviePosterRow(
@@ -136,7 +190,19 @@ fun CloudMovieDetailScreen(
     LaunchedEffect(providerId, itemId) {
         when (val result = viewModel.details(providerId, itemId)) {
             is ProviderResult.Success -> details = result.value
-            is ProviderResult.Failure -> error = result.error.message
+            is ProviderResult.Failure -> {
+                error = result.error.message
+                for (alternate in UnifiedCatalogAlternatives.alternatives(providerId, itemId)) {
+                    when (val candidate = viewModel.details(alternate.providerId, alternate.id)) {
+                        is ProviderResult.Success -> {
+                            details = candidate.value
+                            error = null
+                            break
+                        }
+                        is ProviderResult.Failure -> Unit
+                    }
+                }
+            }
         }
     }
 
@@ -151,11 +217,9 @@ fun CloudMovieDetailScreen(
     }
 
     val item = current.item
-    val providerName = viewModel.providerName(providerId)
     val meta = buildList {
         item.year?.let { add(it.toString()) }
         item.rating?.takeIf { it > 0.0 }?.let { add("★ %.1f".format(it)) }
-        add(providerName)
     }.joinToString("  ·  ")
 
     LazyColumn(Modifier.fillMaxSize()) {
@@ -165,6 +229,7 @@ fun CloudMovieDetailScreen(
                 backdropUrl = item.backdropUrl ?: item.posterUrl,
                 posterUrl = item.posterUrl,
                 meta = meta,
+                imdbBadge = item.externalIds.containsKey("imdb"),
             ) {
                 DetailButton(
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
@@ -182,7 +247,7 @@ fun CloudMovieDetailScreen(
                     resolving = true
                     error = null
                     scope.launch {
-                        when (val result = viewModel.playback(providerId, itemId)) {
+                        when (val result = viewModel.playback(current.item.providerId, current.item.id)) {
                             is ProviderResult.Success -> {
                                 val playback = result.value
                                 resolvedSubtitles = playback.subtitles
@@ -282,9 +347,10 @@ private fun CloudStreamRow(
             .fillMaxWidth()
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(10.dp))
-            .background(
-                if (focused) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surfaceVariant,
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .then(
+                if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp))
+                else Modifier,
             )
             .clickable { onPick(stream) }
             .padding(horizontal = 14.dp, vertical = 12.dp),

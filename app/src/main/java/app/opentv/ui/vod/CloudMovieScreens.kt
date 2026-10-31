@@ -190,7 +190,19 @@ fun CloudMovieDetailScreen(
     LaunchedEffect(providerId, itemId) {
         when (val result = viewModel.details(providerId, itemId)) {
             is ProviderResult.Success -> details = result.value
-            is ProviderResult.Failure -> error = result.error.message
+            is ProviderResult.Failure -> {
+                error = result.error.message
+                for (alternate in UnifiedCatalogAlternatives.alternatives(providerId, itemId)) {
+                    when (val candidate = viewModel.details(alternate.providerId, alternate.id)) {
+                        is ProviderResult.Success -> {
+                            details = candidate.value
+                            error = null
+                            break
+                        }
+                        is ProviderResult.Failure -> Unit
+                    }
+                }
+            }
         }
     }
 
@@ -235,7 +247,7 @@ fun CloudMovieDetailScreen(
                     resolving = true
                     error = null
                     scope.launch {
-                        when (val result = viewModel.playback(providerId, itemId)) {
+                        when (val result = viewModel.playback(current.item.providerId, current.item.id)) {
                             is ProviderResult.Success -> {
                                 val playback = result.value
                                 resolvedSubtitles = playback.subtitles

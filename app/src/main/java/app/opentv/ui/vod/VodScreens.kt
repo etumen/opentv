@@ -58,6 +58,7 @@ import app.opentv.R
 import app.opentv.data.model.Movie
 import app.opentv.data.model.Series
 import app.opentv.data.model.Source
+import app.opentv.data.provider.ProviderMediaType
 import app.opentv.data.provider.ProviderItem
 import app.opentv.data.provider.dizipal.DiziPalProvider
 import app.opentv.data.parser.displayTitle
@@ -81,11 +82,13 @@ fun MoviesScreen(
     isSyncing: Boolean,
     viewModel: VodViewModel = viewModel(),
     cloudViewModel: CloudVodViewModel = viewModel(),
+    unifiedBrowseModel: UnifiedCatalogViewModel = viewModel(),
 ) {
     val resume by viewModel.continueWatching.collectAsState()
     val cloudShelves by cloudViewModel.movieShelves.collectAsState()
     val cloudLoading by cloudViewModel.loadingMovies.collectAsState()
     val unifiedItems by cloudViewModel.unifiedCatalogItems.collectAsState()
+    val unifiedGenreState by unifiedBrowseModel.movies.collectAsState()
     val unifiedHasMore by cloudViewModel.unifiedCatalogHasMore.collectAsState()
     val unifiedLoading by cloudViewModel.loadingUnifiedCatalog.collectAsState()
     val unifiedLoadingMore by cloudViewModel.loadingMoreUnifiedCatalog.collectAsState()
@@ -94,6 +97,7 @@ fun MoviesScreen(
         if (hasSources) viewModel.ensureVodLoaded()
         viewModel.loadHomeFeeds()
         cloudViewModel.loadUnifiedCatalog()
+        unifiedBrowseModel.ensureLoaded(ProviderMediaType.MOVIE)
         cloudViewModel.loadAllMovieShelves()
     }
 
@@ -101,8 +105,26 @@ fun MoviesScreen(
 
     Column(Modifier.fillMaxSize()) {
         SearchAffordance(onOpenSearch)
+        if (unifiedGenreState.categories.isNotEmpty()) {
+            CategoryChips(
+                entries = unifiedGenreState.categories.map { it.id to it.title },
+                selected = unifiedGenreState.categoryId,
+                onSelectHome = { unifiedBrowseModel.selectCategory(ProviderMediaType.MOVIE, null) },
+                onSelectCategory = { unifiedBrowseModel.selectCategory(ProviderMediaType.MOVIE, it) },
+            )
+        }
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (unifiedGenreState.categoryId != null) {
+                CloudMovieCategoryGrid(
+                    items = unifiedGenreState.items,
+                    hasNextPage = unifiedGenreState.hasMore,
+                    loading = unifiedGenreState.loading,
+                    loadingMore = unifiedGenreState.loadingMore,
+                    onOpenMovie = onOpenCloudMovie,
+                    onLoadMore = { unifiedBrowseModel.loadMore(ProviderMediaType.MOVIE) },
+                )
+            } else
             if (!hasContent && (unifiedLoading || cloudLoading || isSyncing)) {
                 LoadingVod(stringResource(R.string.vod_loading_movies))
             } else if (!hasContent) {
@@ -126,6 +148,7 @@ fun MoviesScreen(
                                 hasMore = unifiedHasMore,
                                 loadingMore = unifiedLoadingMore,
                                 onOpenMovie = { content ->
+                                    UnifiedCatalogAlternatives.rememberCanonical(content)
                                     content.sources.firstOrNull()?.let { source ->
                                         onOpenCloudMovie(
                                             ProviderItem(
@@ -180,6 +203,7 @@ fun SeriesScreen(
     isSyncing: Boolean,
     viewModel: VodViewModel = viewModel(),
     cloudViewModel: CloudSeriesViewModel = viewModel(),
+    unifiedBrowseModel: UnifiedCatalogViewModel = viewModel(),
 ) {
     val categories by viewModel.seriesCategories.collectAsState()
     val resume by viewModel.continueWatching.collectAsState()
@@ -197,6 +221,10 @@ fun SeriesScreen(
     val selectedCloudProviderId by cloudViewModel.selectedProviderId.collectAsState()
     val selectedCloudSectionId by cloudViewModel.selectedSectionId.collectAsState()
     val cloudShelves by cloudViewModel.shelves.collectAsState()
+    val unifiedGenreState by unifiedBrowseModel.series.collectAsState()
+    val unifiedSeries by cloudViewModel.unifiedCatalogItems.collectAsState()
+    val unifiedSeriesHasMore by cloudViewModel.unifiedCatalogHasMore.collectAsState()
+    val unifiedSeriesLoadingMore by cloudViewModel.loadingMoreUnifiedCatalog.collectAsState()
     val cloudSectionItems by cloudViewModel.selectedSectionItems.collectAsState()
     val cloudSectionNextPage by cloudViewModel.selectedSectionNextPage.collectAsState()
     val cloudLoading by cloudViewModel.loading.collectAsState()
@@ -206,6 +234,8 @@ fun SeriesScreen(
     LaunchedEffect(Unit) {
         if (hasSources) viewModel.ensureVodLoaded()
         viewModel.loadHomeFeeds()
+        cloudViewModel.loadUnifiedCatalog()
+        unifiedBrowseModel.ensureLoaded(ProviderMediaType.SERIES)
     }
 
     LaunchedEffect(cloudProviders, selectedCloudProviderId) {
@@ -228,6 +258,14 @@ fun SeriesScreen(
         }
 
         SearchAffordance(onOpenSearch)
+        if (unifiedGenreState.categories.isNotEmpty()) {
+            CategoryChips(
+                entries = unifiedGenreState.categories.map { it.id to it.title },
+                selected = unifiedGenreState.categoryId,
+                onSelectHome = { unifiedBrowseModel.selectCategory(ProviderMediaType.SERIES, null) },
+                onSelectCategory = { unifiedBrowseModel.selectCategory(ProviderMediaType.SERIES, it) },
+            )
+        }
 
         CloudSeriesTvControls(
             providers = cloudProviders,
@@ -262,6 +300,14 @@ fun SeriesScreen(
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
+                unifiedGenreState.categoryId != null -> CloudSeriesCategoryGrid(
+                    items = unifiedGenreState.items,
+                    hasNextPage = unifiedGenreState.hasMore,
+                    loading = unifiedGenreState.loading,
+                    loadingMore = unifiedGenreState.loadingMore,
+                    onOpenSeries = onOpenCloudSeries,
+                    onLoadMore = { unifiedBrowseModel.loadMore(ProviderMediaType.SERIES) },
+                )
                 selectedCloudSectionId != null -> CloudSeriesCategoryGrid(
                     items = cloudSectionItems,
                     hasNextPage = cloudSectionNextPage != null,
@@ -302,6 +348,36 @@ fun SeriesScreen(
                     }
                     items(genreRows, key = { "g:" + it.genre }) { group ->
                         SeriesPosterRow(group.genre, group.items, onOpenSeries)
+                    }
+                    if (unifiedSeries.isNotEmpty()) {
+                        item(key = "unified-all-series") {
+                            UnifiedSeriesPosterRow(
+                                items = unifiedSeries,
+                                hasMore = unifiedSeriesHasMore,
+                                loadingMore = unifiedSeriesLoadingMore,
+                                onOpenSeries = { content ->
+                                    UnifiedCatalogAlternatives.rememberCanonical(content)
+                                    content.sources.firstOrNull()?.let { source ->
+                                        onOpenCloudSeries(
+                                            ProviderItem(
+                                                providerId = source.providerId,
+                                                id = source.itemId,
+                                                title = content.title,
+                                                mediaType = content.mediaType,
+                                                posterUrl = content.posterUrl,
+                                                backdropUrl = content.backdropUrl,
+                                                description = content.description,
+                                                year = content.year,
+                                                rating = content.rating,
+                                                genres = content.genres,
+                                                externalIds = content.externalIds,
+                                            ),
+                                        )
+                                    }
+                                },
+                                onLoadMore = cloudViewModel::loadMoreUnifiedCatalog,
+                            )
+                        }
                     }
                     items(
                         cloudShelves,

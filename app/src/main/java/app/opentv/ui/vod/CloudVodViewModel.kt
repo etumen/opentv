@@ -512,7 +512,23 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
     ): ProviderResult<CloudPlayback> {
         val target = ProviderPlaybackTarget.Movie(providerId, itemId)
         val streams = repository.streams(target)
-        if (streams is ProviderResult.Failure) return streams
+        if (streams is ProviderResult.Failure ||
+            (streams is ProviderResult.Success && streams.value.isEmpty())
+        ) {
+            val recovered = UnifiedPlaybackResolver.first(
+                repository,
+                UnifiedFallbackContext(
+                    ProviderMediaType.MOVIE,
+                    UnifiedCatalogAlternatives.alternatives(providerId, itemId),
+                ),
+            )
+            if (recovered != null) {
+                return ProviderResult.Success(
+                    CloudPlayback(listOf(recovered.stream), listOfNotNull(recovered.subtitle)),
+                )
+            }
+            if (streams is ProviderResult.Failure) return streams
+        }
 
         val subtitles = repository.subtitles(target)
         val subtitleValues = when (subtitles) {

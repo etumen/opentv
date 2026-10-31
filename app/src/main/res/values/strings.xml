@@ -513,4 +513,7 @@
     <string name="cloud_filter_categories">Filter categories</string>
     <string name="player_trying_alternative_stream">Trying another stream…</string>
     <string name="player_all_streams_unavailable">This channel is temporarily unavailable.</string>
+    <string name="about_sporb_disabled">SporB is off</string>
+    <string name="about_sporb_activation_failed">SporB could not be enabled. Please try again.</string>
+    <string name="about_sporb_disable_failed">SporB could not be disabled.</string>
 </resources>

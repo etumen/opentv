@@ -50,6 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.opentv.R
+import app.opentv.BuildConfig
 
 /**
  * The one settings entry point. Every other settings surface is reached from here, so there is
@@ -67,9 +68,10 @@ fun SettingsHubScreen(
     onOpenSync: () -> Unit,
     onOpenRecordings: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenProviderDiagnostics: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val entries = listOf(
+    val entries = listOfNotNull(
         HubEntry(Icons.Filled.Dns, stringResource(R.string.settings_providers_title), stringResource(R.string.settings_providers_subtitle), onOpenProviders),
         HubEntry(Icons.Filled.LiveTv, stringResource(R.string.settings_guide_title), stringResource(R.string.settings_guide_subtitle), onOpenGuide),
         HubEntry(Icons.Filled.GridView, stringResource(R.string.common_channels), stringResource(R.string.settings_channels_subtitle), onOpenChannels),
@@ -79,6 +81,11 @@ fun SettingsHubScreen(
         HubEntry(Icons.Filled.Lock, stringResource(R.string.settings_parental_title), stringResource(R.string.settings_parental_subtitle), onOpenParental),
         HubEntry(Icons.Filled.Sync, stringResource(R.string.settings_sync_title), stringResource(R.string.settings_sync_subtitle), onOpenSync),
         HubEntry(Icons.Filled.Info, stringResource(R.string.settings_about_title), stringResource(R.string.settings_about_subtitle), onOpenAbout),
+        if (BuildConfig.DEBUG) HubEntry(
+            Icons.Filled.Tune, "Geliştirici · Provider Durumu",
+            "Sağlık, katalog, sayfalama, uzaktan JSON ve geri alma",
+            onOpenProviderDiagnostics,
+        ) else null,
     )
 
     Column(

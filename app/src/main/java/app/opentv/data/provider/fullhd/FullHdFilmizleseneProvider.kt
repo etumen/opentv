@@ -61,7 +61,8 @@ class FullHdFilmizleseneProvider(
         }
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
-    private val baseUrl: HttpUrl = MAIN_URL.toHttpUrl()
+    private val baseUrl: HttpUrl
+        get() = (app.opentv.data.provider.ProviderRuntimeRules.domain(id) ?: MAIN_URL).toHttpUrl()
 
     private data class Section(
         val title: String,

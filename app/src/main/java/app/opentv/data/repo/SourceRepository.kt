@@ -67,7 +67,8 @@ class SourceRepository(
         val url = normaliseUrl(SPORB_URL, SourceKind.M3U)
         val existing = dao.byKindAndUrl(SourceKind.M3U, url)
         if (existing != null) {
-            return@withContext EnsureBuiltInResult(existing, created = false)
+            val active = if (existing.enabled) existing else existing.copy(enabled = true).also { dao.update(it) }
+            return@withContext EnsureBuiltInResult(active, created = false)
         }
 
         val id = dao.insert(
@@ -80,6 +81,13 @@ class SourceRepository(
         val saved = dao.byId(id)
             ?: error("SporB source was inserted but could not be read back")
         EnsureBuiltInResult(saved, created = true)
+    }
+
+    /** Keeps saved SporB channels and favourites; public catalogue filters disabled sources. */
+    suspend fun disableSporbSource() = withContext(Dispatchers.IO) {
+        val url = normaliseUrl(SPORB_URL, SourceKind.M3U)
+        val source = dao.byKindAndUrl(SourceKind.M3U, url) ?: return@withContext
+        if (source.enabled) dao.update(source.copy(enabled = false))
     }
 
     suspend fun save(source: Source): Long = withContext(Dispatchers.IO) {

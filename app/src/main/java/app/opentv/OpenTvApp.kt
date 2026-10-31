@@ -60,6 +60,8 @@ class OpenTvApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         val graph = ServiceLocator.get(this)
+        graph.remoteProviderConfig
+        appScope.launch { graph.remoteProviderConfig.refresh() }
         SyncWorker.schedule(this)
 
         // OpenTV ships with IPTV-ORG Turkey as a built-in live-TV starter source. Keep this

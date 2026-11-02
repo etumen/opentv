@@ -516,4 +516,23 @@
     <string name="about_sporb_disabled">SporB is off</string>
     <string name="about_sporb_activation_failed">SporB could not be enabled. Please try again.</string>
     <string name="about_sporb_disable_failed">SporB could not be disabled.</string>
+    <string name="home_featured">Featured</string>
+
+    <string name="home_explore_genres">Explore Genres</string>
+
+    <string name="home_drama">Drama</string>
+
+    <string name="home_see_all">See All</string>
+
+    <string name="home_watch_now">Watch</string>
+
+    <string name="home_detail">Details</string>
+
+    <string name="nav_drama">Drama</string>
+
+    <string name="phone_refresh">Refresh channels and library</string>
+
+    <string name="nav_downloads">Downloads</string>
+
+    <string name="mobile_nav_live_tv">Live TV</string>
 </resources>

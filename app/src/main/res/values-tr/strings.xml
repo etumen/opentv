@@ -467,4 +467,23 @@
     <string name="about_sporb_disabled">SporB kapalı</string>
     <string name="about_sporb_activation_failed">SporB açılamadı. Lütfen tekrar deneyin.</string>
     <string name="about_sporb_disable_failed">SporB kapatılamadı.</string>
+    <string name="home_featured">Öne Çıkanlar</string>
+
+    <string name="home_explore_genres">Türlere Göre Keşfet</string>
+
+    <string name="home_drama">Drama</string>
+
+    <string name="home_see_all">Tümünü Gör</string>
+
+    <string name="home_watch_now">İzle</string>
+
+    <string name="home_detail">Detay</string>
+
+    <string name="nav_drama">Drama</string>
+
+    <string name="nav_downloads">İndirilenler</string>
+
+    <string name="phone_refresh">Kanalları ve kitaplığı yenile</string>
+
+    <string name="mobile_nav_live_tv">Canlı TV</string>
 </resources>

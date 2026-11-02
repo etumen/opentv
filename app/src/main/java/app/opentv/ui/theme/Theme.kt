@@ -49,6 +49,26 @@ private val DarkScheme = darkColorScheme(
  * screen at night is nobody's friend) — that default lives at the call site, so a user who
  * explicitly picks Light in settings gets it on any device.
  */
+private val MobileAccent = Color(0xFFE50914)
+
+private val MobileDarkScheme = darkColorScheme(
+    primary = MobileAccent,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF380C0E),
+    onPrimaryContainer = Color(0xFFFFDADA),
+    secondary = Color(0xFFE43B42),
+    onSecondary = Color.White,
+    background = Color(0xFF08080B),
+    onBackground = Color(0xFFF2F2F5),
+    surface = Color(0xFF101218),
+    onSurface = Color(0xFFF2F2F5),
+    surfaceVariant = Color(0xFF181B24),
+    onSurfaceVariant = Color(0xFFA2A6B6),
+    outline = Color(0xFF262936),
+    error = Color(0xFFFF4D4D),
+    onError = Color(0xFF1A0505),
+)
+
 private val LightScheme = lightColorScheme(
     primary = Color(0xFF3B4FCC),
     onPrimary = Color.White,
@@ -75,11 +95,23 @@ private val OpenTvTypography = Typography(
 
 @Composable
 fun OpenTvTheme(
+    isPhone: Boolean = false,
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkScheme else LightScheme,
+        colorScheme = when {
+            darkTheme && isPhone -> MobileDarkScheme
+            darkTheme -> DarkScheme
+            isPhone -> LightScheme.copy(
+                primary = MobileAccent,
+                onPrimary = Color.White,
+                primaryContainer = Color(0xFFFFDADA),
+                onPrimaryContainer = Color(0xFF410002),
+                secondary = Color(0xFFB81D24),
+            )
+            else -> LightScheme
+        },
         typography = OpenTvTypography,
         content = content,
     )

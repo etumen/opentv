@@ -63,6 +63,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.data.model.Download
+import app.opentv.ui.downloads.KIND_EPISODE
+import app.opentv.ui.downloads.ProviderDownloadAction
 import app.opentv.ui.LocalLayoutClass
 import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.catalog.CanonicalEpisode
@@ -492,6 +495,36 @@ fun CloudSeriesDetailScreen(
                             episode = episode,
                             resolving = resolvingEpisodeId == episode.id,
                             onClick = { playEpisode(episode) },
+                            downloadControl = {
+                                if (isTouch) {
+                                    ProviderDownloadAction(
+                                        mediaKey = "cloud-ep:$providerId:${episode.id.hashCode()}",
+                                        compact = true,
+                                        resolveStreams = {
+                                            when (val result = viewModel.episodePlayback(episode)) {
+                                                is ProviderResult.Success -> ProviderResult.Success(result.value.streams)
+                                                is ProviderResult.Failure -> result
+                                            }
+                                        },
+                                        buildDownload = { stream ->
+                                            Download(
+                                                mediaKey = "cloud-ep:$providerId:${episode.id.hashCode()}",
+                                                kind = KIND_EPISODE,
+                                                title = "S${episode.season} B${episode.episodeNumber} · ${episode.title}",
+                                                posterUrl = episode.stillUrl ?: displayItem.posterUrl,
+                                                tag = stream.label,
+                                                seriesTitle = displayItem.title,
+                                                season = episode.season,
+                                                episode = episode.episodeNumber,
+                                                sourceUrl = stream.url,
+                                                systemId = 0,
+                                                createdMillis = 0,
+                                                requestHeaders = stream.headers.takeIf { it.isNotEmpty() },
+                                            )
+                                        },
+                                    )
+                                }
+                            },
                         )
                     }
                 }
@@ -577,6 +610,7 @@ private fun CloudEpisodeCard(
     episode: CanonicalEpisode,
     resolving: Boolean,
     onClick: () -> Unit,
+    downloadControl: @Composable () -> Unit = {},
 ) {
     var focused by remember(episode.id) { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -651,6 +685,9 @@ private fun CloudEpisodeCard(
                 ),
         )
 
+        if (isTouch) {
+            Box(Modifier.align(Alignment.TopEnd)) { downloadControl() }
+        }
         if (resolving) {
             CircularProgressIndicator(
                 modifier = Modifier

@@ -63,6 +63,10 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.ui.LocalLayoutClass
+import app.opentv.data.model.Download
+import app.opentv.ui.downloads.KIND_MOVIE
+import app.opentv.ui.downloads.ProviderDownloadAction
 import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.provider.ProviderDetails
 import app.opentv.data.provider.ProviderItem
@@ -266,9 +270,32 @@ fun CloudMovieDetailScreen(
                         resolving = false
                     }
                 }
+                if (LocalLayoutClass.current.isTouch) {
+                    ProviderDownloadAction(
+                        mediaKey = "cloud:$providerId:${itemId.hashCode()}",
+                        resolveStreams = {
+                            when (val response = viewModel.playback(current.item.providerId, current.item.id)) {
+                                is ProviderResult.Success -> ProviderResult.Success(response.value.streams)
+                                is ProviderResult.Failure -> response
+                            }
+                        },
+                        buildDownload = { stream ->
+                            Download(
+                                mediaKey = "cloud:$providerId:${itemId.hashCode()}",
+                                kind = KIND_MOVIE,
+                                title = item.title,
+                                posterUrl = item.posterUrl,
+                                tag = stream.label,
+                                sourceUrl = stream.url,
+                                systemId = 0,
+                                createdMillis = 0,
+                                requestHeaders = stream.headers.takeIf { it.isNotEmpty() },
+                            )
+                        },
+                    )
+                }
             }
         }
-
         item(key = "info") {
             DetailInfo(
                 plot = current.description,

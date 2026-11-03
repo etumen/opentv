@@ -535,4 +535,6 @@ data class Download(
     /** DownloadManager's id for the transfer. */
     val systemId: Long,
     val createdMillis: Long,
+    /** Persist Referer/Cookie/User-Agent for later queued transfers. */
+    val requestHeaders: Map<String, String>? = null,
 )

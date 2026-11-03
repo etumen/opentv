@@ -108,7 +108,7 @@ class DownloadRepository(
             // would open a second connection, which single-connection providers refuse (or use
             // to drop the first).
             val free = freeBytes()
-            val size = remoteSize(next.sourceUrl, userAgent)
+            val size = remoteSize(next.sourceUrl, userAgent, next.requestHeaders.orEmpty())
             if (free < MIN_FREE_BYTES || (size > 0 && size + MARGIN_BYTES > free)) {
                 dao.setSystemId(next.id, NO_SPACE)
                 return@withLock Start.NoSpace(size, free)
@@ -126,11 +126,22 @@ class DownloadRepository(
     }.getOrDefault(false)
 
     private fun startTransfer(download: Download, userAgent: String): Long {
-        val extension = download.sourceUrl.substringAfterLast('.', "mp4")
-            .substringBefore('?').take(5).ifBlank { "mp4" }
+        val extension = Uri.parse(download.sourceUrl).lastPathSegment.orEmpty()
+            .substringAfterLast('.', "mp4").lowercase()
+            .takeIf { it in setOf("mp4", "m4v", "webm", "mkv") } ?: "mp4"
         val fileName = "${download.mediaKey.replace(':', '_')}.$extension"
         val request = DownloadManager.Request(Uri.parse(download.sourceUrl))
-            .addRequestHeader("User-Agent", userAgent)
+            .addRequestHeader(
+                "User-Agent",
+                download.requestHeaders.orEmpty().entries.firstOrNull {
+                    it.key.equals("User-Agent", ignoreCase = true)
+                }?.value ?: userAgent,
+            )
+            .apply {
+                download.requestHeaders.orEmpty().forEach { (name, value) ->
+                    if (!name.equals("User-Agent", ignoreCase = true)) addRequestHeader(name, value)
+                }
+            }
             .setTitle(download.title)
             .setDescription(download.seriesTitle ?: "OpenTV")
             // The system reports progress and completion using supported notification visibility.
@@ -144,17 +155,24 @@ class DownloadRepository(
      * back to asking for the first byte only and reading the total from Content-Range
      * ("bytes 0-0/20640236829") — no real download happens.
      */
-    private fun remoteSize(url: String, userAgent: String): Long {
+    private fun remoteSize(
+        url: String,
+        userAgent: String,
+        headers: Map<String, String>,
+    ): Long {
+        fun requestBuilder(): okhttp3.Request.Builder =
+            okhttp3.Request.Builder().url(url).header("User-Agent", userAgent).apply {
+                headers.forEach { (name, value) -> header(name, value) }
+            }
         val head = runCatching {
-            val request = okhttp3.Request.Builder().url(url).head().header("User-Agent", userAgent).build()
+            val request = requestBuilder().head().build()
             http.newCall(request).execute().use { r ->
                 if (r.isSuccessful) r.header("Content-Length")?.toLongOrNull() ?: 0L else 0L
             }
         }.getOrDefault(0L)
         if (head > 0) return head
         return runCatching {
-            val request = okhttp3.Request.Builder().url(url)
-                .header("User-Agent", userAgent)
+            val request = requestBuilder()
                 .header("Range", "bytes=0-0")
                 .build()
             http.newCall(request).execute().use { r ->

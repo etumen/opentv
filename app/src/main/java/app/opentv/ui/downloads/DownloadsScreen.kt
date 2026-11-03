@@ -310,5 +310,3 @@ fun DownloadControl(
 
 const val KIND_MOVIE = "MOVIE"
 const val KIND_EPISODE = "EPISODE"
-
-\n

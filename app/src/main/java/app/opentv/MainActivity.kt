@@ -271,6 +271,8 @@ object Routes {
 @Composable
 private fun OpenTvApp(isTelevision: Boolean) {
     val navController = rememberNavController()
+    // Preserve the requested search type when navigating out of the mobile shell.
+    var searchScope by remember { mutableStateOf("all") }
     val playbackScope = rememberCoroutineScope()
     val sourcesViewModel: SourcesViewModel = viewModel()
     val vodViewModel: VodViewModel = viewModel()
@@ -399,7 +401,10 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     },
                     onAddSource = { navController.navigate(Routes.ADD_SOURCE) },
                     onRefresh = sourcesViewModel::refreshAll,
-                    onOpenSearch = { navController.navigate(Routes.SEARCH) },
+                    onOpenSearch = { scope ->
+                        searchScope = scope
+                        navController.navigate(Routes.SEARCH)
+                    },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS_HUB) },
                     onOpenProfiles = { navController.navigate(Routes.PROFILES) },
                     onPlayRecording = { rec ->
@@ -538,6 +543,9 @@ private fun OpenTvApp(isTelevision: Boolean) {
                         navController.navigate(Routes.cloudSeriesDetail(providerId, itemId))
                     },
                     onBack = { navController.popBackStack() },
+                    isTelevision = isTelevision,
+                    initialScope = searchScope,
+                    onOpenMovie = { movie -> navController.navigate(Routes.movieDetail(movie.id)) },
                 )
             }
 

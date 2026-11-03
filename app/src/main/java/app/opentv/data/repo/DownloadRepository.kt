@@ -133,10 +133,8 @@ class DownloadRepository(
             .addRequestHeader("User-Agent", userAgent)
             .setTitle(download.title)
             .setDescription(download.seriesTitle ?: "OpenTV")
-            // Only the "done" notification. The system's live-progress one re-alerts on every update
-            // on some phones (a chime every few seconds for the whole download); progress is shown
-            // in the Downloads tab and on the Download button instead.
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION)
+            // The system reports progress and completion using supported notification visibility.
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_MOVIES, fileName)
         return manager.enqueue(request)
     }

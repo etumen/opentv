@@ -1,7 +1,6 @@
 package app.opentv.ui
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import app.opentv.data.model.Channel
 import app.opentv.data.model.Movie
 import app.opentv.data.model.Series
@@ -34,50 +33,47 @@ fun UniversalMainScreen(
     onPlayCloudItem: (ProviderItem, () -> Unit) -> Unit,
     activeProfileName: String,
 ) {
-    CompositionLocalProvider(
-        LocalLayoutClass provides if (isTelevision) LayoutClass.TV else LayoutClass.PHONE,
-    ) {
-        if (isTelevision) {
-            MainScreen(
-                isTelevision = true,
-                hasSources = hasSources,
-                isSyncing = isSyncing,
-                onPlayChannel = onPlayChannel,
-                onOpenMovie = onOpenMovie,
-                onOpenCloudMovie = onOpenCloudMovie,
-                onOpenSeries = onOpenSeries,
-                onOpenCloudSeries = onOpenCloudSeries,
-                onResume = onResume,
-                onAddSource = onAddSource,
-                onRefresh = onRefresh,
-                onOpenSearch = { onOpenSearch("all") },
-                onOpenSettings = onOpenSettings,
-                onOpenProfiles = onOpenProfiles,
-                onPlayRecording = onPlayRecording,
-                onPlayCatchup = onPlayCatchup,
-                activeProfileName = activeProfileName,
-            )
-        } else {
-            MobileMainScreen(
-                isTelevision = false,
-                hasSources = hasSources,
-                isSyncing = isSyncing,
-                onPlayChannel = onPlayChannel,
-                onOpenMovie = onOpenMovie,
-                onOpenCloudMovie = onOpenCloudMovie,
-                onOpenSeries = onOpenSeries,
-                onOpenCloudSeries = onOpenCloudSeries,
-                onResume = onResume,
-                onAddSource = onAddSource,
-                onRefresh = onRefresh,
-                onOpenSearch = onOpenSearch,
-                onOpenSettings = onOpenSettings,
-                onOpenProfiles = onOpenProfiles,
-                onPlayRecording = onPlayRecording,
-                onPlayCatchup = onPlayCatchup,
-                onPlayCloudItem = onPlayCloudItem,
-                activeProfileName = activeProfileName,
-            )
-        }
+    val isTv = isTelevision || LocalLayoutClass.current == LayoutClass.TV
+    if (isTv) {
+        MainScreen(
+            isTelevision = true,
+            hasSources = hasSources,
+            isSyncing = isSyncing,
+            onPlayChannel = onPlayChannel,
+            onOpenMovie = onOpenMovie,
+            onOpenCloudMovie = onOpenCloudMovie,
+            onOpenSeries = onOpenSeries,
+            onOpenCloudSeries = onOpenCloudSeries,
+            onResume = onResume,
+            onAddSource = onAddSource,
+            onRefresh = onRefresh,
+            onOpenSearch = { onOpenSearch("all") },
+            onOpenSettings = onOpenSettings,
+            onOpenProfiles = onOpenProfiles,
+            onPlayRecording = onPlayRecording,
+            onPlayCatchup = onPlayCatchup,
+            activeProfileName = activeProfileName,
+        )
+    } else {
+        MobileMainScreen(
+            isTelevision = false,
+            hasSources = hasSources,
+            isSyncing = isSyncing,
+            onPlayChannel = onPlayChannel,
+            onOpenMovie = onOpenMovie,
+            onOpenCloudMovie = onOpenCloudMovie,
+            onOpenSeries = onOpenSeries,
+            onOpenCloudSeries = onOpenCloudSeries,
+            onResume = onResume,
+            onAddSource = onAddSource,
+            onRefresh = onRefresh,
+            onOpenSearch = onOpenSearch,
+            onOpenSettings = onOpenSettings,
+            onOpenProfiles = onOpenProfiles,
+            onPlayRecording = onPlayRecording,
+            onPlayCatchup = onPlayCatchup,
+            onPlayCloudItem = onPlayCloudItem,
+            activeProfileName = activeProfileName,
+        )
     }
 }

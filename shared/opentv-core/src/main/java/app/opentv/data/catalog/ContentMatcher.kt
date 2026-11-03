@@ -75,52 +75,117 @@ class ContentMatcher {
     }
 
     fun merge(items: Iterable<ProviderItem>): List<CanonicalContent> {
-        val groups = mutableListOf<MutableList<ProviderItem>>()
-
-        for (item in items) {
-            val target = groups.firstOrNull { group ->
-                group.all { existing ->
-                    match(
-                        leftTitle = existing.title,
-                        leftType = existing.mediaType,
-                        leftYear = existing.year,
-                        rightTitle = item.title,
-                        rightType = item.mediaType,
-                        rightYear = item.year,
-                        leftExternalIds = existing.externalIds,
-                        rightExternalIds = item.externalIds,
-                    ).isMatch
-                }
-            }
-            if (target == null) groups += mutableListOf(item) else target += item
+        val preparedItems = items.map { item ->
+            val id = identity(item.title, item.year)
+            val extIds = normalizeExternalIds(item.externalIds)
+            PreparedItem(item, id, extIds)
         }
 
-        return groups.map(::canonicalize)
+        val groups = mutableListOf<PreparedGroup>()
+        val idIndex = mutableMapOf<String, MutableList<PreparedGroup>>()
+        val titleIndex = mutableMapOf<String, MutableList<PreparedGroup>>()
+
+        for (prepared in preparedItems) {
+            val candidates = mutableSetOf<PreparedGroup>()
+            for ((key, value) in prepared.normalizedExternalIds) {
+                val indexKey = "ext:${prepared.item.mediaType}:$key:$value"
+                idIndex[indexKey]?.let { candidates.addAll(it) }
+            }
+            if (prepared.identity.title.isNotBlank()) {
+                val indexKey = "title:${prepared.item.mediaType}:${prepared.identity.title}"
+                titleIndex[indexKey]?.let { candidates.addAll(it) }
+            }
+
+            val target = if (candidates.isEmpty()) {
+                null
+            } else {
+                candidates
+                    .sortedBy { it.index }
+                    .firstOrNull { group ->
+                        group.items.all { existing -> matches(existing, prepared) }
+                    }
+            }
+
+            if (target == null) {
+                val newGroup = PreparedGroup(index = groups.size, items = mutableListOf(prepared))
+                groups.add(newGroup)
+                indexGroupItem(newGroup, prepared, idIndex, titleIndex)
+            } else {
+                target.items.add(prepared)
+                indexGroupItem(target, prepared, idIndex, titleIndex)
+            }
+        }
+
+        return groups.map { canonicalize(it.items) }
     }
 
-    private fun canonicalize(group: List<ProviderItem>): CanonicalContent {
+    private fun indexGroupItem(
+        group: PreparedGroup,
+        prepared: PreparedItem,
+        idIndex: MutableMap<String, MutableList<PreparedGroup>>,
+        titleIndex: MutableMap<String, MutableList<PreparedGroup>>,
+    ) {
+        for ((key, value) in prepared.normalizedExternalIds) {
+            val indexKey = "ext:${prepared.item.mediaType}:$key:$value"
+            val list = idIndex.getOrPut(indexKey) { mutableListOf() }
+            if (list.none { it.index == group.index }) list.add(group)
+        }
+        if (prepared.identity.title.isNotBlank()) {
+            val indexKey = "title:${prepared.item.mediaType}:${prepared.identity.title}"
+            val list = titleIndex.getOrPut(indexKey) { mutableListOf() }
+            if (list.none { it.index == group.index }) list.add(group)
+        }
+    }
+
+    private fun matches(left: PreparedItem, right: PreparedItem): Boolean {
+        if (left.item.mediaType != right.item.mediaType) return false
+
+        val leftIds = left.normalizedExternalIds
+        val rightIds = right.normalizedExternalIds
+        var hasSharedKey = false
+        if (leftIds.isNotEmpty() && rightIds.isNotEmpty()) {
+            for ((key, leftVal) in leftIds) {
+                val rightVal = rightIds[key] ?: continue
+                if (leftVal != rightVal) return false
+                hasSharedKey = true
+            }
+        }
+        if (hasSharedKey) return true
+
+        if (left.identity.title.isBlank() || left.identity.title != right.identity.title) {
+            return false
+        }
+
+        if (left.identity.year != null && right.identity.year != null && left.identity.year != right.identity.year) {
+            return false
+        }
+
+        return true
+    }
+
+    private fun canonicalize(group: List<PreparedItem>): CanonicalContent {
         require(group.isNotEmpty())
         val first = group.first()
-        val identities = group.map { identity(it.title, it.year) }
-        val year = identities.firstNotNullOfOrNull { it.year }
-        val normalizedTitle = identities.first().title
-        val best = group.maxByOrNull(::metadataScore) ?: first
+        val year = group.firstNotNullOfOrNull { it.identity.year }
+        val normalizedTitle = first.identity.title
+        val best = group.maxByOrNull { metadataScore(it.item) }?.item ?: first.item
         val externalIds = mergeExternalIds(group)
 
         return CanonicalContent(
-            id = canonicalIdNormalized(first.mediaType, normalizedTitle, year, externalIds),
+            id = canonicalIdNormalized(first.item.mediaType, normalizedTitle, year, externalIds),
             title = best.title.trim(),
-            mediaType = first.mediaType,
-            posterUrl = group.firstNotNullOfOrNull { it.posterUrl?.takeIf(String::isNotBlank) },
-            backdropUrl = group.firstNotNullOfOrNull { it.backdropUrl?.takeIf(String::isNotBlank) },
+            mediaType = first.item.mediaType,
+            posterUrl = group.firstNotNullOfOrNull { it.item.posterUrl?.takeIf(String::isNotBlank) },
+            backdropUrl = group.firstNotNullOfOrNull { it.item.backdropUrl?.takeIf(String::isNotBlank) },
             description = group
-                .mapNotNull { it.description?.takeIf(String::isNotBlank) }
+                .mapNotNull { it.item.description?.takeIf(String::isNotBlank) }
                 .maxByOrNull(String::length),
             year = year,
-            rating = group.mapNotNull { it.rating }.maxOrNull(),
-            genres = group.flatMap { it.genres }.distinct(),
+            rating = group.mapNotNull { it.item.rating }.maxOrNull(),
+            genres = group.flatMap { it.item.genres }.distinct(),
             externalIds = externalIds,
             sources = group
+                .map { it.item }
                 .distinctBy { it.providerId to it.id }
                 .map(ProviderItem::toContentSource),
         )
@@ -163,7 +228,7 @@ class ContentMatcher {
         }
 
         val slug = normalizedTitle
-            .replace(Regex("""[^a-z0-9]+"""), "-")
+            .replace(NON_ALPHANUM_REGEX, "-")
             .trim('-')
             .ifBlank { "untitled" }
         return mediaType.name.lowercase(Locale.ROOT) + ":" + slug + ":" + (year ?: "unknown")
@@ -176,11 +241,11 @@ class ContentMatcher {
             if (key.isBlank() || value.isBlank()) null else key to value
         }.toMap()
 
-    private fun mergeExternalIds(group: List<ProviderItem>): Map<String, String> {
+    private fun mergeExternalIds(group: List<PreparedItem>): Map<String, String> {
         val merged = linkedMapOf<String, String>()
         val conflicts = mutableSetOf<String>()
         group.forEach { item ->
-            normalizeExternalIds(item.externalIds).forEach { (key, value) ->
+            item.normalizedExternalIds.forEach { (key, value) ->
                 val existing = merged[key]
                 when {
                     existing == null -> merged[key] = value
@@ -200,18 +265,29 @@ class ContentMatcher {
             if (trailing != null) trimmed.removeRange(trailing.range).trim() else trimmed
 
         val normalized = Normalizer.normalize(withoutYear, Normalizer.Form.NFD)
-            .replace(Regex("""\p{M}+"""), "")
+            .replace(DIACRITICS_REGEX, "")
             .lowercase(Locale.ROOT)
             .replace('ı', 'i')
-            .replace(Regex("""[^a-z0-9]+"""), " ")
+            .replace(NON_ALPHANUM_REGEX, " ")
             .trim()
-            .replace(Regex("""\s+"""), " ")
+            .replace(WHITESPACE_REGEX, " ")
 
         return Identity(
             title = normalized,
             year = explicitYear ?: inferredYear,
         )
     }
+
+    private class PreparedItem(
+        val item: ProviderItem,
+        val identity: Identity,
+        val normalizedExternalIds: Map<String, String>,
+    )
+
+    private class PreparedGroup(
+        val index: Int,
+        val items: MutableList<PreparedItem>,
+    )
 
     private data class Identity(
         val title: String,
@@ -220,5 +296,8 @@ class ContentMatcher {
 
     private companion object {
         val TRAILING_YEAR = Regex("""(?:\(|\[)?(19\d{2}|20\d{2})(?:\)|\])?\s*$""")
+        val DIACRITICS_REGEX = Regex("""\p{M}+""")
+        val NON_ALPHANUM_REGEX = Regex("""[^a-z0-9]+""")
+        val WHITESPACE_REGEX = Regex("""\s+""")
     }
 }

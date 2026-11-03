@@ -116,9 +116,9 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     // Make the same device layout visible to player, search and detail destinations.
+                    val layoutClass = app.opentv.ui.rememberLayoutClass(isTelevision)
                     androidx.compose.runtime.CompositionLocalProvider(
-                        app.opentv.ui.LocalLayoutClass provides
-                            if (isTelevision) app.opentv.ui.LayoutClass.TV else app.opentv.ui.LayoutClass.PHONE,
+                        app.opentv.ui.LocalLayoutClass provides layoutClass,
                     ) {
                         OpenTvApp(isTelevision = isTelevision)
                     }

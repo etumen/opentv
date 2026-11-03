@@ -317,6 +317,51 @@ class CatalogAggregatorTest {
         assertThat(result.single().sources).hasSize(2)
     }
 
+    @Test
+    fun matcher_scalesEfficientlyWithLargeInput() {
+        val items = (1..250).flatMap { i ->
+            listOf(
+                ProviderItem(
+                    providerId = "provider_a",
+                    id = "a-$i",
+                    title = "Movie Title $i (2024)",
+                    mediaType = ProviderMediaType.MOVIE,
+                ),
+                ProviderItem(
+                    providerId = "provider_b",
+                    id = "b-$i",
+                    title = "movie title $i",
+                    mediaType = ProviderMediaType.MOVIE,
+                    year = 2024,
+                ),
+            )
+        }
+
+        val start = System.currentTimeMillis()
+        val result = ContentMatcher().merge(items)
+        val elapsed = System.currentTimeMillis() - start
+
+        assertThat(result).hasSize(250)
+        assertThat(result.all { it.sources.size == 2 }).isTrue()
+        assertThat(elapsed).isLessThan(2000L)
+    }
+
+    @Test
+    fun matcher_mergesViaSharedExternalIds() {
+        val items = listOf(
+            ProviderItem("a", "1", "Movie X", ProviderMediaType.MOVIE, externalIds = mapOf("imdb" to "tt001")),
+            ProviderItem("b", "2", "Movie X Official", ProviderMediaType.MOVIE, externalIds = mapOf("imdb" to "tt001", "tmdb" to "tm002")),
+            ProviderItem("c", "3", "Movie X Remastered", ProviderMediaType.MOVIE, externalIds = mapOf("imdb" to "tt001", "tmdb" to "tm002")),
+        )
+
+        val result = ContentMatcher().merge(items)
+
+        assertThat(result).hasSize(1)
+        assertThat(result.single().sources).hasSize(3)
+        assertThat(result.single().externalIds).containsEntry("imdb", "tt001")
+        assertThat(result.single().externalIds).containsEntry("tmdb", "tm002")
+    }
+
     private class FakeProvider(
         override val id: String,
         private val searchItems: List<ProviderItem> = emptyList(),

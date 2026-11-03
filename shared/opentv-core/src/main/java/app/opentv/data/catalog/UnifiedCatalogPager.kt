@@ -6,9 +6,11 @@ import app.opentv.data.provider.ProviderItem
 import app.opentv.data.provider.ProviderMediaType
 import app.opentv.data.provider.ProviderRepository
 import app.opentv.data.provider.ProviderResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 
 /**
  * Provider-independent catalogue pager.
@@ -31,7 +33,7 @@ class UnifiedCatalogPager internal constructor(
     val hasMore: Boolean
         get() = initialized && nextPages.values.any { it != null }
 
-    suspend fun loadInitial(): UnifiedCatalogPage {
+    suspend fun loadInitial(): UnifiedCatalogPage = withContext(Dispatchers.Default) {
         rawItems.clear()
         seenByProvider.clear()
         nextPages.clear()
@@ -63,15 +65,15 @@ class UnifiedCatalogPager internal constructor(
             )
         }
         initialized = true
-        return snapshot()
+        snapshot()
     }
 
-    suspend fun loadMore(): UnifiedCatalogPage {
-        if (!initialized) return loadInitial()
+    suspend fun loadMore(): UnifiedCatalogPage = withContext(Dispatchers.Default) {
+        if (!initialized) return@withContext loadInitial()
 
         val active = nextPages
             .mapNotNull { (providerId, page) -> page?.let { providerId to it } }
-        if (active.isEmpty()) return snapshot()
+        if (active.isEmpty()) return@withContext snapshot()
 
         val results = coroutineScope {
             active.map { (providerId, page) ->
@@ -95,7 +97,7 @@ class UnifiedCatalogPager internal constructor(
         results.forEach { (providerId, page, result) ->
             applyProviderPage(providerId, page, result)
         }
-        return snapshot()
+        snapshot()
     }
 
     private fun applyProviderPage(

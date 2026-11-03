@@ -43,23 +43,29 @@ internal object UnifiedCatalogRules {
         "imdb 7" to "IMDb 7+",
     )
 
+    private val sortedGenreAliases = genreAliases.entries.sortedByDescending { it.key.length }
+    private val DIACRITICS_REGEX = Regex("\\p{M}+")
+    private val NON_ALPHANUM_REGEX = Regex("[^a-z0-9]+")
+    private val MULTI_SPACE_REGEX = Regex(" +")
+    private val GENRE_SUFFIX_REGEX = Regex("\\b(filmleri|filmler|filmi|film|dizileri|diziler|dizi)\\b")
+    private val YEAR_REGEX = Regex("\\b(19|20)\\d{2}\\b")
+
     private fun fold(input: String): String = Normalizer.normalize(
         input.lowercase(turkish).replace('ı', 'i'),
         Normalizer.Form.NFD,
-    ).replace(Regex("\\p{M}+"), "")
-        .replace(Regex("[^a-z0-9]+"), " ")
+    ).replace(DIACRITICS_REGEX, "")
+        .replace(NON_ALPHANUM_REGEX, " ")
         .trim()
-        .replace(Regex(" +"), " ")
+        .replace(MULTI_SPACE_REGEX, " ")
 
     /** Unknown sections are not guessed into a genre (for example Son Eklenen Bölümler). */
     fun genre(section: ProviderCatalogSection): UnifiedGenre? {
         val value = fold(section.title)
-            .replace(Regex("\\b(filmleri|filmler|filmi|film|dizileri|diziler|dizi)\\b"), " ")
-            .replace(Regex(" +"), " ")
+            .replace(GENRE_SUFFIX_REGEX, " ")
+            .replace(MULTI_SPACE_REGEX, " ")
             .trim()
         val label = genreAliases[value]
-            ?: genreAliases.entries
-                .sortedByDescending { it.key.length }
+            ?: sortedGenreAliases
                 .firstOrNull { (name, _) -> value.startsWith("$name ") }
                 ?.value
             ?: return null
@@ -100,9 +106,9 @@ internal object UnifiedCatalogRules {
             val value = item.externalIds[field]?.trim()?.lowercase(Locale.ROOT)
             if (!value.isNullOrEmpty()) return "$field:$value"
         }
-        val embeddedYear = Regex("\\b(19|20)\\d{2}\\b").find(item.title)?.value
+        val embeddedYear = YEAR_REGEX.find(item.title)?.value
         val year = item.year?.toString() ?: embeddedYear.orEmpty()
-        val title = fold(item.title.replace(Regex("\\b(19|20)\\d{2}\\b"), " "))
+        val title = fold(item.title.replace(YEAR_REGEX, " "))
         return "title:$title|year:$year|type:${item.mediaType}"
     }
 

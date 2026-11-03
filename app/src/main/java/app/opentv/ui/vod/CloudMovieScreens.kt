@@ -108,6 +108,7 @@ internal fun UnifiedMoviePosterRow(
                 PosterCard(
                     title = item.title,
                     posterUrl = item.posterUrl,
+                    fallbackPosterUrls = item.sources.mapNotNull { it.posterUrl },
                     providerId = source?.providerId,
                     subtitle = item.year?.toString(),
                     rating = item.rating,

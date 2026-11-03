@@ -66,6 +66,7 @@ import app.opentv.data.provider.ProviderMediaType
 import app.opentv.ui.mobile.Tab
 import app.opentv.ui.vod.CloudSeriesViewModel
 import app.opentv.ui.vod.PosterCard
+import app.opentv.ui.vod.UnifiedCatalogAlternatives
 import app.opentv.ui.vod.ContinueWatchingRow
 import app.opentv.ui.vod.UnifiedCatalogViewModel
 import app.opentv.ui.VodViewModel
@@ -238,6 +239,9 @@ fun MobileHomeScreen(
                         PosterCard(
                             title = item.title,
                             posterUrl = item.posterUrl,
+                            providerId = item.providerId,
+                            fallbackPosterUrls = UnifiedCatalogAlternatives.alternatives(item.providerId, item.id)
+                                .mapNotNull { it.posterUrl },
                             subtitle = item.year?.toString(),
                             rating = item.rating,
                             onClick = { onOpenCloudMovie(item) },
@@ -266,6 +270,9 @@ fun MobileHomeScreen(
                         PosterCard(
                             title = item.title,
                             posterUrl = item.posterUrl,
+                            providerId = item.providerId,
+                            fallbackPosterUrls = UnifiedCatalogAlternatives.alternatives(item.providerId, item.id)
+                                .mapNotNull { it.posterUrl },
                             subtitle = item.year?.toString(),
                             rating = item.rating,
                             onClick = { onOpenCloudSeries(item) },
@@ -294,6 +301,9 @@ fun MobileHomeScreen(
                         PosterCard(
                             title = item.title,
                             posterUrl = item.posterUrl,
+                            providerId = item.providerId,
+                            fallbackPosterUrls = UnifiedCatalogAlternatives.alternatives(item.providerId, item.id)
+                                .mapNotNull { it.posterUrl },
                             subtitle = item.year?.toString(),
                             rating = item.rating,
                             onClick = { onOpenCloudSeries(item) },

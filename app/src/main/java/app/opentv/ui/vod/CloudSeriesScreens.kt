@@ -215,6 +215,7 @@ internal fun UnifiedSeriesPosterRow(
                 PosterCard(
                     title = item.title,
                     posterUrl = item.posterUrl,
+                    fallbackPosterUrls = item.sources.mapNotNull { it.posterUrl },
                     providerId = providerId,
                     subtitle = subtitle,
                     rating = item.rating,

@@ -41,6 +41,17 @@ use the mobile touch UI. All devices share one provider/data implementation.
   S25 Ultra had ChatGPT foreground, so no disruptive screen navigation was attempted.
   End-to-end paging/language/audio/DB-upgrade checks remain outstanding.
 
+## Verification follow-up (2026-11-03)
+- Mi Box: film Aksiyon provider pages 2-4 and series Aksiyon pages 2-9 loaded; pagination verified by on-device logs.
+- The first movie-screen composition showed "Film yok" before catalogue loading began. Fixed initial
+  loading state; real-device confirmation of this revision still pending.
+- A movie detail contained both "Türkçe Dublaj" and "Türkçe Altyazılı" as provider category
+  names. These are now labeled as *source claims* in detail pages, not verified playback languages.
+- Android Media3 reports audio/text language only after track metadata is available during playback.
+  In the sampled Mi Box stream the displayed audio language could not yet be verified; do not
+  assert the stream has Turkish audio or subtitle support without usable track metadata.
+- :app:assembleDebug and :app:testDebugUnitTest PASS (99 tests, 0 failures).
+
 ## Release blockers — do not merge into main until resolved
 1. Existing private mobile-package data (`app.opentvmobile`) cannot be transferred by Android
    to the unified `app.opentv` package automatically. The new unified download feature works from

@@ -448,7 +448,8 @@ fun CloudSeriesDetailScreen(
                 plot = displayDetails.description,
                 cast = displayDetails.cast.joinToString(", ").takeIf { it.isNotBlank() },
                 director = displayDetails.director,
-                genre = displayItem.genres.joinToString(", ").takeIf { it.isNotBlank() },
+                genre = displayItem.genres.map(UnifiedCatalogRules::sourceClaimLabel)
+                    .joinToString(", ").takeIf { it.isNotBlank() },
                 onOpenPerson = {},
             )
         }

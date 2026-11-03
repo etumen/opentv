@@ -66,6 +66,13 @@ internal object UnifiedCatalogRules {
         return UnifiedGenre(fold(label), label)
     }
 
+    /** A provider section is a source claim, not a verified audio/subtitle track. */
+    fun sourceClaimLabel(raw: String): String = when (fold(raw)) {
+        "turkce dublaj" -> "Kaynak: Türkçe Dublaj"
+        "turkce altyazili", "turkce altyazi" -> "Kaynak: Türkçe Altyazılı"
+        else -> raw
+    }
+
     fun sourcesForGenre(
         sections: Map<String, List<ProviderCatalogSection>>,
         genreId: String?,

@@ -274,7 +274,8 @@ fun CloudMovieDetailScreen(
                 plot = current.description,
                 cast = current.cast.joinToString(", ").takeIf { it.isNotBlank() },
                 director = current.director,
-                genre = item.genres.joinToString(", ").takeIf { it.isNotBlank() },
+                genre = item.genres.map(UnifiedCatalogRules::sourceClaimLabel)
+                    .joinToString(", ").takeIf { it.isNotBlank() },
                 onOpenPerson = {},
             )
         }

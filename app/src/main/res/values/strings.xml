@@ -535,4 +535,22 @@
     <string name="nav_downloads">Downloads</string>
 
     <string name="mobile_nav_live_tv">Live TV</string>
+    <string name="dl_download">Download</string>
+    <string name="dl_downloading">Downloading %1$d%%</string>
+    <string name="dl_downloaded">Downloaded</string>
+    <string name="dl_queued">Queued</string>
+    <string name="dl_paused">Paused — waiting for network</string>
+    <string name="dl_failed">Download failed</string>
+    <string name="dl_delete">Delete</string>
+    <string name="dl_delete_confirm">Delete “%1$s” from this device?</string>
+    <string name="dl_empty">Nothing downloaded yet. Open a film or a series and tap Download to watch it offline.</string>
+    <string name="dl_no_space">Not enough free space — at least 1.5 GB is needed.</string>
+    <string name="dl_started">Downloading “%1$s”. While it downloads, some providers won’t let you watch anything else.</string>
+    <string name="dl_season">Download season</string>
+    <string name="dl_used">%1$s used · %2$s free</string>
+    <string name="dl_failed_space">Out of space</string>
+    <string name="dl_no_space_sized">Needs %1$s but only %2$s is free.</string>
+    <string name="dl_retrying">Retrying…</string>
+    <string name="dl_queued_toast">“%1$s” added to the queue — downloads go one at a time.</string>
+    <string name="cloud_search_title">Provider results</string>
 </resources>

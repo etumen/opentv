@@ -273,12 +273,10 @@ fun MobileMainScreen(
                 }
             }
             Tab.RECORDINGS -> RecordingsScreen(onPlay = onPlayRecording)
-            // Saved files play through the VOD player under the same media key, so resume works.
-            // Offline-download persistence will be migrated separately from the mobile database;
-            // never silently read incompatible TV database schemas.
-            Tab.DOWNLOADS -> DisabledContentEmptyState(
-                title = stringResource(R.string.nav_downloads),
-                description = "İndirilenler veri taşıma işlemi henüz tamamlanmadı.",
+            // Same media key as online playback: saved films and episodes resume normally.
+            Tab.DOWNLOADS -> app.opentv.ui.downloads.DownloadsScreen(
+                onPlay = onResume,
+                onBack = { tab = homeTab },
             )
         }
     }

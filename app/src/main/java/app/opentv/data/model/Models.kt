@@ -514,3 +514,25 @@ data class Reminder(
     /** Set once the alarm has fired, so a boot re-arm skips it and the list can grey it out. */
     val fired: Boolean = false,
 )
+
+@Entity(tableName = "downloads", indices = [Index(value = ["mediaKey"], unique = true)])
+data class Download(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /** Same key playback positions use ("movie:12", "ep:34"), so resume carries over offline. */
+    val mediaKey: String,
+    /** "MOVIE" or "EPISODE". */
+    val kind: String,
+    val title: String,
+    val posterUrl: String?,
+    /** Origin tag from the provider title (ES, EN 4K…), shown next to the title. */
+    val tag: String?,
+    /** For episodes: the show they belong to, and where in it. */
+    val seriesTitle: String? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+    /** The provider URL it was downloaded from. */
+    val sourceUrl: String,
+    /** DownloadManager's id for the transfer. */
+    val systemId: Long,
+    val createdMillis: Long,
+)

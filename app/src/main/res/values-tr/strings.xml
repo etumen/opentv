@@ -486,4 +486,22 @@
     <string name="phone_refresh">Kanalları ve kitaplığı yenile</string>
 
     <string name="mobile_nav_live_tv">Canlı TV</string>
+    <string name="dl_delete">Sil</string>
+    <string name="dl_delete_confirm">“%1$s” bu cihazdan silinsin mi?</string>
+    <string name="dl_download">İndir</string>
+    <string name="dl_downloaded">İndirildi</string>
+    <string name="dl_downloading">İndiriliyor %%%1$d</string>
+    <string name="dl_empty">Henüz indirilen bir şey yok. Çevrimdışı izlemek için bir film ya da dizi açıp İndir\'e dokunun.</string>
+    <string name="dl_failed">İndirme başarısız</string>
+    <string name="dl_failed_space">Yer kalmadı</string>
+    <string name="dl_no_space">Yeterli boş alan yok — en az 1.5 GB gerekiyor.</string>
+    <string name="dl_no_space_sized">%1$s gerekiyor ancak yalnızca %2$s boş.</string>
+    <string name="dl_paused">Duraklatıldı — ağ bekleniyor</string>
+    <string name="dl_queued">Sırada</string>
+    <string name="dl_queued_toast">“%1$s” sıraya eklendi — indirmeler tek tek yapılır.</string>
+    <string name="dl_retrying">Yeniden deneniyor…</string>
+    <string name="dl_season">Sezonu indir</string>
+    <string name="dl_started">“%1$s” indiriliyor. İndirme sürerken bazı sağlayıcılar başka bir şey izlemenize izin vermez.</string>
+    <string name="dl_used">%1$s kullanılıyor · %2$s boş</string>
+    <string name="cloud_search_title">Sağlayıcı sonuçları</string>
 </resources>

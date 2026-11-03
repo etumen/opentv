@@ -556,4 +556,13 @@
 <string name="player_audio_current">Audio: %1$s</string>
 <string name="player_audio_unknown">Unknown</string>
 <string name="player_subtitles_tr_available">Turkish subtitles available</string>
+<string name="phone_search_all">Search all channels</string>
+<string name="phone_clear">Clear</string>
+<string name="phone_live_categories">Categories</string>
+<string name="phone_live_recent">Recent</string>
+<string name="phone_live_recent_empty">Channels you watch show up here, most recent first.</string>
+<string name="phone_sort_provider">Provider order</string>
+<string name="phone_sort_name">A–Z</string>
+<string name="phone_sort_number">By number</string>
+<string name="phone_live_filter_categories">Filter categories</string>
 </resources>

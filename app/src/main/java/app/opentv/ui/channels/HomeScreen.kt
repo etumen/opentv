@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -121,6 +122,7 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val graph = remember { ServiceLocator.get(context) }
+    val isPhone = !isTelevision
     val settings = remember { graph.settings }
     val previewEnabled by settings.guidePreviewVideo.collectAsState()
     val channelLayout by settings.channelLayout.collectAsState()
@@ -132,6 +134,9 @@ fun HomeScreen(
 
     val categories by viewModel.visibleCategoryGroups.collectAsState()
     val rows by viewModel.rows.collectAsState()
+    val recentChannelIds by settings.recentChannels.collectAsState()
+    val phoneSort by settings.channelSort.collectAsState()
+    var phoneRecentsOnly by rememberSaveable { mutableStateOf(false) }
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val favouritesOnly by viewModel.favouritesOnly.collectAsState()
     val sources by viewModel.sources.collectAsState()
@@ -301,7 +306,60 @@ fun HomeScreen(
         )
     }
 
-    Row(Modifier.fillMaxSize()) {
+    val phoneRows = remember(rows, isPhone, recentChannelIds, phoneRecentsOnly, phoneSort) {
+        if (!isPhone) rows
+        else {
+            val filtered = if (phoneRecentsOnly) {
+                rows.filter { row -> row.variants.any { it.id in recentChannelIds } }
+                    .sortedBy { row ->
+                        recentChannelIds.indexOfFirst { id -> row.variants.any { it.id == id } }
+                    }
+            } else rows
+            when (phoneSort) {
+                AppSettings.ChannelSort.DEFAULT -> filtered
+                AppSettings.ChannelSort.NAME -> filtered.sortedBy { it.primary.shownName.lowercase(Locale.getDefault()) }
+                AppSettings.ChannelSort.NUMBER -> filtered.sortedBy { it.number }
+            }
+        }
+    }
+    if (isPhone) {
+        PhoneLiveLayout(
+            rows = phoneRows,
+            sources = sources,
+            selectedSource = selectedSource,
+            categories = categories,
+            selectedCategory = selectedCategory,
+            favouritesOnly = favouritesOnly,
+            recentsOnly = phoneRecentsOnly,
+            sort = phoneSort,
+            onSort = settings::setChannelSort,
+            onSelectSource = { phoneRecentsOnly = false; viewModel.selectSource(it) },
+            onSelectCategory = { phoneRecentsOnly = false; viewModel.selectCategory(it) },
+            onSelectFavourites = { phoneRecentsOnly = false; viewModel.selectFavourites() },
+            onSelectRecents = {
+                viewModel.selectSource(null)
+                phoneRecentsOnly = true
+            },
+            onQuery = viewModel::search,
+            onPlay = { requestLive(it.primary) },
+            onLongPress = { channelMenu = it },
+            onToggleFavourite = viewModel::toggleFavourite,
+            emptyContent = {
+                when {
+                    phoneRecentsOnly -> Box(Modifier.fillMaxSize().padding(24.dp),
+                        contentAlignment = Alignment.Center) {
+                        Text(stringResource(R.string.phone_live_recent_empty))
+                    }
+                    favouritesOnly -> NoFavouritesState()
+                    isSyncing || channelsPresent == null || channelsPresent == true ->
+                        LoadingState(isSyncing)
+                    hasSources -> ChannelsErrorState(onRetry = onRefresh, onEditProvider = onAddSource)
+                    else -> EmptyState(onAddSource)
+                }
+            },
+        )
+    } else Row(Modifier.fillMaxSize()) {
+        // ---- Categories
 
         // ---- Category rail -----------------------------------------------------------------
         // Width animates to 0 while focus is in the guide (see onFocusRow) so the grid gets the

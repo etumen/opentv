@@ -98,6 +98,34 @@ class AppSettings private constructor(context: Context) {
         _hiddenCategories.value = keys.toSet()
     }
 
+    /** Most recently watched Live channels, persisted across mobile launches. */
+    private val _recentChannels = MutableStateFlow(
+        prefs.getString(KEY_RECENT_CHANNELS, "").orEmpty()
+            .split(',').mapNotNull { it.toLongOrNull() },
+    )
+    val recentChannels: StateFlow<List<Long>> = _recentChannels.asStateFlow()
+
+    fun addRecentChannel(id: Long) {
+        val next = (listOf(id) + _recentChannels.value.filterNot { it == id }).take(20)
+        prefs.edit().putString(KEY_RECENT_CHANNELS, next.joinToString(",")).apply()
+        _recentChannels.value = next
+    }
+
+    /** Phone-only ordering. TV's existing curated ordering remains untouched. */
+    enum class ChannelSort { DEFAULT, NAME, NUMBER }
+
+    private val _channelSort = MutableStateFlow(
+        runCatching {
+            ChannelSort.valueOf(prefs.getString(KEY_CHANNEL_SORT, "") ?: "")
+        }.getOrDefault(ChannelSort.DEFAULT),
+    )
+    val channelSort: StateFlow<ChannelSort> = _channelSort.asStateFlow()
+
+    fun setChannelSort(value: ChannelSort) {
+        prefs.edit().putString(KEY_CHANNEL_SORT, value.name).apply()
+        _channelSort.value = value
+    }
+
     fun setHiddenUnlocked(unlocked: Boolean) {
         _hiddenUnlocked.value = unlocked
     }
@@ -417,6 +445,8 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_PREVIEW_SOUND = "guide_preview_sound"
         private const val KEY_PIN_HASH = "parental_pin_hash"
         private const val KEY_HIDDEN_CATS = "hidden_categories"
+        private const val KEY_RECENT_CHANNELS = "recent_channels"
+        private const val KEY_CHANNEL_SORT = "channel_sort"
         private const val KEY_ACTIVE_PROFILE = "active_profile_id"
         private const val KEY_RESUME_LAST = "resume_last_channel"
         private const val KEY_CONTENT_LIVE = "content_live"

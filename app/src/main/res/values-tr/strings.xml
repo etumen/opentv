@@ -507,4 +507,13 @@
 <string name="player_audio_current">Ses: %1$s</string>
 <string name="player_audio_unknown">Bilinmiyor</string>
 <string name="player_subtitles_tr_available">Türkçe altyazı var</string>
+<string name="phone_search_all">Tüm kanallarda ara</string>
+<string name="phone_clear">Temizle</string>
+<string name="phone_live_categories">Kategoriler</string>
+<string name="phone_live_recent">Son izlenenler</string>
+<string name="phone_live_recent_empty">İzlediğiniz kanallar en yeniden başlayarak burada görünür.</string>
+<string name="phone_sort_provider">Sağlayıcı sırası</string>
+<string name="phone_sort_name">A–Z</string>
+<string name="phone_sort_number">Numaraya göre</string>
+<string name="phone_live_filter_categories">Kategorileri filtrele</string>
 </resources>

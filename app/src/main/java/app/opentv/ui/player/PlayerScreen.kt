@@ -250,6 +250,7 @@ fun PlayerScreen(
         currentId = channel.id
         paused = false
         settings.lastChannelId = channel.id
+        if (touch) settings.addRecentChannel(channel.id)
         scope.launch {
             playbackCandidates = graph.catalogRepository.playbackCandidates(channel)
                 .ifEmpty { listOf(channel) }

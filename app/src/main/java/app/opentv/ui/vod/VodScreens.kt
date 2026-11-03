@@ -235,7 +235,7 @@ fun SeriesScreen(
     val cloudSectionLoading by cloudViewModel.loadingSelectedSection.collectAsState()
     val cloudSectionLoadingMore by cloudViewModel.loadingMoreSelectedSection.collectAsState()
     val isTouch = LocalLayoutClass.current.isTouch
-    var phoneProviderId by remember { mutableStateOf<String?>(null) }
+    var selectedCloudFilterId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         if (hasSources) viewModel.ensureVodLoaded()
@@ -244,27 +244,16 @@ fun SeriesScreen(
         unifiedBrowseModel.ensureLoaded(ProviderMediaType.SERIES)
     }
 
-    LaunchedEffect(cloudProviders, selectedCloudProviderId, isTouch) {
-        if (isTouch) return@LaunchedEffect
-        val selectedIsVisible = cloudProviders.any { it.id == selectedCloudProviderId }
-        if (!selectedIsVisible) {
-            cloudProviders.firstOrNull()?.let { cloudViewModel.selectProvider(it.id) }
-        } else if (selectedCloudSectionId == null) {
-            cloudViewModel.loadShelves()
-        }
-    }
-
     var browseCategory by remember { mutableStateOf<String?>(null) }
 
     val unifiedSeriesLoading by cloudViewModel.loadingUnifiedCatalog.collectAsState()
-    val hasContent = if (isTouch) {
-        resume.isNotEmpty() ||
-            if (phoneProviderId == null) unifiedSeries.isNotEmpty()
-            else cloudShelves.isNotEmpty()
-    } else {
-        resume.isNotEmpty() || recentlyAdded.isNotEmpty() ||
-            genreRows.isNotEmpty() || cloudShelves.isNotEmpty()
-    }
+    val nativeSeriesAvailable = recentlyAdded.isNotEmpty() ||
+        genreRows.isNotEmpty() || categorySeries.isNotEmpty()
+    // IPTV/Live-only lists do not represent series providers.
+    val showNativeFilters = isTouch || nativeSeriesAvailable
+    val hasContent = resume.isNotEmpty() ||
+        (!isTouch && selectedCloudFilterId == null && nativeSeriesAvailable) ||
+        (if (selectedCloudFilterId == null) unifiedSeries.isNotEmpty() else cloudShelves.isNotEmpty())
 
     Column(Modifier.fillMaxSize()) {
         if (cloudProviders.any { it.id == "dizipal" }) {
@@ -277,11 +266,11 @@ fun SeriesScreen(
                 entries = unifiedGenreState.categories.map { it.id to it.title },
                 selected = unifiedGenreState.categoryId,
                 onSelectHome = {
-                    phoneProviderId = null
+                    selectedCloudFilterId = null
                     unifiedBrowseModel.selectCategory(ProviderMediaType.SERIES, null)
                 },
                 onSelectCategory = {
-                    phoneProviderId = null
+                    selectedCloudFilterId = null
                     unifiedBrowseModel.selectCategory(ProviderMediaType.SERIES, it)
                 },
             )
@@ -303,9 +292,9 @@ fun SeriesScreen(
                 }
                 item(key = "all-providers") {
                     androidx.compose.material3.FilterChip(
-                        selected = phoneProviderId == null,
+                        selected = selectedCloudFilterId == null,
                         onClick = {
-                            phoneProviderId = null
+                            selectedCloudFilterId = null
                             browseCategory = null
                             unifiedBrowseModel.selectCategory(ProviderMediaType.SERIES, null)
                         },
@@ -314,9 +303,9 @@ fun SeriesScreen(
                 }
                 items(cloudProviders, key = { "provider-filter:" + it.id }) { provider ->
                     androidx.compose.material3.FilterChip(
-                        selected = phoneProviderId == provider.id,
+                        selected = selectedCloudFilterId == provider.id,
                         onClick = {
-                            phoneProviderId = provider.id
+                            selectedCloudFilterId = provider.id
                             browseCategory = null
                             unifiedBrowseModel.selectCategory(ProviderMediaType.SERIES, null)
                             cloudViewModel.selectProvider(provider.id)
@@ -328,11 +317,22 @@ fun SeriesScreen(
         } else {
             CloudSeriesTvControls(
                 providers = cloudProviders,
-                selectedProviderId = selectedCloudProviderId,
+                selectedProviderId = selectedCloudFilterId,
                 selectedSectionId = selectedCloudSectionId,
-                onSelectProvider = { id ->
+                onSelectAll = {
+                    selectedCloudFilterId = null
                     browseCategory = null
-                    cloudViewModel.selectProvider(id)
+                    unifiedBrowseModel.selectCategory(ProviderMediaType.SERIES, null)
+                },
+                onSelectProvider = { id ->
+                    selectedCloudFilterId = id
+                    browseCategory = null
+                    unifiedBrowseModel.selectCategory(ProviderMediaType.SERIES, null)
+                    if (selectedCloudProviderId == id && selectedCloudSectionId != null) {
+                        cloudViewModel.selectSection(null)
+                    } else {
+                        cloudViewModel.selectProvider(id)
+                    }
                 },
                 onSelectSection = { id ->
                     browseCategory = null
@@ -341,7 +341,7 @@ fun SeriesScreen(
             )
         }
 
-        if (sources.size > 1) {
+        if (showNativeFilters && sources.size > 1) {
             ProviderChips(
                 sources = sources,
                 selected = selectedSource,
@@ -349,7 +349,7 @@ fun SeriesScreen(
                 onSelectSource = { id -> browseCategory = null; viewModel.selectVodSource(id) },
             )
         }
-        if (categories.isNotEmpty()) {
+        if (showNativeFilters && categories.isNotEmpty()) {
             CategoryChips(
                 entries = categories.map { it.id to it.name },
                 selected = browseCategory,
@@ -368,7 +368,7 @@ fun SeriesScreen(
                     onOpenSeries = onOpenCloudSeries,
                     onLoadMore = { unifiedBrowseModel.loadMore(ProviderMediaType.SERIES) },
                 )
-                (!isTouch || phoneProviderId != null) && selectedCloudSectionId != null -> CloudSeriesCategoryGrid(
+                selectedCloudFilterId != null && selectedCloudSectionId != null -> CloudSeriesCategoryGrid(
                     items = cloudSectionItems,
                     hasNextPage = cloudSectionNextPage != null,
                     loading = cloudSectionLoading,
@@ -396,10 +396,10 @@ fun SeriesScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    if (resume.isNotEmpty()) {
+                    if (selectedCloudFilterId == null && resume.isNotEmpty()) {
                         item(key = "cw") { ContinueWatchingRow(resume, onResume) }
                     }
-                    if (!isTouch && recentlyAdded.isNotEmpty()) {
+                    if (!isTouch && selectedCloudFilterId == null && recentlyAdded.isNotEmpty()) {
                         item(key = "recent") {
                             SeriesPosterRow(
                                 stringResource(R.string.vod_recently_added),
@@ -408,10 +408,13 @@ fun SeriesScreen(
                             )
                         }
                     }
-                    items(if (isTouch) emptyList() else genreRows, key = { "g:" + it.genre }) { group ->
+                    items(
+                        if (!isTouch && selectedCloudFilterId == null) genreRows else emptyList(),
+                        key = { "g:" + it.genre },
+                    ) { group ->
                         SeriesPosterRow(group.genre, group.items, onOpenSeries)
                     }
-                    if ((phoneProviderId == null || !isTouch) && unifiedSeries.isNotEmpty()) {
+                    if (selectedCloudFilterId == null && unifiedSeries.isNotEmpty()) {
                         item(key = "unified-all-series") {
                             UnifiedSeriesPosterRow(
                                 items = unifiedSeries,
@@ -442,7 +445,7 @@ fun SeriesScreen(
                         }
                     }
                     items(
-                        if (isTouch && phoneProviderId == null) emptyList() else cloudShelves,
+                        if (selectedCloudFilterId == null) emptyList() else cloudShelves,
                         key = { "cloud-series:" + it.providerId + ":" + it.section.id },
                     ) { shelf ->
                         CloudSeriesPosterRow(

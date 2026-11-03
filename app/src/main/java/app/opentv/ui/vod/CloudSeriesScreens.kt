@@ -83,27 +83,34 @@ internal fun CloudSeriesTvControls(
     providers: List<CloudSeriesProvider>,
     selectedProviderId: String?,
     selectedSectionId: String?,
+    onSelectAll: () -> Unit,
     onSelectProvider: (String) -> Unit,
     onSelectSection: (String?) -> Unit,
 ) {
     if (providers.isEmpty()) return
     val selectedProvider = providers.firstOrNull { it.id == selectedProviderId }
-        ?: providers.first()
 
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        item(key = "provider:all") {
+            FilterChip(
+                selected = selectedProvider == null,
+                onClick = onSelectAll,
+                label = { Text("Tümü") },
+            )
+        }
         items(providers, key = { "provider:" + it.id }) { provider ->
             FilterChip(
-                selected = provider.id == selectedProvider.id,
+                selected = provider.id == selectedProvider?.id,
                 onClick = { onSelectProvider(provider.id) },
                 label = { Text(provider.name) },
             )
         }
     }
 
-    LazyRow(
+    if (selectedProvider != null) LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

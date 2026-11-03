@@ -24,7 +24,7 @@ internal data class UnifiedBrowseState(
     val categoryId: String? = null,
     val items: List<ProviderItem> = emptyList(),
     val hasMore: Boolean = false,
-    val loading: Boolean = false,
+    val loading: Boolean = true, // Initial first-frame provider fetch pending
     val loadingMore: Boolean = false,
     val batches: Int = 0,
     val errors: Map<String, String> = emptyMap(),

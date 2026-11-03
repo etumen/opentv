@@ -125,7 +125,7 @@ fun MoviesScreen(
                     onLoadMore = { unifiedBrowseModel.loadMore(ProviderMediaType.MOVIE) },
                 )
             } else
-            if (!hasContent && (unifiedLoading || cloudLoading || isSyncing)) {
+            if (!hasContent && (unifiedGenreState.loading || unifiedLoading || cloudLoading || isSyncing)) {
                 LoadingVod(stringResource(R.string.vod_loading_movies))
             } else if (!hasContent) {
                 EmptyVod(
@@ -318,7 +318,7 @@ fun SeriesScreen(
                 )
                 browseCategory != null -> SeriesCategoryGrid(categorySeries, onOpenSeries)
                 !hasContent -> when {
-                    cloudLoading || vodLoading || isSyncing ->
+                    unifiedGenreState.loading || cloudLoading || vodLoading || isSyncing ->
                         LoadingVod(stringResource(R.string.vod_loading_shows))
                     hasSources -> EmptyVod(
                         stringResource(R.string.vod_no_shows),

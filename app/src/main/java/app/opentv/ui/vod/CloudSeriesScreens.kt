@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.ui.LocalLayoutClass
 import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.catalog.CanonicalEpisode
 import app.opentv.data.catalog.UnifiedSeriesDetails
@@ -387,6 +388,7 @@ fun CloudSeriesDetailScreen(
         }
     }
     val activeSeason = selectedSeason ?: seasons.keys.firstOrNull()
+    val isTouch = LocalLayoutClass.current.isTouch
     val firstEpisode = seasons.values.firstOrNull()?.firstOrNull()
     val playEpisode: (CanonicalEpisode) -> Unit = { episode ->
         if (resolvingEpisodeId == null) {
@@ -473,7 +475,11 @@ fun CloudSeriesDetailScreen(
                 )
             }
             item(key = "episodes:" + activeSeason) {
-                SectionHeader(stringResource(R.string.vod_episodes))
+                val episodeCount = seasons[activeSeason].orEmpty().size
+                SectionHeader(
+                    if (isTouch) "${stringResource(R.string.vod_episodes)} ($episodeCount) →"
+                    else stringResource(R.string.vod_episodes),
+                )
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
@@ -578,6 +584,7 @@ private fun CloudEpisodeCard(
         label = "episodeCardScale",
     )
     val shape = RoundedCornerShape(14.dp)
+    val isTouch = LocalLayoutClass.current.isTouch
     val episodeMeta = buildList {
         add("S" + episode.season + " · B" + episode.episodeNumber)
         if (episode.sources.size > 1) {
@@ -587,8 +594,9 @@ private fun CloudEpisodeCard(
 
     Box(
         Modifier
-            .width(360.dp)
-            .height(203.dp)
+            // Reveal the next episode on phones; preserve TV card dimensions.
+            .width(if (isTouch) 245.dp else 360.dp)
+            .height(if (isTouch) 138.dp else 203.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .onFocusChanged { focused = it.isFocused }
             .clip(shape)

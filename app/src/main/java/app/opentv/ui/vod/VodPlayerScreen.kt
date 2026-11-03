@@ -158,6 +158,7 @@ fun VodPlayerScreen(
                 app.opentv.player.GrowingRecordingDataSource.Factory(context.applicationContext),
             liveRecording = growingRec,
             autoRetryOnFailure = fallbackContext?.alternateItems.isNullOrEmpty(),
+            offlineHlsCache = if (isPhone) graph.downloadRepository.offlineHlsCache else null,
         ).also { playback ->
             if (isPhone) {
                 // Only select Turkish if the stream actually exposes a Turkish audio track.
@@ -308,19 +309,26 @@ fun VodPlayerScreen(
         val resumeFrom = graph.playbackPositions.get(settings.activeProfileId.value, mediaKey)
             ?.takeIf { !it.isFinished }?.positionMillis ?: 0L
         val localUrl = graph.downloadRepository.localFile(mediaKey)
+        val offlineHls = graph.downloadRepository.offlineHlsPlayback(mediaKey)
         controller.play(
             PlayerController.Request(
                 url = localUrl ?: streamUrl,
                 title = title,
-                userAgent = userAgent,
+                userAgent = offlineHls?.headers?.entries?.firstOrNull {
+                    it.key.equals("User-Agent", ignoreCase = true)
+                }?.value ?: userAgent,
                 requestHeaders = buildMap {
                     putAll(requestHeaders)
                     if (referer.isNotBlank()) put("Referer", referer)
                     if (cookie.isNotBlank()) put("Cookie", cookie)
                     if (origin.isNotBlank()) put("Origin", origin)
+                    if (offlineHls != null) putAll(offlineHls.headers)
                 },
-                streamMimeType = streamMimeType.takeIf { localUrl == null && it.isNotBlank() },
-                subtitleUrl = subtitleUrl.takeIf { it.isNotBlank() },
+                streamMimeType = if (offlineHls != null) {
+                    androidx.media3.common.MimeTypes.APPLICATION_M3U8
+                } else streamMimeType.takeIf { localUrl == null && it.isNotBlank() },
+                streamKeys = offlineHls?.streamKeys.orEmpty(),
+                subtitleUrl = subtitleUrl.takeIf { it.isNotBlank() && offlineHls == null },
                 subtitleLabel = subtitleLabel.takeIf { it.isNotBlank() },
                 subtitleLanguage = (
                     if (isMobileSeries) captionLanguage(subtitleLabel, subtitleLanguage)

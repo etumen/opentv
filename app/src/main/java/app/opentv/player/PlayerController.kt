@@ -87,6 +87,8 @@ class PlayerController(
      */
     private val liveRecording: Boolean = false,
     private val autoRetryOnFailure: Boolean = true,
+    /** Optional read-only HLS cache; regular HTTP and TV playback remain unchanged. */
+    offlineHlsCache: androidx.media3.datasource.cache.Cache? = null,
 ) {
 
     /** Channel-surf debounce for this controller — longer for the preview so browsing is calm. */
@@ -113,6 +115,7 @@ class PlayerController(
         val subtitleMimeType: String? = null,
         /** Live streams are never resumed; VOD is. */
         val startPositionMillis: Long = 0L,
+        val streamKeys: List<androidx.media3.common.StreamKey> = emptyList(),
         val isLive: Boolean = true,
     )
 
@@ -140,7 +143,15 @@ class PlayerController(
     }
 
     private val dataSourceFactory: androidx.media3.datasource.DataSource.Factory =
-        DefaultDataSource.Factory(context, httpFactory).let { default ->
+        DefaultDataSource.Factory(
+            context,
+            offlineHlsCache?.let { cache ->
+                androidx.media3.datasource.cache.CacheDataSource.Factory()
+                    .setCache(cache)
+                    .setUpstreamDataSourceFactory(httpFactory)
+                    .setCacheWriteDataSinkFactory(null)
+            } ?: httpFactory,
+        ).let { default ->
             val custom = buildMap<String, androidx.media3.datasource.DataSource.Factory> {
                 if (smbDataSourceFactory != null) put("smb", smbDataSourceFactory)
                 if (growingDataSourceFactory != null) put("optvrec", growingDataSourceFactory)
@@ -291,6 +302,7 @@ class PlayerController(
                 .setUri(request.url)
                 .apply {
                     normalizeStreamMimeType(request.streamMimeType)?.let(::setMimeType)
+                    if (request.streamKeys.isNotEmpty()) setStreamKeys(request.streamKeys)
                     request.subtitleUrl?.takeIf { it.isNotBlank() }?.let { subtitleUrl ->
                         setSubtitleConfigurations(
                             listOf(

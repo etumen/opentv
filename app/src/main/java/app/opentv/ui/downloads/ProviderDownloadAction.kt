@@ -43,18 +43,19 @@ import app.opentv.data.repo.DownloadRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-/**
- * Only single HTTP media files can be saved through Android DownloadManager.
- * An HLS/DASH playlist is a manifest, not a finished offline video. Media3's
- * segment-download/cache service is required before those streams can be offered.
- */
-internal object ProviderDirectDownloadPolicy {
+/** Detect offline-capable direct files and Media3 HLS playlists; reject DASH for now. */
+internal object ProviderOfflineDownloadPolicy {
+    fun isHls(stream: ProviderStream): Boolean =
+        stream.url.substringBefore('?').substringBefore('#')
+            .contains(".m3u8", ignoreCase = true) ||
+            stream.mimeType.orEmpty().contains("mpegurl", ignoreCase = true)
+
     fun supports(stream: ProviderStream): Boolean {
         if (!stream.url.startsWith("https://", true) && !stream.url.startsWith("http://", true)) return false
         val mime = stream.mimeType?.substringBefore(';')?.trim()?.lowercase().orEmpty()
         val path = stream.url.substringBefore('?').substringBefore('#').lowercase()
-        if (".m3u8" in path || ".mpd" in path ||
-            mime.contains("mpegurl") || mime.contains("dash+xml")) return false
+        if (isHls(stream)) return true
+        if (".mpd" in path || mime.contains("dash+xml")) return false
         return mime in setOf("video/mp4", "video/webm", "video/x-matroska") ||
             listOf(".mp4", ".m4v", ".webm", ".mkv").any(path::endsWith)
     }
@@ -94,6 +95,7 @@ internal fun ProviderDownloadAction(
                         stream.headers.entries.firstOrNull {
                             it.key.equals("User-Agent", ignoreCase = true)
                         }?.value ?: DownloadRepository.USER_AGENT,
+                        isHls = ProviderOfflineDownloadPolicy.isHls(stream),
                     )
                     notify(startMessage(context, download.title, result))
                 } catch (e: CancellationException) {
@@ -114,14 +116,14 @@ internal fun ProviderDownloadAction(
                 try {
                     val response = resolveStreams()
                     val sources = when (response) {
-                        is ProviderResult.Success -> response.value.filter(ProviderDirectDownloadPolicy::supports)
+                        is ProviderResult.Success -> response.value.filter(ProviderOfflineDownloadPolicy::supports)
                         is ProviderResult.Failure -> {
                             notify("Kaynak çözümlenemedi: " + response.error.message)
                             emptyList()
                         }
                     }
                     if (response is ProviderResult.Success && sources.isEmpty()) {
-                        notify("Bu kaynak için dosya indirme desteklenmiyor (HLS/DASH).")
+                        notify("Bu kaynak için çevrimdışı indirme desteklenmiyor.")
                     } else if (sources.size == 1) {
                         selected = sources.single()
                     } else if (sources.size > 1) {

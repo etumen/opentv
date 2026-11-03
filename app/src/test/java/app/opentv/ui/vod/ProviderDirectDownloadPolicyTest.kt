@@ -12,17 +12,17 @@ class ProviderDirectDownloadPolicyTest {
         ProviderStream(providerId = "test", url = url, mimeType = mime)
 
     @Test fun allowsDirectFilesAndSignedMp4Urls() {
-        assertTrue(ProviderDirectDownloadPolicy.supports(stream("https://video.example/item.mp4?token=abc")))
-        assertTrue(ProviderDirectDownloadPolicy.supports(stream("https://video.example/play?ticket=abc", "video/mp4")))
-        assertTrue(ProviderDirectDownloadPolicy.supports(stream("https://video.example/item.webm")))
+        assertTrue(ProviderOfflineDownloadPolicy.supports(stream("https://video.example/item.mp4?token=abc")))
+        assertTrue(ProviderOfflineDownloadPolicy.supports(stream("https://video.example/play?ticket=abc", "video/mp4")))
+        assertTrue(ProviderOfflineDownloadPolicy.supports(stream("https://video.example/item.webm")))
     }
 
-    @Test fun refusesHlsDashAndUnknownEndpoints() {
-        assertFalse(ProviderDirectDownloadPolicy.supports(stream("https://video.example/master.m3u8?token=abc")))
-        assertFalse(ProviderDirectDownloadPolicy.supports(stream("https://video.example/play?ticket=abc", "application/vnd.apple.mpegurl")))
-        assertFalse(ProviderDirectDownloadPolicy.supports(stream("https://video.example/manifest.mpd")))
-        assertFalse(ProviderDirectDownloadPolicy.supports(stream("https://video.example/unknown")))
-        assertFalse(ProviderDirectDownloadPolicy.supports(stream("file:///sdcard/video.mp4")))
+    @Test fun supportsHlsButRejectsDashAndUnknownEndpoints() {
+        assertTrue(ProviderOfflineDownloadPolicy.supports(stream("https://video.example/master.m3u8?token=abc")))
+        assertTrue(ProviderOfflineDownloadPolicy.supports(stream("https://video.example/play?ticket=abc", "application/vnd.apple.mpegurl")))
+        assertFalse(ProviderOfflineDownloadPolicy.supports(stream("https://video.example/manifest.mpd")))
+        assertFalse(ProviderOfflineDownloadPolicy.supports(stream("https://video.example/unknown")))
+        assertFalse(ProviderOfflineDownloadPolicy.supports(stream("file:///sdcard/video.mp4")))
     }
 
     @Test fun preservesRefererAndCookieForQueuedDownloads() {

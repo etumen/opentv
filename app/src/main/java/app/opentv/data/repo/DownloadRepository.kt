@@ -12,6 +12,9 @@ import android.os.Environment
 import android.os.StatFs
 import app.opentv.data.db.DownloadDao
 import app.opentv.data.model.Download
+import androidx.media3.common.StreamKey
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.offline.Download as MediaDownload
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +33,7 @@ import kotlinx.coroutines.sync.withLock
  * uninstalled). The database row is just the catalogue the Downloads tab lists; live state comes
  * from DownloadManager each time it's asked.
  */
+@OptIn(UnstableApi::class)
 class DownloadRepository(
     private val context: Context,
     private val dao: DownloadDao,
@@ -49,9 +53,11 @@ class DownloadRepository(
         val fileUri: String?,
         /** Why it failed or is paused (a DownloadManager ERROR_/PAUSED_ reason), 0 when n/a. */
         val reason: Int = 0,
+        val percent: Float? = null,
     ) {
         val outOfSpace: Boolean get() = state == State.FAILED && reason == DownloadManager.ERROR_INSUFFICIENT_SPACE
-        val progress: Float get() = if (totalBytes > 0) (bytesSoFar.toFloat() / totalBytes).coerceIn(0f, 1f) else 0f
+        val progress: Float get() = percent
+            ?: if (totalBytes > 0) (bytesSoFar.toFloat() / totalBytes).coerceIn(0f, 1f) else 0f
     }
 
     /** Everything downloaded or downloading, refreshed every second while someone is watching. */
@@ -84,9 +90,28 @@ class DownloadRepository(
      * and DownloadManager would otherwise open several in parallel — the extra ones get refused
      * and sit in "waiting to retry" (what "Download season" used to do).
      */
-    suspend fun enqueue(download: Download, userAgent: String = USER_AGENT): Start = withContext(Dispatchers.IO) {
+    suspend fun enqueue(
+        download: Download,
+        userAgent: String = USER_AGENT,
+        isHls: Boolean = false,
+    ): Start = withContext(Dispatchers.IO) {
         val free = freeBytes()
         if (free < MIN_FREE_BYTES) return@withContext Start.NoSpace(0, free)
+        if (isHls) {
+            val store = OfflineHlsStore.get(context)
+            // Prepare selects one adaptive video rendition and the needed audio/captions.
+            // Do this BEFORE touching an existing completed download for the same mediaKey.
+            val request = store.prepare(download)
+            dao.byKey(download.mediaKey)?.let { remove(it) }
+            val row = dao.insert(download.copy(systemId = HLS_MEDIA3, createdMillis = System.currentTimeMillis()))
+            try {
+                store.add(request)
+            } catch (failure: Exception) {
+                dao.delete(row)
+                throw failure
+            }
+            return@withContext Start.Started
+        }
         dao.byKey(download.mediaKey)?.let { remove(it) }
         dao.insert(download.copy(systemId = PENDING, createdMillis = System.currentTimeMillis()))
         if (hasActiveTransfer()) return@withContext Start.Queued
@@ -190,9 +215,31 @@ class DownloadRepository(
             ?.takeIf { it.state == State.DONE }?.fileUri
     }
 
+    data class HlsPlayback(
+        val url: String,
+        val streamKeys: List<StreamKey>,
+        val headers: Map<String, String>,
+    )
+
+    suspend fun offlineHlsPlayback(mediaKey: String): HlsPlayback? = withContext(Dispatchers.IO) {
+        val download = dao.byKey(mediaKey) ?: return@withContext null
+        if (download.systemId != HLS_MEDIA3) return@withContext null
+        val state = OfflineHlsStore.get(context).find(mediaKey) ?: return@withContext null
+        if (state.state != MediaDownload.STATE_COMPLETED) return@withContext null
+        HlsPlayback(download.sourceUrl, state.request.streamKeys, download.requestHeaders.orEmpty())
+    }
+
+    /** Shared, read-only cache for the VOD player. Never evicts completed downloads. */
+    val offlineHlsCache: androidx.media3.datasource.cache.Cache
+        get() = OfflineHlsStore.get(context).cache
+
     /** Cancels the transfer if it's running, deletes the file, and forgets the entry. */
     suspend fun remove(download: Download) = withContext(Dispatchers.IO) {
-        if (download.systemId >= 0) runCatching { manager.remove(download.systemId) }
+        if (download.systemId == HLS_MEDIA3) {
+            OfflineHlsStore.get(context).remove(download.mediaKey)
+        } else if (download.systemId >= 0) {
+            runCatching { manager.remove(download.systemId) }
+        }
         dao.delete(download.id)
         // Removing the running one frees the slot for the next in line.
         pump()
@@ -239,10 +286,36 @@ class DownloadRepository(
         return downloads.map {
             when (it.systemId) {
                 PENDING -> Item(it, State.QUEUED, 0, 0, null)
+                HLS_MEDIA3 -> hlsStatus(it)
                 NO_SPACE -> Item(it, State.FAILED, 0, 0, null, reason = DownloadManager.ERROR_INSUFFICIENT_SPACE)
                 else -> byId[it.systemId] ?: Item(it, State.FAILED, 0, 0, null)
             }
         }
+    }
+
+    private fun hlsStatus(download: Download): Item {
+        val hls = runCatching { OfflineHlsStore.get(context).find(download.mediaKey) }.getOrNull()
+            ?: return Item(
+                download,
+                if (System.currentTimeMillis() - download.createdMillis < 60_000L) State.QUEUED else State.FAILED,
+                0, 0, null,
+            )
+        val state = when (hls.state) {
+            MediaDownload.STATE_COMPLETED -> State.DONE
+            MediaDownload.STATE_DOWNLOADING -> State.RUNNING
+            MediaDownload.STATE_STOPPED -> State.PAUSED
+            MediaDownload.STATE_FAILED -> State.FAILED
+            else -> State.QUEUED
+        }
+        return Item(
+            download = download,
+            state = state,
+            bytesSoFar = hls.bytesDownloaded,
+            totalBytes = hls.contentLength.coerceAtLeast(0L),
+            // HLS is a multi-segment cache, not a file; the player reads this manifest via cache.
+            fileUri = if (state == State.DONE) download.sourceUrl else null,
+            percent = hls.percentDownloaded.takeIf { it >= 0f }?.div(100f),
+        )
     }
 
     private fun ticker(): Flow<Long> = flow {
@@ -258,6 +331,8 @@ class DownloadRepository(
         const val PENDING = -1L
         /** [Download.systemId] of a queued item that turned out not to fit when its turn came. */
         const val NO_SPACE = -2L
+        /** Media3 HLS; its per-content status is stored in the Media3 DownloadIndex. */
+        const val HLS_MEDIA3 = -3L
         /** Matches what the VOD player sends, so providers treat a download like playback. */
         const val USER_AGENT = "OpenTV/0.1 (Android)"
         private const val MIN_FREE_BYTES = 1_500L * 1024 * 1024

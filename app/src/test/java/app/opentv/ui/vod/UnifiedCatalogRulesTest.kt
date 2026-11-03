@@ -26,6 +26,64 @@ class UnifiedCatalogRulesTest {
         assertEquals(setOf(1), actionSources.map { it.nextPage }.toSet())
     }
 
+    @Test fun providerLanguageClaimsAreBrowsableButKeptSeparate() {
+        val sections = mapOf(
+            "hdfilm" to listOf(section("dubbed", "Türkçe Dublaj"), section("subtitled", "Türkçe Altyazılı")),
+            "filmmakinesi" to listOf(section("dubbed", "Türkçe Dublaj")),
+        )
+        val genres = UnifiedCatalogRules.genres(sections)
+        assertEquals(setOf("Kaynak: Türkçe Dublaj", "Kaynak: Türkçe Altyazılı"),
+            genres.map { it.title }.toSet())
+        val dubbed = genres.first { it.title == "Kaynak: Türkçe Dublaj" }
+        assertEquals(setOf("hdfilm", "filmmakinesi"),
+            UnifiedCatalogRules.sourcesForGenre(sections, dubbed.id).map { it.providerId }.toSet())
+        val subtitled = genres.first { it.title == "Kaynak: Türkçe Altyazılı" }
+        assertEquals(listOf("hdfilm"),
+            UnifiedCatalogRules.sourcesForGenre(sections, subtitled.id).map { it.providerId })
+    }
+
+    @Test fun allMovieAndSeriesGenresIncludeEveryMatchingSectionAndKeepPagesIndependent() {
+        for (type in listOf(ProviderMediaType.MOVIE, ProviderMediaType.SERIES)) {
+            val sections = mapOf(
+                "a" to listOf(
+                    ProviderCatalogSection("action1", "Aksiyon", type),
+                    ProviderCatalogSection("action2", "Action Movies", type),
+                    ProviderCatalogSection("romance", "Romantik", type),
+                    ProviderCatalogSection("romcom", "Romantik Komedi", type),
+                ),
+                "b" to listOf(
+                    ProviderCatalogSection("action3", "Aksiyon Filmleri", type),
+                    ProviderCatalogSection("romance2", "Romance", type),
+                ),
+            )
+            val genres = UnifiedCatalogRules.genres(sections)
+            assertEquals(setOf("Aksiyon", "Romantik", "Romantik Komedi"), genres.map { it.title }.toSet())
+            val action = genres.single { it.title == "Aksiyon" }
+            val cursors = UnifiedCatalogRules.sourcesForGenre(sections, action.id)
+            assertEquals(setOf("action1", "action2", "action3"), cursors.map { it.sectionId }.toSet())
+            assertEquals(setOf(1), cursors.map { it.nextPage }.toSet())
+            assertEquals(listOf(2, 3, 4), cursors.mapIndexed { i, c -> c.copy(nextPage = i + 2).nextPage })
+            val romantic = genres.single { it.title == "Romantik" }
+            assertEquals(setOf("romance", "romance2"),
+                UnifiedCatalogRules.sourcesForGenre(sections, romantic.id).map { it.sectionId }.toSet())
+            val comedy = genres.single { it.title == "Romantik Komedi" }
+            assertEquals(listOf("romcom"),
+                UnifiedCatalogRules.sourcesForGenre(sections, comedy.id).map { it.sectionId })
+        }
+    }
+
+    @Test fun unfilteredBrowseChoosesWholeCatalogOverRecentForBothMediaTypes() {
+        for (type in listOf(ProviderMediaType.MOVIE, ProviderMediaType.SERIES)) {
+            val allTitle = if (type == ProviderMediaType.MOVIE) "Tüm Filmler" else "Tüm Diziler"
+            val sections = mapOf("source" to listOf(
+                ProviderCatalogSection("recent", "Yeni Eklenenler", type, showOnHome = true),
+                ProviderCatalogSection("all", allTitle, type, showOnHome = false),
+            ))
+            val cursors = UnifiedCatalogRules.sourcesForGenre(sections, null)
+            assertEquals(listOf("all"), cursors.map { it.sectionId })
+        }
+    }
+
     @Test fun categoryDoesNotMakeUpUnsupportedProviderSections() {
         val sections = mapOf(
             "a" to listOf(section("popular", "En Çok İzlenenler"), section("horror", "Korku Filmleri")),

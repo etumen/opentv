@@ -37,6 +37,9 @@ internal object UnifiedCatalogRules {
         "savaş" to "Savaş", "war" to "Savaş",
         "western" to "Western", "müzikal" to "Müzikal",
         "yerli" to "Yerli", "yabancı" to "Yabancı",
+        "turkce dublaj" to "Kaynak: Türkçe Dublaj",
+        "turkce altyazili" to "Kaynak: Türkçe Altyazılı",
+        "turkce altyazi" to "Kaynak: Türkçe Altyazılı",
         "imdb 7" to "IMDb 7+",
     )
 
@@ -55,9 +58,10 @@ internal object UnifiedCatalogRules {
             .replace(Regex(" +"), " ")
             .trim()
         val label = genreAliases[value]
-            ?: genreAliases.entries.firstOrNull { (name, _) ->
-                value == name || value.startsWith("$name ")
-            }?.value
+            ?: genreAliases.entries
+                .sortedByDescending { it.key.length }
+                .firstOrNull { (name, _) -> value.startsWith("$name ") }
+                ?.value
             ?: return null
         return UnifiedGenre(fold(label), label)
     }
@@ -67,11 +71,16 @@ internal object UnifiedCatalogRules {
         genreId: String?,
     ): List<UnifiedSource> = sections.flatMap { (providerId, providerSections) ->
         val selected = if (genreId == null) {
-            providerSections.firstOrNull { it.showOnHome } ?: providerSections.firstOrNull()
+            val completeCatalog = setOf("tum filmler", "filmler", "tum diziler", "diziler")
+            listOfNotNull(
+                providerSections.firstOrNull { fold(it.title) in completeCatalog }
+                    ?: providerSections.firstOrNull { it.showOnHome }
+                    ?: providerSections.firstOrNull(),
+            )
         } else {
-            providerSections.firstOrNull { genre(it)?.id == genreId }
+            providerSections.filter { genre(it)?.id == genreId }
         }
-        listOfNotNull(selected?.let { UnifiedSource(providerId, it.id) })
+        selected.distinctBy { it.id }.map { UnifiedSource(providerId, it.id) }
     }
 
     fun genres(sections: Map<String, List<ProviderCatalogSection>>): List<UnifiedGenre> =

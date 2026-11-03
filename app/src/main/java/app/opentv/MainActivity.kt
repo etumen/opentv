@@ -115,7 +115,13 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    OpenTvApp(isTelevision = isTelevision)
+                    // Make the same device layout visible to player, search and detail destinations.
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        app.opentv.ui.LocalLayoutClass provides
+                            if (isTelevision) app.opentv.ui.LayoutClass.TV else app.opentv.ui.LayoutClass.PHONE,
+                    ) {
+                        OpenTvApp(isTelevision = isTelevision)
+                    }
                 }
             }
         }

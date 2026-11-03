@@ -8,6 +8,11 @@ package app.opentv.ui.player
 import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import app.opentv.ui.LocalLayoutClass
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -216,6 +221,7 @@ fun PlayerScreen(
     // The channel list you were browsing, for channel up/down and the in-player list. Snapshotted
     // on entry so it doesn't shift under you mid-session.
     val queue = remember { PlaybackQueue.items }
+    val touch = LocalLayoutClass.current.isTouch
 
     fun reveal() {
         controlsVisible = true
@@ -451,9 +457,12 @@ fun PlayerScreen(
             }
             .focusRequester(rootFocus)
             .focusable()
-            .pointerInput(Unit) {
-                detectTapGestures { if (controlsVisible) controlsVisible = false else reveal() }
-            },
+            .then(
+                if (touch) Modifier
+                else Modifier.pointerInput(Unit) {
+                    detectTapGestures { if (controlsVisible) controlsVisible = false else reveal() }
+                },
+            ),
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -471,6 +480,26 @@ fun PlayerScreen(
             },
             update = { it.resizeMode = resizeMode },
         )
+
+        if (touch) {
+            ImmersiveSystemBars(hidden = !controlsVisible || inPip)
+        }
+
+        // Phone gestures sit under controls to avoid intercepting button clicks.
+        PlayerGestureLayer(
+            enabled = touch && !inPip,
+            dragsEnabled = !channelListVisible && panel == Panel.NONE,
+            onTap = {
+                when {
+                    channelListVisible -> channelListVisible = false
+                    controlsVisible -> controlsVisible = false
+                    else -> reveal()
+                }
+            },
+        ) { direction ->
+            zapBy(-direction)
+            reveal()
+        }
 
         // The channel number as you type it, top-right, until it resolves.
         if (numberEntry.isNotEmpty() && !inPip) {
@@ -546,6 +575,40 @@ fun PlayerScreen(
             else -> ""
         }
 
+        if (touch) {
+            AnimatedVisibility(
+                visible = controlsVisible && !inPip,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.TopCenter),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth()
+                        .background(Brush.verticalGradient(
+                            listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent),
+                        ))
+                        .windowInsetsPadding(
+                            PlayerChromeInsets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top),
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = { controller.stop(); onBack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null, tint = Color.White)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (queue.isNotEmpty()) {
+                        IconButton(onClick = { channelListVisible = true; interaction++ }) {
+                            Icon(Icons.AutoMirrored.Filled.List,
+                                contentDescription = stringResource(R.string.common_channels),
+                                tint = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+
         AnimatedVisibility(
             visible = controlsVisible && !inPip,
             enter = fadeIn(),
@@ -560,7 +623,8 @@ fun PlayerScreen(
                     // bar / display cutout in landscape). Zero on a TV, so the 10-foot layout is
                     // unchanged; the gradient above stays full-bleed to the screen edge.
                     .windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
+                        (if (touch) PlayerChromeInsets else WindowInsets.safeDrawing)
+                            .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
                     )
                     .padding(horizontal = 28.dp, vertical = 20.dp),
             ) {
@@ -593,7 +657,12 @@ fun PlayerScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.then(
+                        if (touch) Modifier.horizontalScroll(rememberScrollState()) else Modifier,
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (controller.isSeekable) {
                         BarChip(Icons.Filled.FastRewind, stringResource(R.string.player_rewind), false) {
                             controller.seekBackward(); interaction++

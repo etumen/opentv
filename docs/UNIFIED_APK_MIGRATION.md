@@ -16,6 +16,9 @@ use the mobile touch UI. All devices share one provider/data implementation.
 - Brought over the mobile catalog's whole-section selection, per-provider pagination and media-type filter.
 - Added native phone search and preserved TV's on-screen d-pad keyboard.
 - Added offline download repository, queue receiver, Downloads screen and movie/episode controls with additive TV database migration.
+- Restored mobile Live and VOD swipe gestures/brightness/volume controls on phone routes, while preserving TV d-pad player handling.
+- Restored mobile VOD preference for Turkish audio when an identified Turkish track exists, Turkish-caption selection for series, local-file playback and safe resume-position save on exit.
+- Shared layout class now reaches nested navigation routes, not just the mobile home tab.
 - `shared/opentv-core` checked in as a normal Gradle module rather than a Git submodule;
   based on former core GitHub commit `1dd5ffd722824d4e5473031b05bafa442f24ddeb`.
 - Existing TV production package ID `app.opentv` preserved; debug is `app.opentv.debug`.
@@ -27,7 +30,7 @@ use the mobile touch UI. All devices share one provider/data implementation.
 - Samsung S25 Ultra: one APK installed as separate `app.opentv.debug` app;
   MobileMainScreen, dark/red theme, five bottom tabs, catalog/film browsing shown.
 - Existing `app.opentvmobile.debug` remains installed (no overwrite).
-- After functional parity fixes: `:app:assembleDebug` and `:app:testDebugUnitTest` PASS (92 tests, 0 failures).
+- After functional parity fixes: `:app:assembleDebug` and `:app:testDebugUnitTest` PASS (95 tests, 0 failures, including caption language mapping).
 - Room v13 -> v14 schema comparison: no prior entities removed or changed; only `downloads` added.
 - Newly built APK has NOT been installed on TV or phone; device-level migration remains unverified.
 
@@ -35,9 +38,10 @@ use the mobile touch UI. All devices share one provider/data implementation.
 1. Existing private mobile-package data (`app.opentvmobile`) cannot be transferred by Android
    to the unified `app.opentv` package automatically. The new unified download feature works from
    its own additive database table; legacy download files require a separately authorized import.
-2. Confirm mobile-specific browsing/player gestures and remaining screens retain feature
-   parity (series, Drama, live TV, captions, offline playback); the native search code is in place
-   but still needs a real-device check.
+2. Confirm remaining mobile-specific browsing/Live channel-list functionality and all newly ported
+   player gestures, search, series, Drama, captions, offline playback on real devices.
+   The mobile-only Live channel-list layout and settings parity still need review; do not
+   replace the working TV list wholesale.
 3. Validate the updated APK on real Mi Box and Toshiba Android TV: d-pad navigation,
    focus restoration, playback, streams, audio, subtitle selection and additive DB upgrade.
    Prior Mi Box PASS was for the earlier unified build, not this code revision.

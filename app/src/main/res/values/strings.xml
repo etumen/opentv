@@ -553,4 +553,7 @@
     <string name="dl_retrying">Retrying…</string>
     <string name="dl_queued_toast">“%1$s” added to the queue — downloads go one at a time.</string>
     <string name="cloud_search_title">Provider results</string>
+<string name="player_audio_current">Audio: %1$s</string>
+<string name="player_audio_unknown">Unknown</string>
+<string name="player_subtitles_tr_available">Turkish subtitles available</string>
 </resources>

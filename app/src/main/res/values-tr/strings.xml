@@ -504,4 +504,7 @@
     <string name="dl_started">“%1$s” indiriliyor. İndirme sürerken bazı sağlayıcılar başka bir şey izlemenize izin vermez.</string>
     <string name="dl_used">%1$s kullanılıyor · %2$s boş</string>
     <string name="cloud_search_title">Sağlayıcı sonuçları</string>
+<string name="player_audio_current">Ses: %1$s</string>
+<string name="player_audio_unknown">Bilinmiyor</string>
+<string name="player_subtitles_tr_available">Türkçe altyazı var</string>
 </resources>

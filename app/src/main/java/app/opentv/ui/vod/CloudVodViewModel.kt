@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class CloudMovieProvider(
     val id: String,
@@ -193,8 +195,9 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
             _lastError.value = null
             try {
                 val providers = repository.providers(ProviderMediaType.MOVIE)
-                val loaded = coroutineScope {
-                    providers.map { provider ->
+                val shelves = withContext(Dispatchers.Default) {
+                    val loaded = coroutineScope {
+                        providers.map { provider ->
                         async {
                             val allSections = refreshSections(provider)
                             val homeSections = allSections
@@ -232,8 +235,8 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
                     }.awaitAll().flatten()
                 }
 
-                _movieShelves.value = loaded
-                    .filter { it.items.isNotEmpty() }
+                    loaded
+                        .filter { it.items.isNotEmpty() }
                     .groupBy { it.section.title.trim().lowercase() }
                     .map { (key, group) ->
                         val first = group.first()
@@ -249,6 +252,8 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
                             loadingMore = false,
                         )
                     }
+                }
+                _movieShelves.value = shelves
                 loadedAllShelves = true
             } finally {
                 _loadingMovies.value = false
@@ -486,12 +491,14 @@ class CloudVodViewModel(app: Application) : AndroidViewModel(app) {
 
         searchJob = viewModelScope.launch {
             delay(250)
-            val result = unifiedCatalog.search(
-                ProviderSearchRequest(
-                    query = trimmed,
-                    mediaType = ProviderMediaType.MOVIE,
-                ),
-            )
+            val result = withContext(Dispatchers.Default) {
+                unifiedCatalog.search(
+                    ProviderSearchRequest(
+                        query = trimmed,
+                        mediaType = ProviderMediaType.MOVIE,
+                    ),
+                )
+            }
             _movieSearchResults.value = result.items
             result.failures.values.firstOrNull()?.let { _lastError.value = it }
         }

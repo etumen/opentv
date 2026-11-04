@@ -9,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -63,6 +65,10 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.ui.LocalLayoutClass
+import app.opentv.data.model.Download
+import app.opentv.ui.downloads.KIND_MOVIE
+import app.opentv.ui.downloads.ProviderDownloadAction
 import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.provider.ProviderDetails
 import app.opentv.data.provider.ProviderItem
@@ -102,6 +108,7 @@ internal fun UnifiedMoviePosterRow(
                 PosterCard(
                     title = item.title,
                     posterUrl = item.posterUrl,
+                    fallbackPosterUrls = item.sources.mapNotNull { it.posterUrl },
                     providerId = source?.providerId,
                     subtitle = item.year?.toString(),
                     rating = item.rating,
@@ -222,6 +229,64 @@ fun CloudMovieDetailScreen(
         item.rating?.takeIf { it > 0.0 }?.let { add("★ %.1f".format(it)) }
     }.joinToString("  ·  ")
 
+    val isTouch = LocalLayoutClass.current.isTouch
+    val moviePlayButton: @Composable () -> Unit = {
+        DetailButton(
+            icon = Icons.Filled.PlayArrow,
+            label = stringResource(
+                if (resolving) R.string.cloud_resolving_stream else R.string.vod_watch_now,
+            ),
+            primary = true,
+        ) {
+            if (resolving) return@DetailButton
+            resolving = true
+            error = null
+            scope.launch {
+                when (val result = viewModel.playback(current.item.providerId, current.item.id)) {
+                    is ProviderResult.Success -> {
+                        val playback = result.value
+                        resolvedSubtitles = playback.subtitles
+                        when (playback.streams.size) {
+                            0 -> error = noStreamMessage
+                            1 -> onPlay(
+                                current,
+                                playback.streams.single(),
+                                preferredSubtitle(playback.subtitles),
+                            )
+                            else -> pickerStreams = playback.streams
+                        }
+                    }
+                    is ProviderResult.Failure -> error = result.error.message
+                }
+                resolving = false
+            }
+        }
+    }
+    val movieDownloadButton: @Composable () -> Unit = {
+        ProviderDownloadAction(
+            mediaKey = "cloud:$providerId:${itemId.hashCode()}",
+            resolveStreams = {
+                when (val response = viewModel.playback(current.item.providerId, current.item.id)) {
+                    is ProviderResult.Success -> ProviderResult.Success(response.value.streams)
+                    is ProviderResult.Failure -> response
+                }
+            },
+            buildDownload = { stream ->
+                Download(
+                    mediaKey = "cloud:$providerId:${itemId.hashCode()}",
+                    kind = KIND_MOVIE,
+                    title = item.title,
+                    posterUrl = item.posterUrl,
+                    tag = stream.label,
+                    sourceUrl = stream.url,
+                    systemId = 0,
+                    createdMillis = 0,
+                    requestHeaders = stream.headers.takeIf { it.isNotEmpty() },
+                )
+            },
+        )
+    }
+
     LazyColumn(Modifier.fillMaxSize()) {
         item(key = "header") {
             DetailBackdrop(
@@ -236,45 +301,29 @@ fun CloudMovieDetailScreen(
                     label = stringResource(R.string.common_back),
                     onClick = onBack,
                 )
-                DetailButton(
-                    icon = Icons.Filled.PlayArrow,
-                    label = stringResource(
-                        if (resolving) R.string.cloud_resolving_stream else R.string.vod_watch_now,
-                    ),
-                    primary = true,
+                if (!isTouch) moviePlayButton()
+            }
+        }
+        if (isTouch) {
+            item(key = "mobile-actions") {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (resolving) return@DetailButton
-                    resolving = true
-                    error = null
-                    scope.launch {
-                        when (val result = viewModel.playback(current.item.providerId, current.item.id)) {
-                            is ProviderResult.Success -> {
-                                val playback = result.value
-                                resolvedSubtitles = playback.subtitles
-                                when (playback.streams.size) {
-                                    0 -> error = noStreamMessage
-                                    1 -> onPlay(
-                                        current,
-                                        playback.streams.single(),
-                                        preferredSubtitle(playback.subtitles),
-                                    )
-                                    else -> pickerStreams = playback.streams
-                                }
-                            }
-                            is ProviderResult.Failure -> error = result.error.message
-                        }
-                        resolving = false
-                    }
+                    moviePlayButton()
+                    movieDownloadButton()
                 }
             }
         }
-
         item(key = "info") {
             DetailInfo(
                 plot = current.description,
                 cast = current.cast.joinToString(", ").takeIf { it.isNotBlank() },
                 director = current.director,
-                genre = item.genres.joinToString(", ").takeIf { it.isNotBlank() },
+                genre = item.genres.map(UnifiedCatalogRules::sourceClaimLabel)
+                    .joinToString(", ").takeIf { it.isNotBlank() },
                 onOpenPerson = {},
             )
         }

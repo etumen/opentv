@@ -7,6 +7,7 @@ import app.opentv.core.ServiceLocator
 import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.provider.ProviderCatalogRequest
 import app.opentv.data.provider.ProviderMediaType
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class DiscoveryShelf(
     val id: String,
@@ -53,10 +55,12 @@ class DiscoveryHomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _loading.value = true
             try {
-                val loaded = coroutineScope {
-                    collections.map { collection ->
-                        async { loadCollection(collection) }
-                    }.awaitAll()
+                val loaded = withContext(Dispatchers.Default) {
+                    coroutineScope {
+                        collections.map { collection ->
+                            async { loadCollection(collection) }
+                        }.awaitAll()
+                    }
                 }
                 _shelves.value = loaded.filter { it.items.isNotEmpty() }
                 _loaded.value = true

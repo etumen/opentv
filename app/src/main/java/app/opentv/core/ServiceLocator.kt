@@ -202,6 +202,10 @@ object ServiceLocator {
             )
         }
 
+        val downloadRepository: app.opentv.data.repo.DownloadRepository by lazy {
+            app.opentv.data.repo.DownloadRepository(appContext, database.downloads(), httpClient)
+        }
+
         val playbackPositions get() = database.positions()
 
         val profiles get() = database.profiles()

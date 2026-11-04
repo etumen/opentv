@@ -35,6 +35,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class CloudSeriesProvider(
     val id: String,
@@ -437,12 +439,14 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
 
         searchJob = viewModelScope.launch {
             delay(250)
-            val result = unifiedCatalog.search(
-                ProviderSearchRequest(
-                    query = trimmed,
-                    mediaType = ProviderMediaType.SERIES,
-                ),
-            )
+            val result = withContext(Dispatchers.Default) {
+                unifiedCatalog.search(
+                    ProviderSearchRequest(
+                        query = trimmed,
+                        mediaType = ProviderMediaType.SERIES,
+                    ),
+                )
+            }
             _searchResults.value = result.items
             result.failures.values.firstOrNull()?.let { _lastError.value = it }
         }

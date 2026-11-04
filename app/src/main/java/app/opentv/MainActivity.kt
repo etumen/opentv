@@ -43,6 +43,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +59,7 @@ import androidx.navigation.compose.rememberNavController
 import app.opentv.core.AppSettings
 import app.opentv.core.ServiceLocator
 import app.opentv.data.parser.displayTitle
-import app.opentv.ui.MainScreen
+import app.opentv.ui.UniversalMainScreen
 import app.opentv.ui.ProfilesViewModel
 import app.opentv.ui.SourcesViewModel
 import app.opentv.ui.channels.ChannelManagerScreen
@@ -106,14 +108,20 @@ class MainActivity : ComponentActivity() {
                 AppSettings.ThemeMode.DARK -> true
                 AppSettings.ThemeMode.LIGHT -> false
                 // A living-room screen defaults to dark; a phone/tablet follows the system.
-                AppSettings.ThemeMode.SYSTEM -> isTelevision || isSystemInDarkTheme()
+                AppSettings.ThemeMode.SYSTEM -> true // Both TV and mobile default to dark; explicit Light remains available.
             }
-            OpenTvTheme(darkTheme = darkTheme) {
+            OpenTvTheme(isPhone = !isTelevision, darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    OpenTvApp(isTelevision = isTelevision)
+                    // Make the same device layout visible to player, search and detail destinations.
+                    val layoutClass = app.opentv.ui.rememberLayoutClass(isTelevision)
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        app.opentv.ui.LocalLayoutClass provides layoutClass,
+                    ) {
+                        OpenTvApp(isTelevision = isTelevision)
+                    }
                 }
             }
         }
@@ -269,6 +277,9 @@ object Routes {
 @Composable
 private fun OpenTvApp(isTelevision: Boolean) {
     val navController = rememberNavController()
+    // Preserve the requested search type when navigating out of the mobile shell.
+    var searchScope by remember { mutableStateOf("all") }
+    val playbackScope = rememberCoroutineScope()
     val sourcesViewModel: SourcesViewModel = viewModel()
     val vodViewModel: VodViewModel = viewModel()
     val profilesViewModel: ProfilesViewModel = viewModel()
@@ -372,7 +383,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
             }
 
             composable(Routes.HOME) {
-                MainScreen(
+                UniversalMainScreen(
                     isTelevision = isTelevision,
                     hasSources = sourcesUi.sources.isNotEmpty(),
                     isSyncing = sourcesUi.syncing,
@@ -396,7 +407,10 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     },
                     onAddSource = { navController.navigate(Routes.ADD_SOURCE) },
                     onRefresh = sourcesViewModel::refreshAll,
-                    onOpenSearch = { navController.navigate(Routes.SEARCH) },
+                    onOpenSearch = { scope ->
+                        searchScope = scope
+                        navController.navigate(Routes.SEARCH)
+                    },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS_HUB) },
                     onOpenProfiles = { navController.navigate(Routes.PROFILES) },
                     onPlayRecording = { rec ->
@@ -428,6 +442,80 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     onPlayCatchup = { key, url, title, ua ->
                         // Catch-up is a seekable archive stream — plays through the VOD player.
                         navController.navigate(Routes.vodPlayer(key, url, title, ua))
+                    },
+                    onPlayCloudItem = { item, finished ->
+                        playbackScope.launch {
+                            try {
+                                val repository = ServiceLocator.get(bootContext).providerRepository
+                                val isEpisode = item.mediaType == app.opentv.data.provider.ProviderMediaType.SERIES
+                                val firstEpisode = if (isEpisode) {
+                                    (repository.episodes(item.providerId, item.id)
+                                        as? app.opentv.data.provider.ProviderResult.Success)?.value?.firstOrNull()
+                                } else null
+                                val target = when {
+                                    isEpisode && firstEpisode != null ->
+                                        app.opentv.data.provider.ProviderPlaybackTarget.Episode(
+                                            item.providerId, item.id, firstEpisode.id,
+                                        )
+                                    !isEpisode ->
+                                        app.opentv.data.provider.ProviderPlaybackTarget.Movie(item.providerId, item.id)
+                                    else -> null
+                                }
+                                val stream = target?.let {
+                                    (repository.streams(it)
+                                        as? app.opentv.data.provider.ProviderResult.Success)?.value?.firstOrNull()
+                                }
+                                if (stream != null && target != null) {
+                                    val subtitle = (repository.subtitles(target)
+                                        as? app.opentv.data.provider.ProviderResult.Success)?.value.orEmpty()
+                                        .let { all ->
+                                            all.firstOrNull { it.language.equals("tr", ignoreCase = true) }
+                                                ?: all.firstOrNull()
+                                        }
+                                    val title = if (firstEpisode != null) {
+                                        "${item.title} - S${firstEpisode.season} B${firstEpisode.episodeNumber}"
+                                    } else item.title
+                                    val fallback = app.opentv.ui.vod.UnifiedFallbackContext(
+                                        mediaType = item.mediaType,
+                                        alternateItems = app.opentv.ui.vod.UnifiedCatalogAlternatives
+                                            .alternatives(item.providerId, item.id)
+                                            .filterNot { it.providerId == stream.providerId },
+                                        season = firstEpisode?.season,
+                                        episodeNumber = firstEpisode?.episodeNumber,
+                                    )
+                                    navController.navigate(Routes.vodPlayer(
+                                        key = "cloud:${item.providerId}:${item.id.hashCode()}",
+                                        url = stream.url,
+                                        title = title,
+                                        ua = stream.headers["User-Agent"] ?: "OpenTV/0.1 (Android)",
+                                        requestHeaders = stream.headers,
+                                        referer = stream.headers["Referer"].orEmpty(),
+                                        cookie = stream.headers["Cookie"].orEmpty(),
+                                        origin = stream.headers["Origin"].orEmpty(),
+                                        mimeType = stream.mimeType.orEmpty(),
+                                        subtitleUrl = subtitle?.url.orEmpty(),
+                                        subtitleLabel = subtitle?.label.orEmpty(),
+                                        subtitleLanguage = subtitle?.language.orEmpty(),
+                                        subtitleMimeType = subtitle?.mimeType.orEmpty(),
+                                        fallback = fallback,
+                                    ))
+                                } else {
+                                    navController.navigate(
+                                        if (isEpisode) Routes.cloudSeriesDetail(item.providerId, item.id)
+                                        else Routes.cloudMovieDetail(item.providerId, item.id),
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.w("UnifiedMobilePlayback", "Unable to resolve provider stream", e)
+                                navController.navigate(
+                                    if (item.mediaType == app.opentv.data.provider.ProviderMediaType.SERIES)
+                                        Routes.cloudSeriesDetail(item.providerId, item.id)
+                                    else Routes.cloudMovieDetail(item.providerId, item.id),
+                                )
+                            } finally {
+                                finished()
+                            }
+                        }
                     },
                     activeProfileName = activeProfileName,
                 )
@@ -461,6 +549,9 @@ private fun OpenTvApp(isTelevision: Boolean) {
                         navController.navigate(Routes.cloudSeriesDetail(providerId, itemId))
                     },
                     onBack = { navController.popBackStack() },
+                    isTelevision = isTelevision,
+                    initialScope = searchScope,
+                    onOpenMovie = { movie -> navController.navigate(Routes.movieDetail(movie.id)) },
                 )
             }
 

@@ -5,6 +5,19 @@
  */
 package app.opentv.ui.channels
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import app.opentv.data.parser.sourceTag
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -77,11 +90,22 @@ fun SearchScreen(
     onOpenCloudMovie: (providerId: String, itemId: String) -> Unit,
     onOpenCloudSeries: (providerId: String, itemId: String) -> Unit,
     onBack: () -> Unit,
+    isTelevision: Boolean = true,
+    initialScope: String = "all",
+    onOpenMovie: (Movie) -> Unit = onPlayMovie,
     viewModel: ChannelsViewModel = viewModel(),
     vodViewModel: VodViewModel = viewModel(),
     cloudVodViewModel: CloudVodViewModel = viewModel(),
     cloudSeriesViewModel: CloudSeriesViewModel = viewModel(),
 ) {
+    if (!isTelevision) {
+        TouchSearchScreen(
+            onPlayChannel, onOpenMovie, onOpenCloudMovie, onOpenSeries,
+            onOpenCloudSeries, onBack, initialScope,
+            viewModel, vodViewModel, cloudVodViewModel, cloudSeriesViewModel,
+        )
+        return
+    }
     var query by remember { mutableStateOf("") }
     val channelResults by viewModel.searchResults.collectAsState()
     val movieResults by vodViewModel.movieResults.collectAsState()
@@ -280,3 +304,128 @@ private fun SearchResultRow(row: ChannelsViewModel.Row, onClick: () -> Unit) {
 
 private val searchTimeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 private fun searchTime(utcMillis: Long): String = searchTimeFormat.format(Date(utcMillis))
+
+/** Phone-native search with the system keyboard. The original d-pad search above is unchanged. */
+@Composable
+private fun TouchSearchScreen(
+    onPlayChannel: (Channel) -> Unit,
+    onOpenMovie: (Movie) -> Unit,
+    onOpenCloudMovie: (providerId: String, itemId: String) -> Unit,
+    onOpenSeries: (Series) -> Unit,
+    onOpenCloudSeries: (providerId: String, itemId: String) -> Unit,
+    onBack: () -> Unit,
+    initialScope: String,
+    channels: ChannelsViewModel,
+    vod: VodViewModel,
+    cloudMovies: CloudVodViewModel,
+    cloudSeries: CloudSeriesViewModel,
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    var scope by rememberSaveable(initialScope) { mutableStateOf(initialScope) }
+    val channelResults by channels.searchResults.collectAsState()
+    val movieResults by vod.movieResults.collectAsState()
+    val seriesResults by vod.seriesResults.collectAsState()
+    val cloudMovieResults by cloudMovies.movieSearchResults.collectAsState()
+    val cloudSeriesResults by cloudSeries.searchResults.collectAsState()
+    val keyboard = LocalSoftwareKeyboardController.current
+    val showChannels = scope == "all" || scope == "channels"
+    val showMovies = scope == "all" || scope == "movies"
+    val showSeries = scope == "all" || scope == "series"
+    val hasResults = (showChannels && channelResults.isNotEmpty()) ||
+        (showMovies && (movieResults.isNotEmpty() || cloudMovieResults.isNotEmpty())) ||
+        (showSeries && (seriesResults.isNotEmpty() || cloudSeriesResults.isNotEmpty()))
+
+    LaunchedEffect(query) {
+        channels.setSearchQuery(query)
+        vod.setVodSearchQuery(query)
+        cloudMovies.setMovieSearchQuery(query)
+        cloudSeries.setSearchQuery(query)
+    }
+    BackHandler { onBack() }
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.common_done))
+            }
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it.take(80) },
+                placeholder = { Text(stringResource(R.string.search_type_name)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+                trailingIcon = {
+                    if (query.isNotEmpty()) IconButton(onClick = { query = "" }) {
+                        Icon(Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.common_done))
+                    }
+                },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(
+                "all" to stringResource(R.string.nav_search),
+                "channels" to stringResource(R.string.common_channels),
+                "movies" to stringResource(R.string.nav_movies),
+                "series" to stringResource(R.string.nav_shows),
+            ).forEach { (key, label) ->
+                FilterChip(selected = scope == key, onClick = { scope = key },
+                    label = { Text(label) })
+            }
+        }
+        Box(Modifier.fillMaxSize()) {
+            when {
+                query.isBlank() -> Hint(stringResource(R.string.search_start_hint))
+                query.trim().length < 2 -> Hint(stringResource(R.string.common_keep_typing))
+                !hasResults -> Hint(stringResource(R.string.search_no_results, query))
+                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (showChannels && channelResults.isNotEmpty()) {
+                        if (scope == "all") item { SectionHeader(stringResource(R.string.common_channels)) }
+                        items(channelResults, key = { "c${it.key}" }) { row ->
+                            SearchResultRow(row = row, onClick = { onPlayChannel(row.primary) })
+                        }
+                    }
+                    if (showMovies && movieResults.isNotEmpty()) {
+                        if (scope == "all") item { SectionHeader(stringResource(R.string.nav_movies)) }
+                        items(movieResults, key = { "m${it.id}" }) { movie ->
+                            VodResultRow(movie.displayTitle, movie.posterUrl,
+                                listOfNotNull(movie.sourceTag, movie.year?.toString()).joinToString(" · ")) {
+                                onOpenMovie(movie)
+                            }
+                        }
+                    }
+                    if (showMovies && cloudMovieResults.isNotEmpty()) {
+                        item { SectionHeader(stringResource(R.string.cloud_search_title)) }
+                        items(cloudMovieResults, key = { "cm:${it.id}" }) { movie ->
+                            VodResultRow(movie.title, movie.posterUrl, movie.year?.toString()) {
+                                movie.sources.firstOrNull()?.let { onOpenCloudMovie(it.providerId, it.itemId) }
+                            }
+                        }
+                    }
+                    if (showSeries && seriesResults.isNotEmpty()) {
+                        if (scope == "all") item { SectionHeader(stringResource(R.string.nav_shows)) }
+                        items(seriesResults, key = { "s${it.id}" }) { series ->
+                            VodResultRow(series.displayTitle, series.posterUrl,
+                                listOfNotNull(series.sourceTag, series.year?.toString()).joinToString(" · ")) {
+                                onOpenSeries(series)
+                            }
+                        }
+                    }
+                    if (showSeries && cloudSeriesResults.isNotEmpty()) {
+                        item { SectionHeader(stringResource(R.string.cloud_search_title)) }
+                        items(cloudSeriesResults, key = { "cs:${it.id}" }) { series ->
+                            VodResultRow(series.title, series.posterUrl, series.year?.toString()) {
+                                series.sources.firstOrNull()?.let { onOpenCloudSeries(it.providerId, it.itemId) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

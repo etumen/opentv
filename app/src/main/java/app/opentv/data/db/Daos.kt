@@ -5,6 +5,7 @@
  */
 package app.opentv.data.db
 
+import app.opentv.data.model.Download
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -800,4 +801,26 @@ interface ReminderDao {
     /** Housekeeping: drop reminders whose programme has already ended. */
     @Query("DELETE FROM reminders WHERE endUtcMillis < :beforeMillis")
     suspend fun deleteEndedBefore(beforeMillis: Long)
+}
+
+@Dao
+interface DownloadDao {
+    @Query("SELECT * FROM downloads ORDER BY createdMillis DESC")
+    fun observeAll(): Flow<List<Download>>
+
+    @Query("SELECT * FROM downloads WHERE mediaKey = :mediaKey")
+    suspend fun byKey(mediaKey: String): Download?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(download: Download): Long
+
+    @Query("DELETE FROM downloads WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    /** The oldest download still waiting in the queue (systemId = PENDING). */
+    @Query("SELECT * FROM downloads WHERE systemId = -1 ORDER BY createdMillis LIMIT 1")
+    suspend fun nextPending(): Download?
+
+    @Query("UPDATE downloads SET systemId = :systemId WHERE id = :id")
+    suspend fun setSystemId(id: Long, systemId: Long)
 }

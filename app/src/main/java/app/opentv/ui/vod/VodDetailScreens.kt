@@ -56,6 +56,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
 import app.opentv.data.model.Episode
+import app.opentv.data.model.Download
+import app.opentv.data.parser.episodeDisplayTitle
+import app.opentv.data.parser.sourceTag
+import app.opentv.ui.downloads.DownloadControl
+import app.opentv.ui.downloads.KIND_MOVIE
+import app.opentv.ui.downloads.KIND_EPISODE
 import app.opentv.data.model.Movie
 import app.opentv.data.model.Series
 import app.opentv.data.parser.displayTitle
@@ -107,6 +113,13 @@ fun MovieDetailScreen(
                     primary = true,
                     modifier = Modifier.focusRequester(playFocus),
                 ) { onPlay(m) }
+                DownloadControl(mediaKey = "movie:${m.id}", buildDownload = {
+                    Download(
+                        mediaKey = "movie:${m.id}", kind = KIND_MOVIE, title = m.displayTitle,
+                        posterUrl = m.posterUrl, tag = m.sourceTag, sourceUrl = m.streamUrl,
+                        systemId = 0, createdMillis = 0,
+                    )
+                })
                 DetailButton(
                     icon = if (m.favourite) Icons.Filled.Star else Icons.Outlined.StarOutline,
                     label = stringResource(if (m.favourite) R.string.common_remove_favourite else R.string.common_favourite),
@@ -219,7 +232,21 @@ fun SeriesDetailScreen(
                     SectionHeader(stringResource(R.string.vod_season, season))
                 }
                 items(eps, key = { it.id }) { ep ->
-                    EpisodeRow(ep, onPlayEpisode)
+                    EpisodeRow(ep, onPlayEpisode) {
+                        DownloadControl(
+                            mediaKey = "ep:${ep.id}", compact = true,
+                            buildDownload = {
+                                Download(
+                                    mediaKey = "ep:${ep.id}", kind = KIND_EPISODE,
+                                    title = episodeDisplayTitle(ep.title, s.name),
+                                    posterUrl = ep.stillUrl ?: s.posterUrl, tag = s.sourceTag,
+                                    seriesTitle = s.displayTitle,
+                                    season = ep.season, episode = ep.episodeNumber,
+                                    sourceUrl = ep.streamUrl, systemId = 0, createdMillis = 0,
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -550,7 +577,11 @@ internal fun DetailButton(
 
 /** One episode row: season/episode marker, title, and a focus highlight; plays on click. */
 @Composable
-private fun EpisodeRow(ep: Episode, onPlay: (mediaKey: String, url: String, title: String) -> Unit) {
+private fun EpisodeRow(
+    ep: Episode,
+    onPlay: (mediaKey: String, url: String, title: String) -> Unit,
+    trailing: @Composable () -> Unit = {},
+) {
     var focused by remember { mutableStateOf(false) }
     Row(
         Modifier
@@ -584,6 +615,7 @@ private fun EpisodeRow(ep: Episode, onPlay: (mediaKey: String, url: String, titl
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        trailing()
     }
 }
 

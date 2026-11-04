@@ -558,6 +558,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
                     // playing the channel is the job; guide detail would cost the slow query.
                     .map { channels -> buildRows(channels, emptyMap(), System.currentTimeMillis()) }
             }
+            .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun tick() { nowTick.value = System.currentTimeMillis() }
@@ -578,6 +579,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
                 else graph.catalogRepository.searchChannelsIncludingHidden(q)
                     .map { channels -> buildRows(channels, emptyMap(), System.currentTimeMillis()) }
             }
+            .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // ---- Channel manager: browse by category ---------------------------------------------------

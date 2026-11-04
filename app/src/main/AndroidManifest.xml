@@ -12,6 +12,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Scheduled recordings: an exact alarm starts a booked capture at broadcast time, and the
@@ -96,6 +97,17 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
+        <!-- HLS offline segments are downloaded in an Android dataSync foreground service. -->
+        <service
+            android:name=".data.repo.OpenTvHlsDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync">
+            <intent-filter>
+                <action android:name="androidx.media3.exoplayer.downloadService.action.RESTART" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
         <!--
           Keeps a recording running when the user leaves the player or the screen sleeps.
           Typed mediaPlayback (not dataSync) so long captures aren't cut off by Android 14's
@@ -135,5 +147,9 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Continue a single-file download queue when the system finishes an item. -->
+        <receiver android:name=".data.work.DownloadCompleteReceiver" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.DOWNLOAD_COMPLETE" /></intent-filter>
+        </receiver>
     </application>
 </manifest>

@@ -1,3 +1,0 @@
-[submodule "shared/opentv-core"]
-	path = shared/opentv-core
-	url = https://github.com/etumen/opentv-core.git

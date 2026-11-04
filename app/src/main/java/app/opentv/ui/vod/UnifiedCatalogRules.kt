@@ -37,29 +37,46 @@ internal object UnifiedCatalogRules {
         "savaş" to "Savaş", "war" to "Savaş",
         "western" to "Western", "müzikal" to "Müzikal",
         "yerli" to "Yerli", "yabancı" to "Yabancı",
+        "turkce dublaj" to "Kaynak: Türkçe Dublaj",
+        "turkce altyazili" to "Kaynak: Türkçe Altyazılı",
+        "turkce altyazi" to "Kaynak: Türkçe Altyazılı",
         "imdb 7" to "IMDb 7+",
     )
+
+    private val sortedGenreAliases = genreAliases.entries.sortedByDescending { it.key.length }
+    private val DIACRITICS_REGEX = Regex("\\p{M}+")
+    private val NON_ALPHANUM_REGEX = Regex("[^a-z0-9]+")
+    private val MULTI_SPACE_REGEX = Regex(" +")
+    private val GENRE_SUFFIX_REGEX = Regex("\\b(filmleri|filmler|filmi|film|dizileri|diziler|dizi)\\b")
+    private val YEAR_REGEX = Regex("\\b(19|20)\\d{2}\\b")
 
     private fun fold(input: String): String = Normalizer.normalize(
         input.lowercase(turkish).replace('ı', 'i'),
         Normalizer.Form.NFD,
-    ).replace(Regex("\\p{M}+"), "")
-        .replace(Regex("[^a-z0-9]+"), " ")
+    ).replace(DIACRITICS_REGEX, "")
+        .replace(NON_ALPHANUM_REGEX, " ")
         .trim()
-        .replace(Regex(" +"), " ")
+        .replace(MULTI_SPACE_REGEX, " ")
 
     /** Unknown sections are not guessed into a genre (for example Son Eklenen Bölümler). */
     fun genre(section: ProviderCatalogSection): UnifiedGenre? {
         val value = fold(section.title)
-            .replace(Regex("\\b(filmleri|filmler|filmi|film|dizileri|diziler|dizi)\\b"), " ")
-            .replace(Regex(" +"), " ")
+            .replace(GENRE_SUFFIX_REGEX, " ")
+            .replace(MULTI_SPACE_REGEX, " ")
             .trim()
         val label = genreAliases[value]
-            ?: genreAliases.entries.firstOrNull { (name, _) ->
-                value == name || value.startsWith("$name ")
-            }?.value
+            ?: sortedGenreAliases
+                .firstOrNull { (name, _) -> value.startsWith("$name ") }
+                ?.value
             ?: return null
         return UnifiedGenre(fold(label), label)
+    }
+
+    /** A provider section is a source claim, not a verified audio/subtitle track. */
+    fun sourceClaimLabel(raw: String): String = when (fold(raw)) {
+        "turkce dublaj" -> "Kaynak: Türkçe Dublaj"
+        "turkce altyazili", "turkce altyazi" -> "Kaynak: Türkçe Altyazılı"
+        else -> raw
     }
 
     fun sourcesForGenre(
@@ -67,11 +84,16 @@ internal object UnifiedCatalogRules {
         genreId: String?,
     ): List<UnifiedSource> = sections.flatMap { (providerId, providerSections) ->
         val selected = if (genreId == null) {
-            providerSections.firstOrNull { it.showOnHome } ?: providerSections.firstOrNull()
+            val completeCatalog = setOf("tum filmler", "filmler", "tum diziler", "diziler")
+            listOfNotNull(
+                providerSections.firstOrNull { fold(it.title) in completeCatalog }
+                    ?: providerSections.firstOrNull { it.showOnHome }
+                    ?: providerSections.firstOrNull(),
+            )
         } else {
-            providerSections.firstOrNull { genre(it)?.id == genreId }
+            providerSections.filter { genre(it)?.id == genreId }
         }
-        listOfNotNull(selected?.let { UnifiedSource(providerId, it.id) })
+        selected.distinctBy { it.id }.map { UnifiedSource(providerId, it.id) }
     }
 
     fun genres(sections: Map<String, List<ProviderCatalogSection>>): List<UnifiedGenre> =
@@ -84,9 +106,9 @@ internal object UnifiedCatalogRules {
             val value = item.externalIds[field]?.trim()?.lowercase(Locale.ROOT)
             if (!value.isNullOrEmpty()) return "$field:$value"
         }
-        val embeddedYear = Regex("\\b(19|20)\\d{2}\\b").find(item.title)?.value
+        val embeddedYear = YEAR_REGEX.find(item.title)?.value
         val year = item.year?.toString() ?: embeddedYear.orEmpty()
-        val title = fold(item.title.replace(Regex("\\b(19|20)\\d{2}\\b"), " "))
+        val title = fold(item.title.replace(YEAR_REGEX, " "))
         return "title:$title|year:$year|type:${item.mediaType}"
     }
 

@@ -37,6 +37,7 @@ class OpenTvApp : Application(), ImageLoaderFactory {
      */
     override fun newImageLoader(): ImageLoader =
         ImageLoader.Builder(this)
+            .okHttpClient { ServiceLocator.get(this).httpClient }
             .memoryCache {
                 MemoryCache.Builder(this)
                     .maxSizePercent(0.25)

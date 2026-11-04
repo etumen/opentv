@@ -8,6 +8,12 @@ package app.opentv.ui.vod
 import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import app.opentv.ui.LocalLayoutClass
+import app.opentv.ui.LayoutClass
+import app.opentv.ui.player.PlayerGestureLayer
+import app.opentv.ui.player.ImmersiveSystemBars
+import app.opentv.ui.player.PlayerChromeInsets
+import androidx.compose.foundation.horizontalScroll
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -131,6 +137,9 @@ fun VodPlayerScreen(
     val context = LocalContext.current
     val view = LocalView.current
     val graph = remember { ServiceLocator.get(context) }
+    val isPhone = LocalLayoutClass.current == LayoutClass.PHONE
+    val isMobileSeries = isPhone && (mediaKey.startsWith("cloud-ep:") ||
+        fallbackContext?.mediaType == app.opentv.data.provider.ProviderMediaType.SERIES)
     val settings = remember { graph.settings }
     val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     // A recording that's still being written plays through the tail-following source. It behaves a
@@ -141,14 +150,30 @@ fun VodPlayerScreen(
     // http/file URLs of ordinary VOD.
     val controller = remember {
         PlayerController(
-            context, scope, graph.streamingHttpClient, subtitlesEnabled = false,
+            context, scope, graph.streamingHttpClient,
+            subtitlesEnabled = subtitleUrl.isNotBlank() || isMobileSeries,
             smbDataSourceFactory = app.opentv.player.SmbDataSource.Factory(graph.settings),
             // Lets an `optvrec://<id>` recording play while it's still being written.
             growingDataSourceFactory =
                 app.opentv.player.GrowingRecordingDataSource.Factory(context.applicationContext),
             liveRecording = growingRec,
             autoRetryOnFailure = fallbackContext?.alternateItems.isNullOrEmpty(),
-        )
+            offlineHlsCache = if (isPhone) graph.downloadRepository.offlineHlsCache else null,
+        ).also { playback ->
+            if (isPhone) {
+                // Only select Turkish if the stream actually exposes a Turkish audio track.
+                playback.player.trackSelectionParameters = playback.player.trackSelectionParameters
+                    .buildUpon().setPreferredAudioLanguage("tr").build()
+                if (isMobileSeries) {
+                    playback.player.trackSelectionParameters = playback.player.trackSelectionParameters
+                        .buildUpon()
+                        .setPreferredTextLanguage("tr")
+                        .setSelectUndeterminedTextLanguage(false)
+                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        .build()
+                }
+            }
+        }
     }
     // Skip forward/back within the recorded portion. For a growing recording ExoPlayer won't report
     // the item as seekable (no fixed length), so we seek directly, clamped to what's on disk.
@@ -160,6 +185,55 @@ fun VodPlayerScreen(
     }
     val state by controller.state.collectAsState()
     val tracks by controller.tracks.collectAsState()
+    val selectedAudioLanguage = tracks.groups.asSequence()
+        .filter { it.type == C.TRACK_TYPE_AUDIO }
+        .flatMap { group ->
+            (0 until group.length).asSequence()
+                .filter { group.isTrackSelected(it) }
+                .map { group.getTrackFormat(it).language }
+        }
+        .firstOrNull { !it.isNullOrBlank() && it != "und" }
+    val audioButtonLabel = if (isPhone) {
+        val languageLabel = selectedAudioLanguage?.let {
+            java.util.Locale.forLanguageTag(it)
+                .getDisplayLanguage(java.util.Locale.forLanguageTag("tr")).ifBlank { it }
+        } ?: stringResource(R.string.player_audio_unknown)
+        stringResource(R.string.player_audio_current, languageLabel)
+    } else {
+        stringResource(R.string.player_audio)
+    }
+    val hasTurkishSubtitle = isMobileSeries && tracks.groups.any { group ->
+        group.type == C.TRACK_TYPE_TEXT && (0 until group.length).any { i ->
+            val format = group.getTrackFormat(i)
+            group.isTrackSupported(i) &&
+                captionLanguage(format.label, format.language)?.startsWith("tr", ignoreCase = true) == true
+        }
+    }
+    // Apply a safe initial selection; do not override the user's later manual choice.
+    var initialSubtitleChoiceMade by remember(mediaKey, streamUrl) { mutableStateOf(false) }
+    LaunchedEffect(tracks, isMobileSeries) {
+        if (isMobileSeries && !initialSubtitleChoiceMade) {
+            val textGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+            if (textGroups.isNotEmpty()) {
+                val turkish = textGroups.firstNotNullOfOrNull { group ->
+                    (0 until group.length).firstOrNull { i ->
+                        val format = group.getTrackFormat(i)
+                        group.isTrackSupported(i) &&
+                            captionLanguage(format.label, format.language)
+                                ?.startsWith("tr", ignoreCase = true) == true
+                    }?.let { group to it }
+                }
+                initialSubtitleChoiceMade = true
+                if (turkish != null) controller.selectTrack(turkish.first, turkish.second)
+                else controller.disableText()
+            }
+        }
+    }
+    val subtitleButtonLabel = if (hasTurkishSubtitle) {
+        stringResource(R.string.player_subtitles_tr_available)
+    } else {
+        stringResource(R.string.player_subtitles)
+    }
     val alternateSources = remember(mediaKey, fallbackContext) {
         fallbackContext?.alternateItems?.toMutableList() ?: mutableListOf()
     }
@@ -174,16 +248,18 @@ fun VodPlayerScreen(
     var scrubValue by remember { mutableFloatStateOf(0f) }
 
     var controlsVisible by remember { mutableStateOf(true) }
+    val touch = LocalLayoutClass.current.isTouch
     var interaction by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val barFocus = remember { FocusRequester() }
     val rootFocus = remember { FocusRequester() }
 
     fun reveal() { controlsVisible = true; interaction++ }
 
-    suspend fun savePosition() {
-        val player = controller.player
-        val pos = player.currentPosition
-        val dur = player.duration.takeIf { it > 0 } ?: return
+    suspend fun savePosition(
+        pos: Long = controller.player.currentPosition,
+        duration: Long = controller.player.duration,
+    ) {
+        val dur = duration.takeIf { it > 0 } ?: return
         if (pos > 5_000) {
             graph.playbackPositions.upsert(
                 app.opentv.data.model.PlaybackPosition(
@@ -206,7 +282,12 @@ fun VodPlayerScreen(
         onDispose {
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             view.keepScreenOn = false
-            scope.launch { savePosition() }
+            val savedPosition = controller.player.currentPosition
+            val savedDuration = controller.player.duration
+            // Save after exit without cancelling the coroutine in the same disposal callback.
+            kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.NonCancellable).launch {
+                savePosition(savedPosition, savedDuration)
+            }
             controller.release()
             scope.cancel()
         }
@@ -227,21 +308,32 @@ fun VodPlayerScreen(
     ) {
         val resumeFrom = graph.playbackPositions.get(settings.activeProfileId.value, mediaKey)
             ?.takeIf { !it.isFinished }?.positionMillis ?: 0L
+        val localUrl = graph.downloadRepository.localFile(mediaKey)
+        val offlineHls = graph.downloadRepository.offlineHlsPlayback(mediaKey)
         controller.play(
             PlayerController.Request(
-                url = streamUrl,
+                url = localUrl ?: streamUrl,
                 title = title,
-                userAgent = userAgent,
+                userAgent = offlineHls?.headers?.entries?.firstOrNull {
+                    it.key.equals("User-Agent", ignoreCase = true)
+                }?.value ?: userAgent,
                 requestHeaders = buildMap {
                     putAll(requestHeaders)
                     if (referer.isNotBlank()) put("Referer", referer)
                     if (cookie.isNotBlank()) put("Cookie", cookie)
                     if (origin.isNotBlank()) put("Origin", origin)
+                    if (offlineHls != null) putAll(offlineHls.headers)
                 },
-                streamMimeType = streamMimeType.takeIf { it.isNotBlank() },
-                subtitleUrl = subtitleUrl.takeIf { it.isNotBlank() },
+                streamMimeType = if (offlineHls != null) {
+                    androidx.media3.common.MimeTypes.APPLICATION_M3U8
+                } else streamMimeType.takeIf { localUrl == null && it.isNotBlank() },
+                streamKeys = offlineHls?.streamKeys.orEmpty(),
+                subtitleUrl = subtitleUrl.takeIf { it.isNotBlank() && offlineHls == null },
                 subtitleLabel = subtitleLabel.takeIf { it.isNotBlank() },
-                subtitleLanguage = subtitleLanguage.takeIf { it.isNotBlank() },
+                subtitleLanguage = (
+                    if (isMobileSeries) captionLanguage(subtitleLabel, subtitleLanguage)
+                    else subtitleLanguage
+                )?.takeIf { it.isNotBlank() },
                 subtitleMimeType = subtitleMimeType.takeIf { it.isNotBlank() },
                 startPositionMillis = resumeFrom,
                 isLive = false,
@@ -362,7 +454,8 @@ fun VodPlayerScreen(
             }
             .focusRequester(rootFocus)
             .focusable()
-            .pointerInput(Unit) {
+            .pointerInput(touch) {
+                if (touch) return@pointerInput
                 detectTapGestures { if (controlsVisible) controlsVisible = false else reveal() }
             },
     ) {
@@ -381,6 +474,17 @@ fun VodPlayerScreen(
                 }
             },
         )
+
+        PlayerGestureLayer(
+            enabled = touch,
+            dragsEnabled = vodPanel == VodPanel.NONE,
+            onTap = { if (controlsVisible) controlsVisible = false else reveal() },
+        ) { direction ->
+            if (growingRec) seekRelative(direction * 15_000L)
+            else if (direction > 0) controller.seekForward() else controller.seekBackward()
+            reveal()
+        }
+        if (touch) ImmersiveSystemBars(hidden = !controlsVisible)
 
         when (val current = state) {
             is PlayerController.State.Buffering ->
@@ -444,7 +548,8 @@ fun VodPlayerScreen(
                     // bar / display cutout in landscape). Zero on a TV, so the 10-foot layout is
                     // unchanged; the gradient above stays full-bleed to the screen edge.
                     .windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
+                        (if (touch) PlayerChromeInsets else WindowInsets.safeDrawing)
+                            .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
                     )
                     .padding(horizontal = 28.dp, vertical = 20.dp),
             ) {
@@ -501,7 +606,10 @@ fun VodPlayerScreen(
 
                 Spacer(Modifier.height(10.dp))
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.then(if (touch) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     VodChip(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         stringResource(R.string.common_back),
@@ -532,12 +640,12 @@ fun VodPlayerScreen(
                         if (growingRec) seekRelative(15_000) else controller.seekForward(); interaction++
                     }
                     Spacer(Modifier.width(20.dp))
-                    VodChip(Icons.Filled.ClosedCaption, stringResource(R.string.player_subtitles)) {
+                    VodChip(Icons.Filled.ClosedCaption, subtitleButtonLabel) {
                         vodPanel = if (vodPanel == VodPanel.SUBTITLES) VodPanel.NONE else VodPanel.SUBTITLES
                         interaction++
                     }
                     Spacer(Modifier.width(10.dp))
-                    VodChip(Icons.Filled.Audiotrack, stringResource(R.string.player_audio)) {
+                    VodChip(Icons.Filled.Audiotrack, audioButtonLabel) {
                         vodPanel = if (vodPanel == VodPanel.AUDIO) VodPanel.NONE else VodPanel.AUDIO
                         interaction++
                     }
@@ -654,6 +762,19 @@ private fun TrackRow(label: String, selected: Boolean, onClick: () -> Unit, focu
     ) {
         Text(label, style = MaterialTheme.typography.titleMedium, color = fg, modifier = Modifier.weight(1f))
         if (selected) Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.common_selected), tint = fg)
+    }
+}
+
+/** An explicit language label takes precedence over a conflicting provider language tag. */
+internal fun captionLanguage(label: String?, language: String?): String? {
+    val name = label.orEmpty().lowercase(java.util.Locale.ROOT)
+    return when {
+        listOf("french", "français", "francais", "fransız").any { it in name } -> "fr"
+        listOf("english", "ingiliz").any { it in name } -> "en"
+        listOf("spanish", "español", "ispanyol").any { it in name } -> "es"
+        listOf("german", "deutsch", "almanca").any { it in name } -> "de"
+        listOf("turkish", "türk", "turk").any { it in name } -> "tr"
+        else -> language
     }
 }
 

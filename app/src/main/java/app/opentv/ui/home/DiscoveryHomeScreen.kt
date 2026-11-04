@@ -114,7 +114,7 @@ fun DiscoveryHomeScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             hero?.let { item ->
-                item(key = "hero") {
+                item(key = "hero", contentType = "hero") {
                     DiscoveryHero(
                         content = item,
                         indicatorCount = heroItems.size,
@@ -127,7 +127,7 @@ fun DiscoveryHomeScreen(
                 }
             }
 
-            items(shelves, key = { it.id }) { shelf ->
+            items(shelves, key = { it.id }, contentType = { "platform-shelf" }) { shelf ->
                 PlatformShelf(
                     shelf = shelf,
                     onOpenMovie = onOpenMovie,
@@ -438,14 +438,18 @@ private fun PlatformShelf(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 3.dp),
+            modifier = Modifier.padding(start = 48.dp, end = 48.dp, top = 10.dp, bottom = 4.dp),
         )
 
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            items(shelf.items, key = { shelf.id + ":" + it.id }) { content ->
+            items(
+                items = shelf.items,
+                key = { shelf.id + ":" + it.id },
+                contentType = { "home-poster" },
+            ) { content ->
                 val source = content.sources.firstOrNull()
                 PosterCard(
                     title = content.title,

@@ -60,6 +60,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import app.opentv.core.AppSettings
 import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -289,6 +292,10 @@ private fun TopNavigationBar(
     onOpenProfiles: () -> Unit,
     activeProfileName: String,
 ) {
+    val focusRequesters = remember(tabs.size) { List(tabs.size + 4) { FocusRequester() } }
+    fun leftOf(index: Int): FocusRequester = if (index == 0) focusRequesters[index] else focusRequesters[index - 1]
+    fun rightOf(index: Int): FocusRequester = if (index == focusRequesters.lastIndex) focusRequesters[index] else focusRequesters[index + 1]
+
     Row(
         Modifier
             .fillMaxWidth()
@@ -322,26 +329,39 @@ private fun TopNavigationBar(
             icon = Icons.Filled.Search,
             label = stringResource(R.string.nav_search),
             selected = false,
+            focusRequester = focusRequesters[0],
+            leftFocus = leftOf(0),
+            rightFocus = rightOf(0),
             onClick = onOpenSearch,
         )
 
-        tabs.forEach { tab ->
+        tabs.forEachIndexed { tabIndex, tab ->
+            val focusIndex = tabIndex + 1
             TopNavItem(
                 icon = tab.icon,
                 label = stringResource(tab.labelRes),
                 selected = current == tab,
                 showIcon = false,
+                focusRequester = focusRequesters[focusIndex],
+                leftFocus = leftOf(focusIndex),
+                rightFocus = rightOf(focusIndex),
                 onClick = { onSelect(tab) },
             )
         }
 
         Spacer(Modifier.weight(1f))
 
+        val recordingsIndex = tabs.size + 1
+        val settingsIndex = tabs.size + 2
+        val profileIndex = tabs.size + 3
         TopNavItem(
             icon = Icons.Filled.FiberManualRecord,
             label = stringResource(R.string.nav_recordings),
             selected = recordingsSelected,
             compact = true,
+            focusRequester = focusRequesters[recordingsIndex],
+            leftFocus = leftOf(recordingsIndex),
+            rightFocus = rightOf(recordingsIndex),
             onClick = onOpenRecordings,
         )
         TopNavItem(
@@ -349,6 +369,9 @@ private fun TopNavigationBar(
             label = stringResource(R.string.nav_settings),
             selected = false,
             compact = true,
+            focusRequester = focusRequesters[settingsIndex],
+            leftFocus = leftOf(settingsIndex),
+            rightFocus = rightOf(settingsIndex),
             onClick = onOpenSettings,
         )
         TopNavItem(
@@ -356,6 +379,9 @@ private fun TopNavigationBar(
             label = activeProfileName,
             selected = false,
             compact = true,
+            focusRequester = focusRequesters[profileIndex],
+            leftFocus = leftOf(profileIndex),
+            rightFocus = rightOf(profileIndex),
             onClick = onOpenProfiles,
         )
     }
@@ -368,6 +394,9 @@ private fun TopNavItem(
     selected: Boolean,
     compact: Boolean = false,
     showIcon: Boolean = true,
+    focusRequester: FocusRequester,
+    leftFocus: FocusRequester,
+    rightFocus: FocusRequester,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -393,6 +422,11 @@ private fun TopNavItem(
     val itemModifier = if (compact) Modifier.size(44.dp) else Modifier
     Row(
         itemModifier
+            .focusProperties {
+                left = leftFocus
+                right = rightFocus
+            }
+            .focusRequester(focusRequester)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale

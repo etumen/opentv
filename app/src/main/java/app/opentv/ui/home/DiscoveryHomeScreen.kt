@@ -51,6 +51,8 @@ import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.provider.ProviderItem
 import app.opentv.data.provider.ProviderMediaType
 import app.opentv.data.provider.dizipal.DiziPalProvider
+import app.opentv.ui.LayoutClass
+import app.opentv.ui.LocalLayoutClass
 import app.opentv.ui.vod.DiziPalSessionAnchor
 import app.opentv.ui.vod.PosterCard
 import coil.compose.AsyncImage
@@ -64,6 +66,7 @@ fun DiscoveryHomeScreen(
 ) {
     val shelves by viewModel.shelves.collectAsState()
     val loading by viewModel.loading.collectAsState()
+    val isTv = LocalLayoutClass.current == LayoutClass.TV
 
     LaunchedEffect(Unit) {
         viewModel.load()
@@ -81,7 +84,9 @@ fun DiscoveryHomeScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        DiziPalSessionAnchor()
+        if (!isTv) {
+            DiziPalSessionAnchor()
+        }
 
         if (loading && shelves.isEmpty()) {
             CircularProgressIndicator(

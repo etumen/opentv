@@ -54,19 +54,23 @@ class DiscoveryHomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _loading.value = true
             try {
-                val loaded = withContext(Dispatchers.Default) {
-                    collections.mapNotNull { collection ->
-                        try {
+                val loaded = mutableListOf<DiscoveryShelf>()
+                collections.forEach { collection ->
+                    val shelf = try {
+                        withContext(Dispatchers.Default) {
                             loadCollection(collection)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Discovery collection failed: ${collection.id}", e)
-                            null
                         }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Discovery collection failed: ${collection.id}", e)
+                        null
+                    }
+                    if (shelf != null && shelf.items.isNotEmpty()) {
+                        loaded += shelf
+                        _shelves.value = loaded.toList()
                     }
                 }
-                _shelves.value = loaded.filter { it.items.isNotEmpty() }
                 _loaded.value = true
             } finally {
                 _loading.value = false

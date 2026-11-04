@@ -5,6 +5,7 @@
  */
 package app.opentv.ui.vod
 
+import app.opentv.BuildConfig
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -706,7 +707,9 @@ internal fun PosterCard(
                     contentDescription = title,
                     contentScale = ContentScale.Crop,
                     onSuccess = {
-                        android.util.Log.d("PosterCard", "Loaded poster " + title + " -> " + activePosterUrl)
+                        if (BuildConfig.DEBUG) {
+                            android.util.Log.d("PosterCard", "Loaded poster " + title + " -> " + activePosterUrl)
+                        }
                     },
                     onError = {
                         // Hotlink-403 images should not hide a valid poster from another source.

@@ -346,7 +346,22 @@ abstract class OpenTvDatabase : RoomDatabase() {
         /** v14 to v15: additive provider HTTP headers; old downloads remain intact. */
         private val MIGRATION_14_15 = object : Migration(14, 15) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE downloads ADD COLUMN requestHeaders TEXT")
+                // Some existing TV databases already have this column, even at v13.
+                // MIGRATION_13_14 preserves their downloads table, including its headers.
+                val hasHeaders = db.query("PRAGMA table_info(`downloads`)").use { cursor ->
+                    val nameIndex = cursor.getColumnIndexOrThrow("name")
+                    var found = false
+                    while (cursor.moveToNext()) {
+                        if (cursor.getString(nameIndex).equals("requestHeaders", ignoreCase = true)) {
+                            found = true
+                            break
+                        }
+                    }
+                    found
+                }
+                if (!hasHeaders) {
+                    db.execSQL("ALTER TABLE downloads ADD COLUMN requestHeaders TEXT")
+                }
             }
         }
 

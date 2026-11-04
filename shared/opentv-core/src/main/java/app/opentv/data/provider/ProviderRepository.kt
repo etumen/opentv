@@ -48,10 +48,12 @@ class ProviderRepository(
         if (remoteRule != null && remoteListingAdapter != null) {
             return remoteListingAdapter.catalog(providerId, request, remoteRule)
         }
-        return when (val result = call(provider, "catalog") { provider.catalog(request) }) {
-            is ProviderResult.Success ->
-                ProviderResult.Success(ProviderResultMapper.catalog(provider, result.value, request.mediaType))
-            is ProviderResult.Failure -> result
+        return call(provider, "catalog") {
+            when (val result = provider.catalog(request)) {
+                is ProviderResult.Success ->
+                    ProviderResult.Success(ProviderResultMapper.catalog(provider, result.value, request.mediaType))
+                is ProviderResult.Failure -> result
+            }
         }
     }
 

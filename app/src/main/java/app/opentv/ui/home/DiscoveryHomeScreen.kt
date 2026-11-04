@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +55,7 @@ import app.opentv.ui.LayoutClass
 import app.opentv.ui.LocalLayoutClass
 import app.opentv.ui.vod.DiziPalSessionAnchor
 import app.opentv.ui.vod.PosterCard
+import app.opentv.ui.vod.UnifiedCatalogRules
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
@@ -72,12 +73,24 @@ fun DiscoveryHomeScreen(
         viewModel.load()
     }
 
-    val hero = remember(shelves) {
-        shelves.asSequence()
-            .flatMap { it.items.asSequence() }
-            .firstOrNull { !it.backdropUrl.isNullOrBlank() }
-            ?: shelves.firstOrNull()?.items?.firstOrNull()
+    val heroItems = remember(shelves) {
+        val newest = shelves.firstOrNull { it.id == "new" }?.items.orEmpty()
+        (newest + shelves.flatMap { it.items })
+            .distinctBy { it.id }
+            .filter { !it.backdropUrl.isNullOrBlank() || !it.posterUrl.isNullOrBlank() }
+            .take(HERO_ITEM_LIMIT)
     }
+    var heroIndex by remember(heroItems) { mutableStateOf(0) }
+    var heroActionFocused by remember { mutableStateOf(false) }
+    LaunchedEffect(heroItems.size, heroActionFocused) {
+        if (heroItems.size > 1 && !heroActionFocused) {
+            while (true) {
+                delay(HERO_ROTATION_MS)
+                heroIndex = (heroIndex + 1) % heroItems.size
+            }
+        }
+    }
+    val hero = heroItems.getOrNull(heroIndex)
 
     Box(
         Modifier
@@ -101,9 +114,12 @@ fun DiscoveryHomeScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             hero?.let { item ->
-                item(key = "hero:" + item.id) {
+                item(key = "hero") {
                     DiscoveryHero(
                         content = item,
+                        indicatorCount = heroItems.size,
+                        indicatorIndex = heroIndex,
+                        onActionFocusChanged = { heroActionFocused = it },
                         onClick = {
                             openCanonical(item, onOpenMovie, onOpenSeries)
                         },
@@ -125,6 +141,9 @@ fun DiscoveryHomeScreen(
 @Composable
 private fun DiscoveryHero(
     content: CanonicalContent,
+    indicatorCount: Int,
+    indicatorIndex: Int,
+    onActionFocusChanged: (Boolean) -> Unit,
     onClick: () -> Unit,
 ) {
     val source = content.sources.firstOrNull()
@@ -140,7 +159,7 @@ private fun DiscoveryHero(
     Box(
         Modifier
             .fillMaxWidth()
-            .aspectRatio(1920f / 560f),
+            .height(220.dp),
     ) {
         when {
             backdropModel != null -> {
@@ -151,7 +170,6 @@ private fun DiscoveryHero(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
-
             posterModel != null -> {
                 AsyncImage(
                     model = posterModel,
@@ -159,10 +177,10 @@ private fun DiscoveryHero(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .padding(end = 36.dp, top = 18.dp, bottom = 18.dp)
-                        .width(152.dp)
-                        .height(228.dp)
-                        .clip(RoundedCornerShape(18.dp)),
+                        .padding(end = 48.dp, top = 12.dp, bottom = 12.dp)
+                        .width(128.dp)
+                        .height(192.dp)
+                        .clip(RoundedCornerShape(12.dp)),
                 )
             }
         }
@@ -173,12 +191,13 @@ private fun DiscoveryHero(
                 .background(
                     Brush.horizontalGradient(
                         listOf(
-                            MaterialTheme.colorScheme.background,
-                            MaterialTheme.colorScheme.background.copy(alpha = 0.88f),
+                            Color(0xFF08080B),
+                            Color(0xFF08080B).copy(alpha = 0.92f),
+                            Color(0xFF08080B).copy(alpha = 0.38f),
                             Color.Transparent,
                         ),
                         startX = 0f,
-                        endX = 1150f,
+                        endX = 1320f,
                     ),
                 ),
         )
@@ -190,7 +209,7 @@ private fun DiscoveryHero(
                         listOf(
                             Color.Transparent,
                             Color.Transparent,
-                            MaterialTheme.colorScheme.background,
+                            Color(0xFF08080B).copy(alpha = 0.94f),
                         ),
                     ),
                 ),
@@ -199,84 +218,111 @@ private fun DiscoveryHero(
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 32.dp, end = 28.dp)
-                .width(460.dp),
+                .padding(start = 48.dp, end = 40.dp, bottom = 10.dp)
+                .width(470.dp),
         ) {
             Text(
                 text = content.title,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 2,
+                color = Color.White,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(6.dp))
-
-            HeroMetadata(content)
             Spacer(Modifier.height(7.dp))
+            HeroMetadata(content)
 
-            content.description?.takeIf { it.isNotBlank() }?.let { description ->
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f),
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(12.dp))
+            val sourceClaims = remember(content.genres) {
+                content.genres
+                    .map(UnifiedCatalogRules::sourceClaimLabel)
+                    .filter { it.startsWith("Kaynak:") }
+                    .distinct()
+                    .take(2)
+            }
+            if (sourceClaims.isNotEmpty()) {
+                Spacer(Modifier.height(7.dp))
+                HeroSourceClaims(sourceClaims)
             }
 
-            HeroAction(onClick = onClick)
+            content.description?.takeIf { it.isNotBlank() }?.let { description ->
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.82f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+            HeroAction(
+                onClick = onClick,
+                onFocusChanged = onActionFocusChanged,
+            )
+        }
+
+        if (indicatorCount > 1) {
+            HeroIndicators(
+                count = indicatorCount,
+                selected = indicatorIndex,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 48.dp, bottom = 10.dp),
+            )
         }
     }
 }
 
 @Composable
 private fun HeroMetadata(content: CanonicalContent) {
+    val displayGenres = remember(content.genres) {
+        content.genres
+            .map(UnifiedCatalogRules::sourceClaimLabel)
+            .filterNot { it.startsWith("Kaynak:") }
+            .take(1)
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         content.rating?.takeIf { it > 0.0 }?.let { rating ->
+            val hasImdb = content.externalIds.containsKey("imdb")
             Text(
-                text = "★ " + String.format("%.1f", rating),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-            )
-        }
-
-        if (content.externalIds.containsKey("imdb")) {
-            Text(
-                text = "IMDb",
+                text = if (hasImdb) {
+                    "IMDb %.1f".format(java.util.Locale.US, rating)
+                } else {
+                    "★ %.1f".format(java.util.Locale.US, rating)
+                },
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF121212),
+                color = if (hasImdb) Color(0xFF121212) else Color.White,
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFFF5C518))
-                    .padding(horizontal = 5.dp, vertical = 2.dp),
+                    .background(if (hasImdb) Color(0xFFF5C518) else Color.Black.copy(alpha = 0.56f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }
 
         content.year?.let { year ->
             Text(
                 text = year.toString(),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.82f),
             )
         }
 
-        content.genres.take(3).forEach { genre ->
+        displayGenres.forEach { genre ->
             Text(
                 text = "•",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                color = Color.White.copy(alpha = 0.56f),
             )
             Text(
                 text = genre,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color.White.copy(alpha = 0.82f),
                 maxLines = 1,
             )
         }
@@ -284,50 +330,96 @@ private fun HeroMetadata(content: CanonicalContent) {
 }
 
 @Composable
-private fun HeroAction(onClick: () -> Unit) {
+private fun HeroSourceClaims(values: List<String>) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        values.forEach { label ->
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.82f))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun HeroIndicators(
+    count: Int,
+    selected: Int,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(count) { index ->
+            Box(
+                Modifier
+                    .width(if (index == selected) 28.dp else 8.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(
+                        if (index == selected) MaterialTheme.colorScheme.primary
+                        else Color.White.copy(alpha = 0.38f),
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun HeroAction(
+    onClick: () -> Unit,
+    onFocusChanged: (Boolean) -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.05f else 1f,
+        targetValue = if (focused) 1.04f else 1f,
         label = "heroActionScale",
     )
-    val background = if (focused) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        Color.White.copy(alpha = 0.96f)
-    }
-    val foreground = if (focused) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        Color.Black
-    }
+    val background = if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.96f)
+    val foreground = if (focused) MaterialTheme.colorScheme.onPrimary else Color.Black
 
     Row(
         modifier = Modifier
+            .width(104.dp)
+            .height(40.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
-            .onFocusChanged { focused = it.isFocused }
-            .clip(RoundedCornerShape(6.dp))
+            .onFocusChanged {
+                focused = it.isFocused
+                onFocusChanged(it.isFocused)
+            }
+            .clip(RoundedCornerShape(8.dp))
             .background(background)
             .border(
                 width = if (focused) 2.dp else 0.dp,
                 color = MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(6.dp),
+                shape = RoundedCornerShape(8.dp),
             )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
         Icon(
             imageVector = Icons.Filled.PlayArrow,
             contentDescription = null,
             tint = foreground,
         )
-        Spacer(Modifier.width(5.dp))
+        Spacer(Modifier.width(4.dp))
         Text(
             text = "İzle",
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
             color = foreground,
         )
@@ -395,6 +487,9 @@ private fun openCanonical(
         ProviderMediaType.OTHER -> Unit
     }
 }
+
+private const val HERO_ITEM_LIMIT = 5
+private const val HERO_ROTATION_MS = 8_000L
 
 @Composable
 private fun rememberProviderImageModel(

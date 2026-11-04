@@ -122,11 +122,9 @@ fun MainScreen(
         buildList {
             add(Tab.HOME)
             if (moviesEnabled) add(Tab.MOVIES)
-            if (seriesEnabled) {
-                add(Tab.SHOWS)
-                add(Tab.ASIAN_DRAMA)
-            }
+            if (seriesEnabled) add(Tab.SHOWS)
             if (liveEnabled) add(Tab.LIVE)
+            if (seriesEnabled) add(Tab.ASIAN_DRAMA)
             add(Tab.RECORDINGS)
         }
     }
@@ -172,10 +170,12 @@ fun MainScreen(
             .background(MaterialTheme.colorScheme.background),
     ) {
         TopNavigationBar(
-            tabs = visibleTabs,
+            tabs = visibleTabs.filterNot { it == Tab.RECORDINGS },
             current = tab,
             onSelect = { tab = it },
             onOpenSearch = onOpenSearch,
+            onOpenRecordings = { tab = Tab.RECORDINGS },
+            recordingsSelected = tab == Tab.RECORDINGS,
             onOpenSettings = onOpenSettings,
             onOpenProfiles = onOpenProfiles,
             activeProfileName = activeProfileName,
@@ -283,6 +283,8 @@ private fun TopNavigationBar(
     current: Tab,
     onSelect: (Tab) -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenRecordings: () -> Unit,
+    recordingsSelected: Boolean,
     onOpenSettings: () -> Unit,
     onOpenProfiles: () -> Unit,
     activeProfileName: String,
@@ -290,26 +292,26 @@ private fun TopNavigationBar(
     Row(
         Modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(60.dp)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
             .focusGroup()
-            .padding(horizontal = 20.dp, vertical = 7.dp),
+            .padding(horizontal = 48.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(9.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(
-            modifier = Modifier.padding(end = 12.dp),
+            modifier = Modifier.padding(end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Image(
                 painter = painterResource(R.drawable.ic_opentv_logo),
                 contentDescription = "OpenTV",
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(28.dp),
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(7.dp))
             Text(
                 text = "OpenTV",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -336,11 +338,11 @@ private fun TopNavigationBar(
         Spacer(Modifier.weight(1f))
 
         TopNavItem(
-            icon = Icons.Filled.Person,
-            label = activeProfileName,
-            selected = false,
+            icon = Icons.Filled.FiberManualRecord,
+            label = stringResource(R.string.nav_recordings),
+            selected = recordingsSelected,
             compact = true,
-            onClick = onOpenProfiles,
+            onClick = onOpenRecordings,
         )
         TopNavItem(
             icon = Icons.Filled.Settings,
@@ -348,6 +350,13 @@ private fun TopNavigationBar(
             selected = false,
             compact = true,
             onClick = onOpenSettings,
+        )
+        TopNavItem(
+            icon = Icons.Filled.Person,
+            label = activeProfileName,
+            selected = false,
+            compact = true,
+            onClick = onOpenProfiles,
         )
     }
 }
@@ -363,7 +372,7 @@ private fun TopNavItem(
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.05f else 1f,
+        targetValue = if (focused) 1.04f else 1f,
         label = "topNavScale",
     )
     val background = when {
@@ -381,8 +390,9 @@ private fun TopNavItem(
         androidx.compose.ui.graphics.Color.Transparent
     }
 
+    val itemModifier = if (compact) Modifier.size(44.dp) else Modifier
     Row(
-        Modifier
+        itemModifier
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -393,24 +403,25 @@ private fun TopNavItem(
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(
-                horizontal = if (compact) 11.dp else 16.dp,
-                vertical = 9.dp,
+                horizontal = if (compact) 0.dp else 12.dp,
+                vertical = if (compact) 0.dp else 8.dp,
             ),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
         if (showIcon) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
                 tint = foreground,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(if (compact) 20.dp else 18.dp),
             )
         }
         if (!compact) {
             if (showIcon) Spacer(Modifier.width(8.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = foreground,
                 fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,

@@ -666,8 +666,7 @@ internal fun PosterCard(
     val imageModel = remember(activePosterUrl, providerId, context) {
         activePosterUrl?.let { url ->
             val diziPalAsset =
-                providerId == DiziPalProvider.PROVIDER_ID ||
-                    url.contains("cdnhipter.xyz", ignoreCase = true) ||
+                url.contains("cdnhipter.xyz", ignoreCase = true) ||
                     url.contains("dizipal", ignoreCase = true)
 
             if (diziPalAsset) {

@@ -159,7 +159,7 @@ private fun DiscoveryHero(
     Box(
         Modifier
             .fillMaxWidth()
-            .height(220.dp),
+            .height(300.dp),
     ) {
         when {
             backdropModel != null -> {
@@ -177,9 +177,8 @@ private fun DiscoveryHero(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .padding(end = 48.dp, top = 12.dp, bottom = 12.dp)
-                        .width(128.dp)
-                        .height(192.dp)
+                        .fillMaxWidth()
+                        .height(300.dp)
                         .clip(RoundedCornerShape(12.dp)),
                 )
             }
@@ -454,6 +453,7 @@ private fun PlatformShelf(
                 PosterCard(
                     title = content.title,
                     posterUrl = content.posterUrl,
+                    fallbackPosterUrls = content.sources.mapNotNull { it.posterUrl },
                     providerId = source?.providerId,
                     subtitle = content.year?.toString(),
                     rating = content.rating,

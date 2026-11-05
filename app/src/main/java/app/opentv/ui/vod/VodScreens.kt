@@ -377,6 +377,7 @@ fun SeriesScreen(
             when {
                 unifiedGenreState.categoryId != null -> CloudSeriesCategoryGrid(
                     items = unifiedGenreState.items,
+                    horizontalPadding = if (isTouch) 12.dp else 48.dp,
                     hasNextPage = unifiedGenreState.hasMore,
                     loading = unifiedGenreState.loading,
                     loadingMore = unifiedGenreState.loadingMore,
@@ -385,6 +386,7 @@ fun SeriesScreen(
                 )
                 selectedCloudFilterId != null && selectedCloudSectionId != null -> CloudSeriesCategoryGrid(
                     items = cloudSectionItems,
+                    horizontalPadding = if (isTouch) 12.dp else 48.dp,
                     hasNextPage = cloudSectionNextPage != null,
                     loading = cloudSectionLoading,
                     loadingMore = cloudSectionLoadingMore,
@@ -487,6 +489,7 @@ fun AsianDramaScreen(
     val hasMore by cloudViewModel.asianDramaHasMore.collectAsState()
     val loading by cloudViewModel.loadingAsianDrama.collectAsState()
     val loadingMore by cloudViewModel.loadingMoreAsianDrama.collectAsState()
+    val isTouch = LocalLayoutClass.current.isTouch
 
     LaunchedEffect(Unit) {
         cloudViewModel.loadAsianDrama()
@@ -514,10 +517,15 @@ fun AsianDramaScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        SearchAffordance(onOpenSearch)
+        if (isTouch) {
+            SearchAffordance(onOpenSearch)
+        } else {
+            Spacer(Modifier.height(6.dp))
+        }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             CloudSeriesCategoryGrid(
                 items = providerItems,
+                horizontalPadding = if (isTouch) 12.dp else 48.dp,
                 hasNextPage = hasMore,
                 loading = loading,
                 loadingMore = loadingMore,

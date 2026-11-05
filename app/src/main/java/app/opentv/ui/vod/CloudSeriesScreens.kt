@@ -252,6 +252,7 @@ internal fun UnifiedSeriesPosterRow(
 @Composable
 internal fun CloudSeriesCategoryGrid(
     items: List<ProviderItem>,
+    horizontalPadding: Dp = 12.dp,
     hasNextPage: Boolean,
     loading: Boolean,
     loadingMore: Boolean,
@@ -287,7 +288,7 @@ internal fun CloudSeriesCategoryGrid(
         columns = GridCells.Adaptive(minSize = 112.dp),
         state = gridState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

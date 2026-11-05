@@ -556,10 +556,22 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
             .distinctUntilChanged()
             .flatMapLatest { q ->
                 if (q.length < 2) flowOf(emptyList())
-                else graph.catalogRepository.searchChannels(q)
-                    // No EPG here — group channels into rows with no now/next. Finding and
-                    // playing the channel is the job; guide detail would cost the slow query.
-                    .map { channels -> buildRows(channels, emptyMap(), System.currentTimeMillis()) }
+                else {
+                    val now = System.currentTimeMillis()
+                    combine(
+                        graph.catalogRepository.searchChannels(q),
+                        graph.epgRepository.observeNow(now),
+                    ) { channels, programmes ->
+                        // Search needs only the programme airing right now, not the guide's heavy
+                        // 12-hour window. This keeps per-keystroke work small while making the
+                        // same matched EPG visible here as on Live TV.
+                        buildRows(
+                            channels = channels,
+                            byEpgChannel = programmes.groupBy { it.epgChannelId },
+                            now = System.currentTimeMillis(),
+                        )
+                    }
+                }
             }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

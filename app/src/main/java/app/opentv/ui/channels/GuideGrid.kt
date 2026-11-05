@@ -26,6 +26,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,7 +53,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -127,11 +132,8 @@ fun GuideGrid(
 }
 
 /**
- * The live channels as a plain vertical list instead of the time-grid — one channel per row with
- * its logo, name, and now/next line. This is the "list mode instead of tiles" some users prefer on
- * a busy line-up. It keeps the exact same focus/key contract as [GuideGrid] so [HomeScreen] can
- * swap between the two with nothing else changing: focus follows the d-pad (updating the preview),
- * OK opens the channel menu, and LEFT from a row asks the host to reopen the category rail.
+ * Three-column TV channel browser. Keeps the existing channel/favourite/EPG callbacks intact while
+ * presenting the canonical ordered line-up as compact remote-friendly cards.
  */
 @Composable
 fun ChannelList(
@@ -145,16 +147,19 @@ fun ChannelList(
     onLongPressRow: ((ChannelsViewModel.Row) -> Unit)? = null,
 ) {
     val now = System.currentTimeMillis()
-    LazyColumn(
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(3),
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        contentPadding = PaddingValues(vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(rows, key = { it.key }) { row ->
-            ChannelListRow(
+        itemsIndexed(rows, key = { _, row -> row.key }) { index, row ->
+            ChannelCard(
                 row = row,
                 nowMillis = now,
                 isSelected = row.key == selectedKey,
+                isFirstColumn = index % 3 == 0,
                 onSelect = { onSelectRow(row) },
                 onFocus = { onFocusRow(row) },
                 onToggleFavourite = { onToggleFavourite(row) },
@@ -167,10 +172,11 @@ fun ChannelList(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChannelListRow(
+private fun ChannelCard(
     row: ChannelsViewModel.Row,
     nowMillis: Long,
     isSelected: Boolean,
+    isFirstColumn: Boolean,
     onSelect: () -> Unit,
     onFocus: () -> Unit,
     onToggleFavourite: () -> Unit,
@@ -178,21 +184,29 @@ private fun ChannelListRow(
     onLongPress: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
-    Row(
+    val background = when {
+        focused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+        isSelected -> MaterialTheme.colorScheme.surfaceVariant
+        else -> MaterialTheme.colorScheme.surface
+    }
+    val nowProgramme = row.now
+
+    Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surface,
-            )
+            .height(156.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(background)
             .then(
-                if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp))
                 else Modifier,
             )
-            // LEFT from a row reopens the collapsed rail, exactly like the grid's channel column.
-            .onPreviewKeyEvent { e ->
-                if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionLeft) onExitLeft() else false
+            .onPreviewKeyEvent { event ->
+                if (
+                    isFirstColumn &&
+                    event.type == KeyEventType.KeyDown &&
+                    event.key == Key.DirectionLeft
+                ) onExitLeft() else false
             }
             .onFocusChanged {
                 focused = it.isFocused
@@ -203,89 +217,90 @@ private fun ChannelListRow(
                     Modifier.combinedClickable(onClick = onSelect, onLongClick = onLongPress)
                 else Modifier.clickable(onClick = onSelect)
             )
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
-        if (row.number > 0) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                "${row.number}",
+                text = if (row.number > 0) row.number.toString() else "",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                modifier = Modifier.width(30.dp),
+                modifier = Modifier.width(28.dp),
             )
-        }
-        AsyncImage(
-            model = row.primary.logoUrl,
-            contentDescription = null,
-            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(4.dp)),
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    row.primary.shownName,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
+            AsyncImage(
+                model = row.primary.logoUrl,
+                contentDescription = row.primary.shownName,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+                    .padding(horizontal = 8.dp),
+            )
+            IconButton(onClick = onToggleFavourite, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    imageVector = if (row.primary.favourite) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                    contentDescription = if (row.primary.favourite) stringResource(R.string.common_remove_favourite)
+                    else stringResource(R.string.common_favourite),
+                    tint = if (row.primary.favourite) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
                 )
-                if (row.variants.size > 1) {
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        stringResource(R.string.guide_qualities_count, row.variants.size),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                    )
-                }
             }
-            Spacer(Modifier.height(2.dp))
-            val nowProg = row.now
+        }
+
+        Spacer(Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = nowProg?.let { "${clockFormat.format(Date(it.startUtcMillis))}  ${it.title}" }
-                    ?: stringResource(R.string.guide_no_info),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = row.primary.shownName,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
-            if (nowProg != null) {
-                Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = "CANLI",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
+
+        Spacer(Modifier.height(5.dp))
+        Text(
+            text = nowProgramme?.let { "${clockFormat.format(Date(it.startUtcMillis))}  ${it.title}" }
+                ?: stringResource(R.string.guide_no_info),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (nowProgramme != null) {
+            Spacer(Modifier.height(6.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
                 Box(
                     Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(nowProgramme.progressAt(nowMillis).coerceIn(0f, 1f))
                         .height(3.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                ) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth(nowProg.progressAt(nowMillis).coerceIn(0f, 1f))
-                            .height(3.dp)
-                            .background(MaterialTheme.colorScheme.primary),
-                    )
-                }
-            }
-            row.next?.let { next ->
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    stringResource(R.string.guide_next_prefix, clockFormat.format(Date(next.startUtcMillis)), next.title),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                        .background(MaterialTheme.colorScheme.primary),
                 )
             }
-        }
-        IconButton(onClick = onToggleFavourite, modifier = Modifier.size(40.dp)) {
-            Icon(
-                imageVector = if (row.primary.favourite) Icons.Filled.Star else Icons.Outlined.StarOutline,
-                contentDescription = if (row.primary.favourite) stringResource(R.string.common_remove_favourite)
-                else stringResource(R.string.common_favourite),
-                tint = if (row.primary.favourite) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

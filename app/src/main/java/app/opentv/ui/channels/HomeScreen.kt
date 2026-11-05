@@ -7,6 +7,7 @@ package app.opentv.ui.channels
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -520,6 +522,36 @@ fun HomeScreen(
                         false
                     }
                 }
+                if (classicLiveList) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        item(key = "live-filter-all") {
+                            val allSelected = !favouritesOnly && selectedCategory == null
+                            LiveTvFilterPill(
+                                label = stringResource(R.string.guide_all_channels),
+                                selected = allSelected,
+                                onClick = { viewModel.selectCategory(null) },
+                            )
+                        }
+                        item(key = "live-filter-favourites") {
+                            LiveTvFilterPill(
+                                label = stringResource(R.string.guide_favourites),
+                                selected = favouritesOnly,
+                                onClick = viewModel::selectFavourites,
+                            )
+                        }
+                        items(categories, key = { "live-filter-" + it.key }) { group ->
+                            LiveTvFilterPill(
+                                label = group.label,
+                                selected = !favouritesOnly && selectedCategory == group.key,
+                                onClick = { viewModel.selectCategory(group.key) },
+                            )
+                        }
+                    }
+                }
                 if (classicLiveList || channelLayout == AppSettings.ChannelLayout.LIST) {
                     ChannelList(
                         rows = rows,
@@ -530,7 +562,7 @@ fun HomeScreen(
                         onFocusRow = onFocusChannel,
                         onToggleFavourite = { viewModel.toggleFavourite(it) },
                         onExitLeftFromChannel = onExitLeftChannel,
-                        modifier = Modifier.weight(1f).padding(start = 12.dp, end = 12.dp),
+                        modifier = Modifier.weight(1f).padding(start = 48.dp, end = 48.dp),
                     )
                 } else {
                     GuideGrid(
@@ -955,6 +987,39 @@ private fun QualityChip(label: String, selected: Boolean, onClick: () -> Unit) {
             .background(bg)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
+    )
+}
+
+@Composable
+private fun LiveTvFilterPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val background = when {
+        focused -> MaterialTheme.colorScheme.primary
+        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val foreground = if (focused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        color = foreground,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .onFocusChanged { focused = it.isFocused }
+            .clip(RoundedCornerShape(8.dp))
+            .background(background)
+            .then(
+                if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                else Modifier,
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 9.dp),
     )
 }
 

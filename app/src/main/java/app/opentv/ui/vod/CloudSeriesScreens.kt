@@ -59,6 +59,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -140,6 +141,7 @@ internal fun CloudSeriesTvControls(
 @Composable
 internal fun CloudSeriesPosterRow(
     shelf: CloudSeriesShelf,
+    horizontalPadding: Dp = 24.dp,
     onOpenSeries: (ProviderItem) -> Unit,
     onLoadMore: () -> Unit,
 ) {
@@ -154,10 +156,10 @@ internal fun CloudSeriesPosterRow(
     }
 
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(shelf.section.title)
+        SectionHeader(shelf.section.title, horizontalPadding)
         LazyRow(
             state = rowState,
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(shelf.items, key = { shelf.providerId + ":" + it.id }) { item ->
@@ -188,6 +190,7 @@ internal fun CloudSeriesPosterRow(
 internal fun UnifiedSeriesPosterRow(
     items: List<CanonicalContent>,
     title: String? = null,
+    horizontalPadding: Dp = 24.dp,
     hasMore: Boolean,
     loadingMore: Boolean,
     onOpenSeries: (CanonicalContent) -> Unit,
@@ -205,10 +208,10 @@ internal fun UnifiedSeriesPosterRow(
     }
 
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(title ?: stringResource(R.string.nav_shows))
+        SectionHeader(title ?: stringResource(R.string.nav_shows), horizontalPadding)
         LazyRow(
             state = rowState,
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(items, key = { "unified:" + it.id }) { item ->
@@ -222,7 +225,10 @@ internal fun UnifiedSeriesPosterRow(
                 PosterCard(
                     title = item.title,
                     posterUrl = item.posterUrl,
-                    fallbackPosterUrls = item.sources.mapNotNull { it.posterUrl },
+                    fallbackPosterUrls =
+                        item.sources.mapNotNull { it.posterUrl } +
+                            listOfNotNull(item.backdropUrl) +
+                            item.sources.mapNotNull { it.backdropUrl },
                     providerId = providerId,
                     subtitle = subtitle,
                     rating = item.rating,

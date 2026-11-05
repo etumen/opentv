@@ -270,11 +270,16 @@ fun SeriesScreen(
             DiziPalSessionAnchor()
         }
 
-        SearchAffordance(onOpenSearch)
+        if (isTouch) {
+            SearchAffordance(onOpenSearch)
+        } else {
+            Spacer(Modifier.height(6.dp))
+        }
         if (unifiedGenreState.categories.isNotEmpty()) {
             CategoryChips(
                 entries = unifiedGenreState.categories.map { it.id to it.title },
                 selected = unifiedGenreState.categoryId,
+                horizontalPadding = if (isTouch) 16.dp else 48.dp,
                 onSelectHome = {
                     selectedCloudFilterId = null
                     unifiedBrowseModel.selectCategory(ProviderMediaType.SERIES, null)
@@ -428,6 +433,7 @@ fun SeriesScreen(
                         item(key = "unified-all-series") {
                             UnifiedSeriesPosterRow(
                                 items = unifiedSeries,
+                                horizontalPadding = if (isTouch) 24.dp else 48.dp,
                                 hasMore = unifiedSeriesHasMore,
                                 loadingMore = unifiedSeriesLoadingMore,
                                 onOpenSeries = { content ->
@@ -460,6 +466,7 @@ fun SeriesScreen(
                     ) { shelf ->
                         CloudSeriesPosterRow(
                             shelf = shelf,
+                            horizontalPadding = if (isTouch) 24.dp else 48.dp,
                             onOpenSeries = onOpenCloudSeries,
                             onLoadMore = { cloudViewModel.loadMoreShelf(shelf.section.id) },
                         )

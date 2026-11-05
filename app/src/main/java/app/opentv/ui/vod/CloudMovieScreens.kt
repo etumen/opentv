@@ -60,6 +60,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.ui.window.Dialog
@@ -84,6 +85,7 @@ internal fun UnifiedMoviePosterRow(
     loadingMore: Boolean,
     onOpenMovie: (CanonicalContent) -> Unit,
     onLoadMore: () -> Unit,
+    horizontalPadding: Dp = 24.dp,
 ) {
     if (items.isEmpty()) return
     val rowState = rememberLazyListState()
@@ -97,13 +99,13 @@ internal fun UnifiedMoviePosterRow(
     }
 
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(stringResource(R.string.vod_all_movies))
+        SectionHeader(stringResource(R.string.vod_all_movies), horizontalPadding)
         LazyRow(
             state = rowState,
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(items, key = { "unified-movie:" + it.id }) { item ->
+            items(items, key = { "unified-movie:" + it.id }, contentType = { "movie-poster" }) { item ->
                 val source = item.sources.firstOrNull()
                 PosterCard(
                     title = item.title,
@@ -134,6 +136,7 @@ internal fun CloudMoviePosterRow(
     shelf: CloudMovieShelf,
     onOpenMovie: (ProviderItem) -> Unit,
     onLoadMore: () -> Unit,
+    horizontalPadding: Dp = 16.dp,
 ) {
     val rowState = rememberLazyListState()
 
@@ -146,13 +149,13 @@ internal fun CloudMoviePosterRow(
     }
 
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(shelf.section.title)
+        SectionHeader(shelf.section.title, horizontalPadding)
         LazyRow(
             state = rowState,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(shelf.items, key = { "${shelf.providerId}:${it.id}" }) { item ->
+            items(shelf.items, key = { "${shelf.providerId}:${it.id}" }, contentType = { "movie-poster" }) { item ->
                 PosterCard(
                     title = item.title,
                     posterUrl = item.posterUrl,

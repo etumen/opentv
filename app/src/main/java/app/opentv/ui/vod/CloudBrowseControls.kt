@@ -52,6 +52,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.opentv.R
 import app.opentv.isRunningOnTelevision
@@ -265,6 +266,7 @@ internal fun CloudMovieCategoryGrid(
     loadingMore: Boolean,
     onOpenMovie: (ProviderItem) -> Unit,
     onLoadMore: () -> Unit,
+    horizontalPadding: Dp = 12.dp,
 ) {
     if (loading && items.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -295,11 +297,11 @@ internal fun CloudMovieCategoryGrid(
         columns = GridCells.Adaptive(minSize = 112.dp),
         state = gridState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        gridItems(items, key = { "${it.providerId}:${it.id}" }) { item ->
+        gridItems(items, key = { "${it.providerId}:${it.id}" }, contentType = { "movie-grid-poster" }) { item ->
             PosterCard(
                 title = item.title,
                 posterUrl = item.posterUrl,

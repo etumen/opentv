@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
@@ -109,13 +110,18 @@ fun MoviesScreen(
     val hasContent = resume.isNotEmpty() || unifiedItems.isNotEmpty() || cloudShelves.isNotEmpty()
 
     Column(Modifier.fillMaxSize()) {
-        SearchAffordance(onOpenSearch)
+        if (isTouch) {
+            SearchAffordance(onOpenSearch)
+        } else {
+            Spacer(Modifier.height(6.dp))
+        }
         if (unifiedGenreState.categories.isNotEmpty()) {
             CategoryChips(
                 entries = unifiedGenreState.categories.map { it.id to it.title },
                 selected = unifiedGenreState.categoryId,
                 onSelectHome = { unifiedBrowseModel.selectCategory(ProviderMediaType.MOVIE, null) },
                 onSelectCategory = { unifiedBrowseModel.selectCategory(ProviderMediaType.MOVIE, it) },
+                horizontalPadding = if (isTouch) 16.dp else 48.dp,
             )
         }
 
@@ -128,6 +134,7 @@ fun MoviesScreen(
                     loadingMore = unifiedGenreState.loadingMore,
                     onOpenMovie = onOpenCloudMovie,
                     onLoadMore = { unifiedBrowseModel.loadMore(ProviderMediaType.MOVIE) },
+                    horizontalPadding = if (isTouch) 12.dp else 48.dp,
                 )
             } else
             if (!hasContent && (unifiedGenreState.loading || unifiedLoading || cloudLoading || isSyncing)) {
@@ -144,7 +151,7 @@ fun MoviesScreen(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     if (resume.isNotEmpty()) {
-                        item(key = "cw") { ContinueWatchingRow(resume, onResume) }
+                        item(key = "cw", contentType = "movie-continue") { ContinueWatchingRow(resume, onResume, horizontalPadding = if (isTouch) 16.dp else 48.dp) }
                     }
                     if (unifiedItems.isNotEmpty()) {
                         item(key = "unified-all-movies") {
@@ -152,6 +159,7 @@ fun MoviesScreen(
                                 items = unifiedItems,
                                 hasMore = unifiedHasMore,
                                 loadingMore = unifiedLoadingMore,
+                                horizontalPadding = if (isTouch) 24.dp else 48.dp,
                                 onOpenMovie = { content ->
                                     UnifiedCatalogAlternatives.rememberCanonical(content)
                                     content.sources.firstOrNull()?.let { source ->
@@ -184,6 +192,7 @@ fun MoviesScreen(
                             shelf = shelf,
                             onOpenMovie = onOpenCloudMovie,
                             onLoadMore = {},
+                            horizontalPadding = 48.dp,
                         )
                     }
                 }
@@ -616,7 +625,7 @@ internal fun SeriesPosterRow(title: String, series: List<Series>, onOpenSeries: 
 }
 
 @Composable
-internal fun SectionHeader(title: String) {
+internal fun SectionHeader(title: String, horizontalPadding: Dp = 16.dp) {
     Text(
         title,
         style = MaterialTheme.typography.titleMedium,
@@ -624,7 +633,7 @@ internal fun SectionHeader(title: String) {
         color = MaterialTheme.colorScheme.onSurface,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = horizontalPadding, end = horizontalPadding, bottom = 4.dp),
     )
 }
 
@@ -803,9 +812,10 @@ private fun Badge(text: String, modifier: Modifier = Modifier, highlight: Boolea
 internal fun ContinueWatchingRow(
     items: List<VodViewModel.ResumeItem>,
     onResume: (mediaKey: String, url: String, title: String) -> Unit,
+    horizontalPadding: Dp = 16.dp,
 ) {
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(stringResource(R.string.vod_continue_watching))
+        SectionHeader(stringResource(R.string.vod_continue_watching), horizontalPadding)
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -877,6 +887,7 @@ private fun CategoryChips(
     selected: String?,
     onSelectHome: () -> Unit,
     onSelectCategory: (String) -> Unit,
+    horizontalPadding: Dp = 16.dp,
 ) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),

@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dns
@@ -37,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -51,6 +54,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.opentv.R
 import app.opentv.BuildConfig
+import app.opentv.ui.LayoutClass
+import app.opentv.ui.LocalLayoutClass
 
 /**
  * The one settings entry point. Every other settings surface is reached from here, so there is
@@ -71,6 +76,8 @@ fun SettingsHubScreen(
     onOpenProviderDiagnostics: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val isTv = LocalLayoutClass.current == LayoutClass.TV
+    val firstEntryFocusRequester = remember { FocusRequester() }
     val entries = listOfNotNull(
         HubEntry(Icons.Filled.Dns, stringResource(R.string.settings_providers_title), stringResource(R.string.settings_providers_subtitle), onOpenProviders),
         HubEntry(Icons.Filled.LiveTv, stringResource(R.string.settings_guide_title), stringResource(R.string.settings_guide_subtitle), onOpenGuide),
@@ -91,7 +98,7 @@ fun SettingsHubScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .padding(horizontal = 32.dp, vertical = 24.dp),
+            .padding(horizontal = if (isTv) 48.dp else 32.dp, vertical = 24.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Tv, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -107,8 +114,17 @@ fun SettingsHubScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.widthIn(max = 760.dp),
         ) {
-            items(entries) { entry -> HubRow(entry) }
+            itemsIndexed(entries) { index, entry ->
+                HubRow(
+                    entry = entry,
+                    focusRequester = if (isTv && index == 0) firstEntryFocusRequester else null,
+                )
+            }
         }
+    }
+
+    LaunchedEffect(isTv) {
+        if (isTv) runCatching { firstEntryFocusRequester.requestFocus() }
     }
 }
 
@@ -120,11 +136,12 @@ private data class HubEntry(
 )
 
 @Composable
-private fun HubRow(entry: HubEntry) {
+private fun HubRow(entry: HubEntry, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     Row(
         Modifier
             .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(14.dp))
             .background(

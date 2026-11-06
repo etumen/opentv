@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -203,6 +204,29 @@ class DramaDizilerimProvider(
         return guarded("subtitles") {
             val watchUrl = absolute(target.episodeId)
             val watchDoc = fetchDocument(watchUrl)
+
+            // Current DramaDizilerim player exposes captions through /api/playback JSON.
+            // The old iframe <track> path is retained below as a compatibility fallback.
+            val embeddedEpisodeId = watchDoc.selectFirst("video[data-episode-id]")
+                ?.attr("data-episode-id")?.trim()?.takeIf { it.isNotBlank() }
+            if (embeddedEpisodeId != null) {
+                val apiUrl = MAIN_URL.toHttpUrl().newBuilder()
+                    .addPathSegments("api/playback")
+                    .addQueryParameter("episodeId", embeddedEpisodeId)
+                    .build().toString()
+                try {
+                    val captions = parsePublicCaptions(
+                        fetchText(apiUrl, referer = watchUrl),
+                        watchUrl,
+                    )
+                    if (captions.isNotEmpty()) return@guarded captions
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    Log.w(TAG, "Public caption API failed; falling back to iframe tracks", error)
+                }
+            }
+
             val episodeNumber = runCatching {
                 watchUrl.toHttpUrl().queryParameter("e")?.toIntOrNull()
             }.getOrNull()
@@ -271,7 +295,36 @@ class DramaDizilerimProvider(
         }.sortedWith(compareBy<ProviderEpisode> { it.season }.thenBy { it.episodeNumber })
     }
 
-    /** Resolve fresh, expiring HLS tickets provided by the site's public video player. */
+    /** Resolve caption tickets returned by the site's current public playback API. */
+    internal fun parsePublicCaptions(json: String, watchUrl: String): List<ProviderSubtitle> {
+        val payload = Json.parseToJsonElement(json).jsonObject
+        if (payload["success"]?.jsonPrimitive?.contentOrNull != "true") return emptyList()
+
+        return payload["captions"]?.jsonArray.orEmpty().mapNotNull { element ->
+            val caption = runCatching { element.jsonObject }.getOrNull() ?: return@mapNotNull null
+            val raw = caption["url"]?.jsonPrimitive?.contentOrNull
+                ?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val language = caption["language"]?.jsonPrimitive?.contentOrNull
+                ?.trim()?.replace('_', '-')?.takeIf { it.isNotBlank() }
+            val rawLabel = caption["label"]?.jsonPrimitive?.contentOrNull
+                ?.trim()?.takeIf { it.isNotBlank() }
+            val label = if (language?.startsWith("tr", ignoreCase = true) == true) {
+                "Türkçe"
+            } else {
+                rawLabel ?: language ?: "Altyazı"
+            }
+
+            ProviderSubtitle(
+                providerId = id,
+                url = absoluteFrom(watchUrl, raw) ?: return@mapNotNull null,
+                label = label,
+                language = language,
+                mimeType = "text/vtt",
+            )
+        }.distinctBy { it.url }
+    }
+
+    /** Resolve fresh, expiring media tickets provided by the site's public video player. */
     internal fun parsePublicPlayback(json: String, watchUrl: String): ProviderStream? {
         val payload = Json.parseToJsonElement(json).jsonObject
         if (payload["success"]?.jsonPrimitive?.contentOrNull != "true") return null

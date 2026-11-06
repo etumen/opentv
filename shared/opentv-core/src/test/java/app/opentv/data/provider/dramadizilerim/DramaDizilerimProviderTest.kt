@@ -20,6 +20,21 @@ class DramaDizilerimProviderTest {
     }
 
     @Test
+    fun captions_publicPlaybackApiResolvesRelativeTurkishVtt() {
+        val captions = provider.parsePublicCaptions(
+            """{"success":true,"kind":"mp4","url":"/api/media?ticket=video","captions":[{"language":"tr_TR","label":"tr_TR","url":"/api/captions?ticket=subtitle"}]}""",
+            "https://dramadizilerim.com/izle/mafya-aklimi-okuyor?s=1&e=1",
+        )
+
+        assertThat(captions).hasSize(1)
+        assertThat(captions.single().url)
+            .isEqualTo("https://dramadizilerim.com/api/captions?ticket=subtitle")
+        assertThat(captions.single().language).isEqualTo("tr-TR")
+        assertThat(captions.single().label).isEqualTo("Türkçe")
+        assertThat(captions.single().mimeType).isEqualTo("text/vtt")
+    }
+
+    @Test
     fun playback_failedPublicApiDoesNotYieldStream() {
         val playback = provider.parsePublicPlayback(
             """{"success":false,"message":"Unavailable"}""",

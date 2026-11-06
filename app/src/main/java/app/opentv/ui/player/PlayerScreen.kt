@@ -145,11 +145,9 @@ fun PlayerScreen(
     val graph = remember { ServiceLocator.get(context) }
     val settings = remember { graph.settings }
     val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
-    val subtitlesDefault by settings.subtitlesEnabled.collectAsState()
     val controller = remember {
         PlayerController(
             context, scope, graph.streamingHttpClient,
-            subtitlesEnabled = settings.subtitlesEnabled.value,
             // Opt-in shallow DVR so the transport's pause/rewind actually holds on a live stream.
             dvr = settings.livePauseEnabled.value,
         )
@@ -351,14 +349,21 @@ fun PlayerScreen(
         onBack()
     }
 
-    // Apply the saved captions default once the stream's tracks arrive. Only auto-selects when
-    // nothing is chosen yet, so it never overrides a track the user picked by hand.
-    LaunchedEffect(tracks) {
-        val hasText = tracks.groups.any { it.type == C.TRACK_TYPE_TEXT }
-        val textChosen = tracks.groups.any { g ->
-            g.type == C.TRACK_TYPE_TEXT && (0 until g.length).any { g.isTrackSelected(it) }
+    // Apply the global Turkish-first policy once per tuned channel. This intentionally runs
+    // even when Media3 already picked a default track, because providers often mark Turkish only
+    // in the label. A later manual user choice is left alone until the channel actually changes.
+    var preferredAudioAppliedForId by remember { mutableStateOf<Long?>(null) }
+    var preferredSubtitleAppliedForId by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(tracks, currentId) {
+        val id = currentId ?: return@LaunchedEffect
+        if (preferredAudioAppliedForId != id && tracks.groups.any { it.type == C.TRACK_TYPE_AUDIO }) {
+            controller.selectPreferredTurkishAudio()
+            preferredAudioAppliedForId = id
         }
-        if (subtitlesDefault && hasText && !textChosen) controller.setSubtitlesEnabled(true)
+        if (preferredSubtitleAppliedForId != id && tracks.groups.any { it.type == C.TRACK_TYPE_TEXT }) {
+            controller.selectPreferredSubtitle(fallbackToFirst = true)
+            preferredSubtitleAppliedForId = id
+        }
     }
 
     // Auto-hide the bar after a few seconds — but never while paused or with a picker open.

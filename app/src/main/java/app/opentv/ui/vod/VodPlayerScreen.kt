@@ -151,7 +151,6 @@ fun VodPlayerScreen(
     val controller = remember {
         PlayerController(
             context, scope, graph.streamingHttpClient,
-            subtitlesEnabled = subtitleUrl.isNotBlank() || isMobileSeries,
             smbDataSourceFactory = app.opentv.player.SmbDataSource.Factory(graph.settings),
             // Lets an `optvrec://<id>` recording play while it's still being written.
             growingDataSourceFactory =
@@ -160,19 +159,14 @@ fun VodPlayerScreen(
             autoRetryOnFailure = fallbackContext?.alternateItems.isNullOrEmpty(),
             offlineHlsCache = if (isPhone) graph.downloadRepository.offlineHlsCache else null,
         ).also { playback ->
-            if (isPhone) {
-                // Only select Turkish if the stream actually exposes a Turkish audio track.
-                playback.player.trackSelectionParameters = playback.player.trackSelectionParameters
-                    .buildUpon().setPreferredAudioLanguage("tr").build()
-                if (isMobileSeries) {
-                    playback.player.trackSelectionParameters = playback.player.trackSelectionParameters
-                        .buildUpon()
-                        .setPreferredTextLanguage("tr")
-                        .setSelectUndeterminedTextLanguage(false)
-                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                        .build()
-                }
-            }
+            // Same track policy on phone, Mi Box, Toshiba and every other target.
+            playback.player.trackSelectionParameters = playback.player.trackSelectionParameters
+                .buildUpon()
+                .setPreferredAudioLanguage("tr")
+                .setPreferredTextLanguage("tr")
+                .setSelectUndeterminedTextLanguage(true)
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .build()
         }
     }
     // Skip forward/back within the recorded portion. For a growing recording ExoPlayer won't report
@@ -202,31 +196,25 @@ fun VodPlayerScreen(
     } else {
         stringResource(R.string.player_audio)
     }
-    val hasTurkishSubtitle = isMobileSeries && tracks.groups.any { group ->
+    val hasTurkishSubtitle = tracks.groups.any { group ->
         group.type == C.TRACK_TYPE_TEXT && (0 until group.length).any { i ->
             val format = group.getTrackFormat(i)
             group.isTrackSupported(i) &&
                 captionLanguage(format.label, format.language)?.startsWith("tr", ignoreCase = true) == true
         }
     }
-    // Apply a safe initial selection; do not override the user's later manual choice.
+    // Apply one safe initial choice per VOD item on every device. Turkish wins; if no Turkish
+    // subtitle exists, keep subtitles available and select the first supported subtitle.
+    var initialAudioChoiceMade by remember(mediaKey, streamUrl) { mutableStateOf(false) }
     var initialSubtitleChoiceMade by remember(mediaKey, streamUrl) { mutableStateOf(false) }
-    LaunchedEffect(tracks, isMobileSeries) {
-        if (isMobileSeries && !initialSubtitleChoiceMade) {
-            val textGroups = tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
-            if (textGroups.isNotEmpty()) {
-                val turkish = textGroups.firstNotNullOfOrNull { group ->
-                    (0 until group.length).firstOrNull { i ->
-                        val format = group.getTrackFormat(i)
-                        group.isTrackSupported(i) &&
-                            captionLanguage(format.label, format.language)
-                                ?.startsWith("tr", ignoreCase = true) == true
-                    }?.let { group to it }
-                }
-                initialSubtitleChoiceMade = true
-                if (turkish != null) controller.selectTrack(turkish.first, turkish.second)
-                else controller.disableText()
-            }
+    LaunchedEffect(tracks) {
+        if (!initialAudioChoiceMade && tracks.groups.any { it.type == C.TRACK_TYPE_AUDIO }) {
+            controller.selectPreferredTurkishAudio()
+            initialAudioChoiceMade = true
+        }
+        if (!initialSubtitleChoiceMade && tracks.groups.any { it.type == C.TRACK_TYPE_TEXT }) {
+            controller.selectPreferredSubtitle(fallbackToFirst = true)
+            initialSubtitleChoiceMade = true
         }
     }
     val subtitleButtonLabel = if (hasTurkishSubtitle) {
@@ -330,10 +318,8 @@ fun VodPlayerScreen(
                 streamKeys = offlineHls?.streamKeys.orEmpty(),
                 subtitleUrl = subtitleUrl.takeIf { it.isNotBlank() && offlineHls == null },
                 subtitleLabel = subtitleLabel.takeIf { it.isNotBlank() },
-                subtitleLanguage = (
-                    if (isMobileSeries) captionLanguage(subtitleLabel, subtitleLanguage)
-                    else subtitleLanguage
-                )?.takeIf { it.isNotBlank() },
+                subtitleLanguage = captionLanguage(subtitleLabel, subtitleLanguage)
+                    ?.takeIf { it.isNotBlank() },
                 subtitleMimeType = subtitleMimeType.takeIf { it.isNotBlank() },
                 startPositionMillis = resumeFrom,
                 isLive = false,

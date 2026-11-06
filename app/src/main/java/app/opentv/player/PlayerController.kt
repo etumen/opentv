@@ -54,7 +54,6 @@ class PlayerController(
     context: Context,
     private val scope: CoroutineScope,
     httpClient: OkHttpClient,
-    subtitlesEnabled: Boolean = true,
     /**
      * Tunes the player for the guide's muted preview pane: a shallow start buffer so a highlighted
      * channel shows a frame quickly, and a longer switch debounce so scrolling the channel list
@@ -194,9 +193,12 @@ class PlayerController(
      */
     private val trackSelector = DefaultTrackSelector(context).apply {
         parameters = buildUponParameters()
-            .setPreferredTextLanguage(java.util.Locale.getDefault().language)
+            // Global OpenTV policy: every device keeps audio/subtitle tracks available.
+            // Prefer Turkish when the stream advertises it, but never disable the text renderer.
+            .setPreferredAudioLanguage("tr")
+            .setPreferredTextLanguage("tr")
             .setSelectUndeterminedTextLanguage(true)
-            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !subtitlesEnabled)
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
             .build()
     }
 
@@ -345,6 +347,65 @@ class PlayerController(
 
     fun retry() {
         current?.let { play(it, debounce = false) }
+    }
+
+    /** Prefer a Turkish audio rendition when one exists. Returns true when it selected one. */
+    fun selectPreferredTurkishAudio(): Boolean {
+        val target = _tracks.value.groups.asSequence()
+            .filter { it.type == C.TRACK_TYPE_AUDIO }
+            .flatMap { group ->
+                (0 until group.length).asSequence()
+                    .filter { group.isTrackSupported(it) }
+                    .map { group to it }
+            }
+            .firstOrNull { (group, index) ->
+                val format = group.getTrackFormat(index)
+                isTurkishTrack(format.label, format.language)
+            } ?: return false
+
+        selectTrack(target.first, target.second)
+        return true
+    }
+
+    /**
+     * Prefer Turkish subtitles. If Turkish is absent and [fallbackToFirst] is true, select the
+     * first supported subtitle instead. The text renderer always stays enabled.
+     */
+    fun selectPreferredSubtitle(fallbackToFirst: Boolean = true): Boolean {
+        val supported = _tracks.value.groups.asSequence()
+            .filter { it.type == C.TRACK_TYPE_TEXT }
+            .flatMap { group ->
+                (0 until group.length).asSequence()
+                    .filter { group.isTrackSupported(it) }
+                    .map { group to it }
+            }
+            .toList()
+
+        val target = supported.firstOrNull { (group, index) ->
+            val format = group.getTrackFormat(index)
+            isTurkishTrack(format.label, format.language)
+        } ?: supported.firstOrNull().takeIf { fallbackToFirst }
+
+        if (target != null) {
+            selectTrack(target.first, target.second)
+            return true
+        }
+
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setPreferredTextLanguage("tr")
+            .setSelectUndeterminedTextLanguage(true)
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            .build()
+        return false
+    }
+
+    private fun isTurkishTrack(label: String?, language: String?): Boolean {
+        val tag = language.orEmpty().trim().lowercase(java.util.Locale.ROOT)
+        if (tag == "tr" || tag.startsWith("tr-")) return true
+
+        val name = label.orEmpty().trim().lowercase(java.util.Locale.forLanguageTag("tr"))
+        if ("türk" in name || "turk" in name || "turkish" in name) return true
+        return Regex("""(^|[^a-z])tr([^a-z]|$)""").containsMatchIn(name)
     }
 
     /**

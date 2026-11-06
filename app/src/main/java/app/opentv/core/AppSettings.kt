@@ -38,8 +38,15 @@ class AppSettings private constructor(context: Context) {
     private val _channelLayout = MutableStateFlow(readChannelLayout())
     val channelLayout: StateFlow<ChannelLayout> = _channelLayout.asStateFlow()
 
-    /** Whether embedded subtitles/closed captions are shown when a stream carries them. */
-    private val _subtitlesEnabled = MutableStateFlow(prefs.getBoolean(KEY_SUBTITLES, true))
+    /**
+     * Embedded subtitles are globally available on every target. Older installs may have stored
+     * this as false; migrate them to the new always-enabled policy when settings are created.
+     */
+    private val _subtitlesEnabled = MutableStateFlow(true).also {
+        if (!prefs.getBoolean(KEY_SUBTITLES, true)) {
+            prefs.edit().putBoolean(KEY_SUBTITLES, true).apply()
+        }
+    }
     val subtitlesEnabled: StateFlow<Boolean> = _subtitlesEnabled.asStateFlow()
 
     /** Whether the selected channel plays live inside the guide's preview pane. */
@@ -147,8 +154,12 @@ class AppSettings private constructor(context: Context) {
     }
 
     fun setSubtitlesEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SUBTITLES, enabled).apply()
-        _subtitlesEnabled.value = enabled
+        // Global OpenTV policy: subtitle capability is never persistently disabled on a device.
+        // A player may still disable text for the current item only.
+        if (!enabled || !_subtitlesEnabled.value) {
+            prefs.edit().putBoolean(KEY_SUBTITLES, true).apply()
+            _subtitlesEnabled.value = true
+        }
     }
 
     fun setGuidePreviewVideo(enabled: Boolean) {

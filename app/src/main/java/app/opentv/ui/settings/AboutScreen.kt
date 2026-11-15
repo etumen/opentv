@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.settings
@@ -90,7 +90,7 @@ fun AboutScreen(onBack: () -> Unit) {
             // field. There is no visible SporB affordance on a normal install, and the gesture is
             // remote-friendly (no long-press timing or touch-only interaction).
             Text(
-                "OpenTV ${BuildConfig.VERSION_NAME}",
+                "IxirTV ${BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.clickable {
                     versionTapCount += 1
@@ -270,7 +270,7 @@ fun AboutScreen(onBack: () -> Unit) {
             LinkLine(
                 stringResource(R.string.about_donate_paypal),
                 "leetobin1982@gmail.com",
-                url = "https://www.paypal.com/donate/?business=leetobin1982@gmail.com&item_name=Support+OpenTV&no_recurring=0&currency_code=GBP",
+                url = "https://www.paypal.com/donate/?business=leetobin1982@gmail.com&item_name=Support+IxirTV&no_recurring=0&currency_code=GBP",
             )
             Spacer(Modifier.height(12.dp))
             val donateQr = remember { QrCodes.render("https://github.com/sponsors/legionnaireneyland", 400) }

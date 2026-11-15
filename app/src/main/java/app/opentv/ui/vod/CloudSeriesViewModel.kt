@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.vod
@@ -355,7 +355,10 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
             _loadingUnifiedCatalog.value = true
             _lastError.value = null
             try {
-                val pager = unifiedCatalog.pager(ProviderMediaType.SERIES)
+                val pager = unifiedCatalog.pager(
+                    mediaType = ProviderMediaType.SERIES,
+                    initialProviderBatchSize = 1,
+                )
                 unifiedPager = pager
                 val page = pager.loadInitial()
                 _unifiedCatalogItems.value = page.items

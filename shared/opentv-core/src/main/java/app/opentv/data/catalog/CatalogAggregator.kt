@@ -42,13 +42,19 @@ class CatalogAggregator(
     fun pager(
         mediaType: ProviderMediaType,
         sectionId: String? = null,
+        initialProviderBatchSize: Int = DEFAULT_INITIAL_PROVIDER_BATCH_SIZE,
     ): UnifiedCatalogPager =
         UnifiedCatalogPager(
             repository = repository,
             matcher = matcher,
             mediaType = mediaType,
             sectionId = sectionId,
+            initialProviderBatchSize = initialProviderBatchSize,
         )
+
+    private companion object {
+        const val DEFAULT_INITIAL_PROVIDER_BATCH_SIZE = 3
+    }
 
     fun merge(items: Iterable<ProviderItem>): List<CanonicalContent> =
         matcher.merge(items)

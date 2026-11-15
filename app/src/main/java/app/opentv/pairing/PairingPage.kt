@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.pairing
@@ -17,7 +17,7 @@ object PairingPage {
 
     fun form(token: String, error: String?): String = page(
         """
-        <h1>Set up OpenTV</h1>
+        <h1>Set up IxirTV</h1>
         <p class="sub">Filling this in here beats using the remote.</p>
 
         ${if (error != null) "<div class=\"error\">${escape(error)}</div>" else ""}
@@ -74,7 +74,7 @@ object PairingPage {
 
         <p class="privacy">
           This page is served by your television, over your own network. What you type goes
-          straight to it and nowhere else — there is no OpenTV account and no OpenTV server.
+          straight to it and nowhere else — there is no IxirTV account and no IxirTV server.
         </p>
 
         <script>
@@ -108,7 +108,7 @@ object PairingPage {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <meta name="robots" content="noindex, nofollow">
-        <title>Set up OpenTV</title>
+        <title>Set up IxirTV</title>
         <style>
           :root { --bg:#07080c; --surface:#12141d; --line:#2a2f3d; --text:#e8eaf0;
                   --muted:#a8aec0; --accent:#7c93ff; --err:#ff6b6b; }

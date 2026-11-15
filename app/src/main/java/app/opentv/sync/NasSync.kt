@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.sync
@@ -21,7 +21,7 @@ import kotlinx.coroutines.withContext
  * in [SyncEngine], exactly the one used by LAN sync, so favourites, watch history and NAS
  * recordings converge the same way whether they arrive over wifi or via the NAS.
  *
- * Each device writes `<share>/<folder>/OpenTV/sync/<deviceId>.json`. Reading is additive and
+ * Each device writes `<share>/<folder>/IxirTV/sync/<deviceId>.json`. Reading is additive and
  * newest-wins (see [SyncEngine]); nothing on the NAS is ever deleted, so a device that has been
  * offline for months still contributes when it next syncs.
  */
@@ -74,7 +74,7 @@ class NasSync(private val graph: ServiceLocator.Graph) {
         }.getOrElse { Result.Failed(it.message) }
     }
 
-    /** `<folder>/OpenTV/sync` within the share — the shared rendezvous every device agrees on. */
+    /** `<folder>/IxirTV/sync` within the share — the shared rendezvous every device agrees on. */
     private fun syncFolderPath(config: SmbConfig): String {
         val base = config.folder.split('/', '\\').filter { it.isNotBlank() }
         return (base + listOf(SYNC_DIR, "sync")).joinToString("/")
@@ -84,6 +84,6 @@ class NasSync(private val graph: ServiceLocator.Graph) {
         "smb://${config.host}/${config.share}/${syncFolderPath(config)}/$fileName"
 
     private companion object {
-        const val SYNC_DIR = "OpenTV"
+        const val SYNC_DIR = "IxirTV"
     }
 }

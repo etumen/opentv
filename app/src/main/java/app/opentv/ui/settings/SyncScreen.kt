@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.settings
@@ -45,7 +45,7 @@ import app.opentv.sync.SyncServer
 import app.opentv.ui.SyncViewModel
 
 /**
- * Local watch-history sync between two OpenTV devices on the same wifi. No servers of ours: one
+ * Local watch-history sync between two IxirTV devices on the same wifi. No servers of ours: one
  * device shares behind a code, the other receives. Only continue-watching positions travel.
  */
 @Composable

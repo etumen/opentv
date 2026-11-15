@@ -9,6 +9,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Host-side facade around native providers.
@@ -225,14 +226,31 @@ class ProviderRepository(
         provider: Provider,
         operation: String,
         block: suspend () -> ProviderResult<T>,
-    ): ProviderResult<T> =
-        try {
-            when (val result = block()) {
-                is ProviderResult.Success -> result
-                is ProviderResult.Failure ->
-                    ProviderResult.Failure(
-                        result.error.copy(providerId = provider.id, operation = operation),
-                    )
+    ): ProviderResult<T> {
+        val started = System.nanoTime()
+        val result = try {
+            val timeoutMs = when (operation) {
+                "catalog", "search", "catalogSections" -> LISTING_CALL_TIMEOUT_MS
+                else -> DETAIL_CALL_TIMEOUT_MS
+            }
+            val value = withTimeoutOrNull(timeoutMs) { block() }
+            if (value == null) {
+                ProviderResult.Failure(
+                    ProviderError(
+                        providerId = provider.id,
+                        operation = operation,
+                        code = ProviderErrorCode.NETWORK,
+                        message = "Provider operation timed out after ${timeoutMs}ms",
+                    ),
+                )
+            } else {
+                when (value) {
+                    is ProviderResult.Success -> value
+                    is ProviderResult.Failure ->
+                        ProviderResult.Failure(
+                            value.error.copy(providerId = provider.id, operation = operation),
+                        )
+                }
             }
         } catch (e: CancellationException) {
             throw e
@@ -247,4 +265,22 @@ class ProviderRepository(
                 ),
             )
         }
+
+        val elapsed = (System.nanoTime() - started) / 1_000_000L
+        if (elapsed >= SLOW_CALL_MS || result is ProviderResult.Failure) {
+            val outcome = when (result) {
+                is ProviderResult.Success -> "ok"
+                is ProviderResult.Failure -> "fail:${result.error.code}"
+            }
+            println("$PERF_TAG provider=${provider.id} op=$operation ms=$elapsed result=$outcome")
+        }
+        return result
+    }
+
+    private companion object {
+        const val PERF_TAG = "ProviderPerf"
+        const val SLOW_CALL_MS = 500L
+        const val LISTING_CALL_TIMEOUT_MS = 8_000L
+        const val DETAIL_CALL_TIMEOUT_MS = 20_000L
+    }
 }

@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui
@@ -162,7 +162,7 @@ class SourcesViewModel(app: Application) : AndroidViewModel(app) {
                 )
                 // Book any new series-link airings the fresh guide just revealed.
                 runCatching { graph.recordingEngine.rescanSeriesRules() }
-            }.onFailure { Log.w("OpenTV", "Background VOD/guide load failed", it) }
+            }.onFailure { Log.w("IxirTV", "Background VOD/guide load failed", it) }
         }
     }
 
@@ -289,7 +289,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
         val variants: List<Channel>,
         val now: Programme?,
         val next: Programme?,
-        /** OpenTV's compact, source-independent channel number in the current live list. */
+        /** IxirTV's compact, source-independent channel number in the current live list. */
         val number: Int = 0,
         /** Every programme for this channel inside the guide window, start-ordered. */
         val programmes: List<Programme>,
@@ -428,6 +428,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
         now: Long,
         reportProgress: Boolean = false,
     ): List<Row> {
+        val started = System.nanoTime()
         // The programme→channel grouping is done once upstream (see [programmeIndex]) and passed
         // in ready-made, rather than regrouping the whole EPG on every category tap. Grouping is
         // kept out of SQL because the programme query cannot take a channel-id list without
@@ -458,10 +459,12 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
             // Walk every variant's guide-id candidates (override → provider → matched)
             // and use the first that actually has programmes. An id that never lights up
             // must not shadow a sibling variant whose id does.
-            val list = variants
-                .flatMap { it.epgCandidates }
+            // ProgrammeDao.observeWindow() is already ordered by epgChannelId,startUtcMillis,
+            // and groupBy preserves encounter order. Sorting the same programme list again for
+            // every logical channel is pure duplicate work on large line-ups.
+            val list = variants.asSequence()
+                .flatMap { it.epgCandidates.asSequence() }
                 .firstNotNullOfOrNull { id -> byEpgChannel[id] }
-                ?.sortedBy { it.startUtcMillis }
                 .orEmpty()
 
             // Feed the progress bar as rows come together — this is the slow part on a big
@@ -486,13 +489,31 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
         // follow the global Turkey plan; everything else remains available after them in a stable
         // alphabetical tail. Numbering is compact, so a channel missing from this source leaves no
         // dead slot and changing M3U sources does not force us to maintain a second line-up.
-        return builtRows
+        // canonicalKey/orderIndex performs channel-name normalization. Calling it inside a sort
+        // comparator makes it run O(n log n) times (hundreds of thousands of normalizations on a
+        // 20k-channel provider). Compute it exactly once per row, then sort the cheap keys.
+        val sorted = builtRows
+            .map { row ->
+                Triple(
+                    TurkeyChannelPlan.orderIndex(row.primary.shownName) ?: Int.MAX_VALUE,
+                    row.primary.shownName,
+                    row,
+                )
+            }
             .sortedWith(
-                compareBy<Row> {
-                    TurkeyChannelPlan.orderIndex(it.primary.shownName) ?: Int.MAX_VALUE
-                }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.primary.shownName },
+                compareBy<Triple<Int, String, Row>> { it.first }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.second },
             )
-            .mapIndexed { index, row -> row.copy(number = index + 1) }
+            .mapIndexed { index, keyed -> keyed.third.copy(number = index + 1) }
+
+        val elapsed = (System.nanoTime() - started) / 1_000_000L
+        if (channels.size >= 1_000 || elapsed >= 500L) {
+            println(
+                "ChannelPerf channels=${channels.size} groups=${groups.size} " +
+                    "epgChannels=${byEpgChannel.size} ms=$elapsed",
+            )
+        }
+        return sorted
     }
 
     /** A friendly, size-aware line for the load — a small provider gets a quick word, a huge one
@@ -870,13 +891,14 @@ class VodViewModel(app: Application) : AndroidViewModel(app) {
     private val homeFeedsMutex = Mutex()
 
     init {
-        // The home feeds are per profile (Recommended) and per catalogue (the genre rows). Rebuild
-        // them when the active profile changes — and once at start. Routed through the guarded
-        // [loadHomeFeeds] so a profile switch triggers exactly one library scan, and re-opening the
-        // tab with the same profile and an unchanged catalogue triggers none. Reads an empty result
-        // until a VOD sync has populated the catalogue; [ensureVodLoaded] re-runs it once one has.
+        // Constructing a VodViewModel happens at the app/nav level too. Do not scan the entire
+        // movie + series database just because that object exists; home/browse screens explicitly
+        // call loadHomeFeeds() when those shelves are visible. A profile change only invalidates
+        // the cached key so the next visible home/browse screen rebuilds for the new profile.
         viewModelScope.launch {
-            settings.activeProfileId.collect { loadHomeFeeds() }
+            settings.activeProfileId.collect { profileId ->
+                if (loadedHomeFeeds?.profileId != profileId) loadedHomeFeeds = null
+            }
         }
     }
 
@@ -1080,7 +1102,7 @@ class VodViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The user-agent to play a movie/episode with (per source). */
     suspend fun userAgentForSource(sourceId: Long): String =
-        graph.sourceRepository.byId(sourceId)?.userAgent ?: "OpenTV/0.1 (Android)"
+        graph.sourceRepository.byId(sourceId)?.userAgent ?: "IxirTV/0.1 (Android)"
 }
 
 /**

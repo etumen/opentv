@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.settings
@@ -216,7 +216,7 @@ fun RecordingSettingsScreen(onBack: () -> Unit) {
             SectionCard(stringResource(R.string.recset_nas_connection)) {
                 Field(stringResource(R.string.recset_field_server), host, "192.168.1.10") { host = it }
                 Field(stringResource(R.string.recset_field_share), share, "video") { share = it }
-                Field(stringResource(R.string.recset_field_folder), folder, "OpenTV") { folder = it }
+                Field(stringResource(R.string.recset_field_folder), folder, "IxirTV") { folder = it }
                 Field(stringResource(R.string.recset_field_username), user, "") { user = it }
                 Field(stringResource(R.string.recset_field_password), password, "", isPassword = true) { password = it }
 
@@ -422,7 +422,7 @@ private fun StepButton(icon: androidx.compose.ui.graphics.vector.ImageVector, en
 }
 
 /**
- * Whether OpenTV is allowed to keep recording in the background (exempt from battery optimisation).
+ * Whether IxirTV is allowed to keep recording in the background (exempt from battery optimisation).
  * Reads *Allowed* or *Not allowed — Fix*; tapping Fix opens the system dialog to grant it. The
  * status is re-read every time the screen resumes, so it flips to Allowed the moment the user
  * comes back from granting it.

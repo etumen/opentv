@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.update
@@ -21,7 +21,7 @@ import java.io.File
  * The download lands in the app's own cache (no storage permission, cleaned up by the OS
  * under pressure) and is handed to `ACTION_INSTALL_PACKAGE` through a [FileProvider] uri —
  * a raw `file://` uri throws `FileUriExposedException` on modern Android. The system then
- * shows its own install screen; if the user has not yet allowed OpenTV to install unknown
+ * shows its own install screen; if the user has not yet allowed IxirTV to install unknown
  * apps, Android walks them through that first. We never install silently.
  */
 class ApkInstaller(private val http: OkHttpClient) {
@@ -56,7 +56,7 @@ class ApkInstaller(private val http: OkHttpClient) {
         // A fixed name means each download overwrites the last rather than piling up copies.
         val out = File(dir, "opentv-update.apk")
 
-        val request = Request.Builder().url(url).header("User-Agent", "OpenTV").build()
+        val request = Request.Builder().url(url).header("User-Agent", "IxirTV").build()
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) error("Download failed: HTTP ${response.code}")
             val bodyStream = response.body?.byteStream() ?: error("Empty download")

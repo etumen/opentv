@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv
@@ -65,7 +65,7 @@ class OpenTvApp : Application(), ImageLoaderFactory {
         appScope.launch { graph.remoteProviderConfig.refresh() }
         SyncWorker.schedule(this)
 
-        // OpenTV ships with IPTV-ORG Turkey as a built-in live-TV starter source. Keep this
+        // IxirTV ships with IPTV-ORG Turkey as a built-in live-TV starter source. Keep this
         // idempotent and URL-based: clean installs get it automatically, existing installs that
         // already have the same playlist are not duplicated, and user-added sources are untouched.
         // The first catalogue sync happens immediately so "Canlı TV" fills on first launch rather
@@ -94,7 +94,7 @@ class OpenTvApp : Application(), ImageLoaderFactory {
                     }
                 }
             }.onFailure {
-                Log.w("OpenTV", "Built-in IPTV-ORG Turkey bootstrap failed", it)
+                Log.w("IxirTV", "Built-in IPTV-ORG Turkey bootstrap failed", it)
             }
         }
 
@@ -109,7 +109,7 @@ class OpenTvApp : Application(), ImageLoaderFactory {
                         graph.catalogRepository.syncLive(ensured.source, System.currentTimeMillis())
                     }
                 }.onFailure {
-                    Log.w("OpenTV", "Unlocked SporB bootstrap failed", it)
+                    Log.w("IxirTV", "Unlocked SporB bootstrap failed", it)
                 }
             }
         }

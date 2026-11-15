@@ -23,6 +23,7 @@ class UnifiedCatalogPager internal constructor(
     private val matcher: ContentMatcher,
     private val mediaType: ProviderMediaType,
     private val sectionId: String?,
+    private val initialProviderBatchSize: Int,
 ) {
     private val rawItems = linkedMapOf<String, ProviderItem>()
     private val seenByProvider = linkedMapOf<String, MutableSet<String>>()
@@ -42,8 +43,17 @@ class UnifiedCatalogPager internal constructor(
         val providers = sectionId?.let {
             repository.providersSupportingSection(mediaType, it)
         } ?: repository.providers(mediaType)
+
+        // Do not make first paint wait for the slowest provider. Load a small leading batch,
+        // then seed the remaining providers at page 1 so loadMore() folds them into the same
+        // canonical catalogue without losing any source.
+        val initialProviders = providers.take(initialProviderBatchSize.coerceAtLeast(1))
+        providers.drop(initialProviders.size).forEach { provider ->
+            nextPages[provider.id] = 1
+        }
+
         val results = coroutineScope {
-            providers.map { provider ->
+            initialProviders.map { provider ->
                 async {
                     provider.id to repository.catalog(
                         provider.id,
@@ -138,6 +148,7 @@ class UnifiedCatalogPager internal constructor(
             hasMore = nextPages.values.any { it != null },
             failures = failures.toMap(),
         )
+
 }
 
 data class UnifiedCatalogPage(

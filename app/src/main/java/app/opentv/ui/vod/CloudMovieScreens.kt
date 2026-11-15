@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.vod
@@ -299,12 +299,14 @@ fun CloudMovieDetailScreen(
                 meta = meta,
                 imdbBadge = item.externalIds.containsKey("imdb"),
             ) {
-                DetailButton(
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
-                    label = stringResource(R.string.common_back),
-                    onClick = onBack,
-                )
-                if (!isTouch) moviePlayButton()
+                if (!isTouch) {
+                    DetailButton(
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        label = stringResource(R.string.common_back),
+                        onClick = onBack,
+                    )
+                    moviePlayButton()
+                }
             }
         }
         if (isTouch) {
@@ -315,6 +317,11 @@ fun CloudMovieDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    DetailButton(
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        label = stringResource(R.string.common_back),
+                        onClick = onBack,
+                    )
                     moviePlayButton()
                     movieDownloadButton()
                 }

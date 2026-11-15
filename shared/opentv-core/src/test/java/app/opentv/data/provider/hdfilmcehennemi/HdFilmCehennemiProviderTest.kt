@@ -19,18 +19,19 @@ class HdFilmCehennemiProviderTest {
 
     private val provider = HdFilmCehennemiProvider(OkHttpClient())
 
-    @Test fun seriesCatalogUsesNlArchiveWithMockPagination() = runBlocking {
+    @Test fun seriesCatalogDiscoversChangedArchiveSuffixWithMockPagination() = runBlocking {
         val urls = mutableListOf<String>()
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val url = chain.request().url.toString()
             urls += url
-            val card = if ("admin-ajax.php" in url) "Two" else "One"
-            val paging = if (card == "One")
-                """<div class="page-numbers" data-max-pages="2" data-type="tvshows" data-term-id="0"></div>"""
-                else ""
-            val html = """$paging<article class="item tvshows"><div class="poster">
-                <a href="https://www.hdfilmcehennemi.nl/dizi/$card/">
-                <h2 class="flbaslik">$card</h2></a></div></article>"""
+            val html = when {
+                url == "https://www.hdfilmcehennemi.nl/" ->
+                    """<a href="https://www.hdfilmcehennemi.nl/yabancidiziizle-15/">Diziler</a>"""
+                "admin-ajax.php" in url ->
+                    """<article class="item tvshows"><div class="poster"><a href="https://www.hdfilmcehennemi.nl/dizi/Two/"><h2 class="flbaslik">Two</h2></a></div></article>"""
+                else ->
+                    """<div class="page-numbers" data-max-pages="2" data-type="tvshows" data-term-id="0"></div><article class="item tvshows"><div class="poster"><a href="https://www.hdfilmcehennemi.nl/dizi/One/"><h2 class="flbaslik">One</h2></a></div></article>"""
+            }
             okhttp3.Response.Builder().request(chain.request())
                 .protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK")
                 .body(html.toResponseBody()).build()
@@ -42,15 +43,16 @@ class HdFilmCehennemiProviderTest {
             ProviderMediaType.SERIES, "series", 2))
         assertThat(first).isInstanceOf(ProviderResult.Success::class.java)
         assertThat(second).isInstanceOf(ProviderResult.Success::class.java)
-        assertThat((first as ProviderResult.Success).value.items.map { it.title })
-            .containsExactly("One")
+        assertThat((first as ProviderResult.Success).value.items.map { it.title }).containsExactly("One")
         assertThat(first.value.nextPage).isEqualTo(2)
-        assertThat((second as ProviderResult.Success).value.items.map { it.title })
-            .containsExactly("Two")
+        assertThat((second as ProviderResult.Success).value.items.map { it.title }).containsExactly("Two")
         assertThat(urls).containsExactly(
-            "https://www.hdfilmcehennemi.nl/yabancidiziizle-9/",
-            "https://www.hdfilmcehennemi.nl/wp-admin/admin-ajax.php").inOrder()
+            "https://www.hdfilmcehennemi.nl/",
+            "https://www.hdfilmcehennemi.nl/yabancidiziizle-15/",
+            "https://www.hdfilmcehennemi.nl/wp-admin/admin-ajax.php",
+        ).inOrder()
     }
+
     @Test
     fun cardParser_readsMovieCards() {
         val html = """
@@ -384,20 +386,33 @@ class HdFilmCehennemiProviderTest {
     }
 
     @Test
-    fun search_liveNetwork_returnsResults() = runBlocking {
+    fun search_usesDiscoveredFormActionAndParameter() = runBlocking {
+        val urls = mutableListOf<String>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val url = chain.request().url.toString()
+            urls += url
+            val html = if (url == "https://www.hdfilmcehennemi.nl/") {
+                """<form action="/find"><input name="q"></form>"""
+            } else {
+                """<article class="item movies"><div class="poster"><a href="https://www.hdfilmcehennemi.nl/film/john-wick/"><h2 class="flbaslik">John Wick</h2></a></div></article>"""
+            }
+            okhttp3.Response.Builder().request(chain.request())
+                .protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK")
+                .body(html.toResponseBody()).build()
+        }.build()
+        val source = HdFilmCehennemiProvider(client)
         val req = app.opentv.data.provider.ProviderSearchRequest(
             query = "John Wick",
             mediaType = ProviderMediaType.MOVIE,
         )
-        val result = provider.search(req)
-        println("SEARCH RESULT: $result")
-        if (result is ProviderResult.Failure) {
-            println("FAILURE: ${result.error.message}")
-        }
+        val result = source.search(req)
         assertThat(result).isInstanceOf(ProviderResult.Success::class.java)
         val items = (result as ProviderResult.Success).value
-        println("SEARCH ITEMS COUNT: ${items.size}")
-        items.forEach { println(" - ${it.title} (${it.year}) -> ${it.id}") }
-        assertThat(items).isNotEmpty()
+        assertThat(items.map { it.title }).containsExactly("John Wick")
+        assertThat(urls).containsExactly(
+            "https://www.hdfilmcehennemi.nl/",
+            "https://www.hdfilmcehennemi.nl/find?q=John+Wick",
+        ).inOrder()
     }
+
 }

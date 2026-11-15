@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.vod
@@ -65,7 +65,6 @@ import app.opentv.data.model.Series
 import app.opentv.data.model.Source
 import app.opentv.data.provider.ProviderMediaType
 import app.opentv.data.provider.ProviderItem
-import app.opentv.data.provider.dizipal.DiziPalProvider
 import app.opentv.data.parser.displayTitle
 import app.opentv.ui.VodViewModel
 import coil.compose.AsyncImage
@@ -103,16 +102,18 @@ fun MoviesScreen(
         if (hasSources) viewModel.ensureVodLoaded()
         viewModel.loadHomeFeeds()
         cloudViewModel.loadUnifiedCatalog()
-        unifiedBrowseModel.ensureLoaded(ProviderMediaType.MOVIE)
-        if (!isTouch) cloudViewModel.loadAllMovieShelves()
+        unifiedBrowseModel.ensureLoaded(ProviderMediaType.MOVIE, fetchInitialItems = false)
+    }
+    // TV keeps the extra provider shelves, but only after the first unified row is visible.
+    // Previously all three catalogue paths hit providers at once and delayed first content.
+    LaunchedEffect(isTouch, unifiedItems.isNotEmpty()) {
+        if (!isTouch && unifiedItems.isNotEmpty()) cloudViewModel.loadAllMovieShelves()
     }
 
     val hasContent = resume.isNotEmpty() || unifiedItems.isNotEmpty() || cloudShelves.isNotEmpty()
 
     Column(Modifier.fillMaxSize()) {
-        if (isTouch) {
-            SearchAffordance(onOpenSearch)
-        } else {
+        if (!isTouch) {
             Spacer(Modifier.height(6.dp))
         }
         if (unifiedGenreState.categories.isNotEmpty()) {
@@ -251,7 +252,7 @@ fun SeriesScreen(
         if (hasSources) viewModel.ensureVodLoaded()
         viewModel.loadHomeFeeds()
         cloudViewModel.loadUnifiedCatalog()
-        unifiedBrowseModel.ensureLoaded(ProviderMediaType.SERIES)
+        unifiedBrowseModel.ensureLoaded(ProviderMediaType.SERIES, fetchInitialItems = false)
     }
 
     var browseCategory by remember { mutableStateOf<String?>(null) }
@@ -260,19 +261,13 @@ fun SeriesScreen(
     val nativeSeriesAvailable = recentlyAdded.isNotEmpty() ||
         genreRows.isNotEmpty() || categorySeries.isNotEmpty()
     // IPTV/Live-only lists do not represent series providers.
-    val showNativeFilters = isTouch || nativeSeriesAvailable
+    val showNativeFilters = !isTouch && nativeSeriesAvailable
     val hasContent = resume.isNotEmpty() ||
         (!isTouch && selectedCloudFilterId == null && nativeSeriesAvailable) ||
         (if (selectedCloudFilterId == null) unifiedSeries.isNotEmpty() else cloudShelves.isNotEmpty())
 
     Column(Modifier.fillMaxSize()) {
-        if (cloudProviders.any { it.id == "dizipal" }) {
-            DiziPalSessionAnchor()
-        }
-
-        if (isTouch) {
-            SearchAffordance(onOpenSearch)
-        } else {
+        if (!isTouch) {
             Spacer(Modifier.height(6.dp))
         }
         if (unifiedGenreState.categories.isNotEmpty()) {
@@ -291,45 +286,7 @@ fun SeriesScreen(
             )
         }
 
-        if (isTouch) {
-            // Default is genuinely all providers, not an unselected merged row under
-            // a misleading preselected provider chip.
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                item(key = "source-heading") {
-                    Text(
-                        "Kaynaklar",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                item(key = "all-providers") {
-                    androidx.compose.material3.FilterChip(
-                        selected = selectedCloudFilterId == null,
-                        onClick = {
-                            selectedCloudFilterId = null
-                            browseCategory = null
-                            unifiedBrowseModel.selectCategory(ProviderMediaType.SERIES, null)
-                        },
-                        label = { Text("Tümü") },
-                    )
-                }
-                items(cloudProviders, key = { "provider-filter:" + it.id }) { provider ->
-                    androidx.compose.material3.FilterChip(
-                        selected = selectedCloudFilterId == provider.id,
-                        onClick = {
-                            selectedCloudFilterId = provider.id
-                            browseCategory = null
-                            unifiedBrowseModel.selectCategory(ProviderMediaType.SERIES, null)
-                            cloudViewModel.selectProvider(provider.id)
-                        },
-                        label = { Text(provider.name) },
-                    )
-                }
-            }
-        } else {
+        if (!isTouch) {
             CloudSeriesTvControls(
                 providers = cloudProviders,
                 selectedProviderId = selectedCloudFilterId,
@@ -517,9 +474,7 @@ fun AsianDramaScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        if (isTouch) {
-            SearchAffordance(onOpenSearch)
-        } else {
+        if (!isTouch) {
             Spacer(Modifier.height(6.dp))
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -678,31 +633,7 @@ internal fun PosterCard(
     }
     var posterIndex by remember(posterUrls) { mutableIntStateOf(0) }
     val activePosterUrl = posterUrls.getOrNull(posterIndex)
-    val imageModel = remember(activePosterUrl, providerId, context) {
-        activePosterUrl?.let { url ->
-            val diziPalAsset =
-                url.contains("cdnhipter.xyz", ignoreCase = true) ||
-                    url.contains("dizipal", ignoreCase = true)
-
-            if (diziPalAsset) {
-                ImageRequest.Builder(context)
-                    .data(url)
-                    .addHeader("User-Agent", DiziPalProvider.SITE_USER_AGENT)
-                    .addHeader("Referer", DiziPalProvider.FALLBACK_BASE_URL + "/")
-                    .addHeader("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8")
-                    .apply {
-                        runCatching {
-                            android.webkit.CookieManager.getInstance().getCookie(url)
-                        }.getOrNull()?.takeIf { it.isNotBlank() }?.let { cookie ->
-                            addHeader("Cookie", cookie)
-                        }
-                    }
-                    .build()
-            } else {
-                url
-            }
-        }
-    }
+    val imageModel = activePosterUrl
     val scale by animateFloatAsState(if (focused) 1.055f else 1f, label = "posterScale")
     Column(
         modifier

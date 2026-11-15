@@ -61,6 +61,16 @@ class HdFilmCehennemiProvider(
         val value: Playback,
     )
 
+    private data class SearchSpec(
+        val actionUrl: String,
+        val parameter: String,
+    )
+
+    private data class SiteDiscovery(
+        val sectionPaths: Map<String, String>,
+        val searchSpec: SearchSpec?,
+    )
+
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val playbackCache = ConcurrentHashMap<String, CachedPlayback>()
     private val paginationBySection = ConcurrentHashMap<String, HdFilmCehennemiCodec.PaginationInfo>()
@@ -68,6 +78,12 @@ class HdFilmCehennemiProvider(
 
     @Volatile
     private var activeDomain: String = MAIN_URL
+
+    @Volatile
+    private var siteDiscoveryCache: SiteDiscovery? = null
+
+    @Volatile
+    private var siteDiscoveryAtMillis: Long = 0L
 
     private val fallbackSections = linkedMapOf(
         "home" to Section("Yeni Eklenenler", "/", "home", ProviderMediaType.MOVIE, showOnHome = true),
@@ -117,9 +133,9 @@ class HdFilmCehennemiProvider(
     ): ProviderResult<ProviderCatalogPage> = guarded("catalog") {
         val defaultSectionId = if (request.mediaType == ProviderMediaType.SERIES) "series" else "home"
         val sectionId = request.sectionId ?: defaultSectionId
-        val section = fallbackSections[sectionId] ?: fallbackSections.getValue(defaultSectionId)
+        val fallbackSection = fallbackSections[sectionId] ?: fallbackSections.getValue(defaultSectionId)
+        val section = resolveSection(sectionId, fallbackSection)
         val page = request.page.coerceAtLeast(1)
-        // Use the configured .nl archive for series as well as movies.
         val base = absolute(section.path)
         val pageDomain = base.toHttpUrl().let { "${it.scheme}://${it.host}" }
 
@@ -226,79 +242,24 @@ class HdFilmCehennemiProvider(
         if (query.isEmpty()) return@guarded emptyList()
 
         val encodedQuery = URLEncoder.encode(query, "UTF-8")
-        val searchApiUrl = "$activeDomain/search?q=$encodedQuery"
+        val fallbackMediaType = request.mediaType ?: ProviderMediaType.MOVIE
+        for (target in resolveSearchUrls(encodedQuery)) {
+            val items = runCatching {
+                parseCards(fetchDocument(target), fallbackMediaType)
+            }.getOrNull().orEmpty()
 
-        val searchResult = runCatching {
-            val jsonText = fetchWithHeaders(searchApiUrl, mapOf(
-                "X-Requested-With" to "fetch",
-                "Content-Type" to "application/json",
-                "Referer" to "$activeDomain/",
-            ))
-            val jsonRoot = json.parseToJsonElement(jsonText).jsonObject
-            val resultsArray = jsonRoot["results"]?.jsonArray
-            val items = mutableListOf<ProviderItem>()
-
-            resultsArray?.forEach { resEl ->
-                val htmlSnippet = resEl.jsonPrimitive.contentOrNull ?: return@forEach
-                val fragment = Jsoup.parseBodyFragment(htmlSnippet, activeDomain)
-                val linkEl = fragment.selectFirst("a[href]") ?: return@forEach
-                val href = linkEl.attr("href").trim()
-                if (href.isBlank()) return@forEach
-
-                val text = fragment.text().trim()
-                val isSeries = text.contains("Dizi", ignoreCase = true) || href.contains("/dizi/")
-                val mediaType = if (isSeries) ProviderMediaType.SERIES else ProviderMediaType.MOVIE
-
-                if (request.mediaType != null && request.mediaType != mediaType) {
-                    return@forEach
-                }
-
-                val title = linkEl.selectFirst("h2, h3, .poster-title, .title")?.text()?.trim()
-                    ?: linkEl.attr("title").takeIf { it.isNotBlank() }
-                    ?: text.replace(Regex("""^\d{4}\s+[\d.]+\s+(Film|Dizi)\s+"""), "").trim()
-
-                val imgEl = fragment.selectFirst("img")
-                val rawPosterUrl = imgEl?.attr("data-src")?.takeIf { it.isNotBlank() && !it.startsWith("data:") }
-                    ?: imgEl?.attr("src")?.takeIf { it.isNotBlank() && !it.startsWith("data:") }
-                    ?: imgEl?.attr("data-srcset")?.split(",")?.firstOrNull()?.trim()?.substringBefore(" ")?.takeIf { it.isNotBlank() && !it.startsWith("data:") }
-                val posterUrl = rawPosterUrl?.let { absolute(it) }
-
-                val yearMatch = Regex("""\b(19\d\d|20\d\d)\b""").find(text)
-                val year = yearMatch?.groupValues?.get(1)?.toIntOrNull()
-
-                val ratingMatch = Regex("""\b([1-9]\.\d)\b""").find(text)
-                val rating = ratingMatch?.groupValues?.get(1)?.toDoubleOrNull()
-
-                val url = linkEl.absUrl("href").ifBlank { absolute(href) }
-
-                items.add(
-                    ProviderItem(
-                        providerId = id,
-                        id = url,
-                        title = title.ifBlank { "İsimsiz İçerik" },
-                        mediaType = mediaType,
-                        posterUrl = posterUrl,
-                        year = year,
-                        rating = rating,
-                    ),
-                )
+            val filtered = if (request.mediaType != null) {
+                items.filter { it.mediaType == request.mediaType }
+            } else {
+                items
             }
-            items
-        }.getOrNull()
-
-        if (!searchResult.isNullOrEmpty()) {
-            return@guarded searchResult
+            if (filtered.isNotEmpty()) return@guarded filtered
         }
 
-        // Fallback to HTML search
-        val target = "$activeDomain/?s=$encodedQuery"
-        val doc = fetchDocument(target)
-        val allItems = parseCards(doc, request.mediaType ?: ProviderMediaType.MOVIE)
-        if (request.mediaType != null) {
-            allItems.filter { it.mediaType == request.mediaType }
-        } else {
-            allItems
-        }
+        // HDFilmCehennemi currently renders its search UI client-side without a stable
+        // public HTTP endpoint. Treat search-endpoint churn as "no provider results"
+        // instead of failing the aggregate OpenTV/IxirTV search.
+        emptyList()
     }
 
     override suspend fun load(itemId: String): ProviderResult<ProviderDetails> = guarded("load") {
@@ -616,6 +577,113 @@ class HdFilmCehennemiProvider(
         throw IOException("No playable stream found for target")
     }
 
+    private suspend fun resolveSection(sectionId: String, fallback: Section): Section {
+        if (fallback.path == "/") return fallback
+        val discovery = siteDiscovery()
+        val discoveredPath = discovery.sectionPaths[sectionId] ?: return fallback
+        return fallback.copy(path = discoveredPath)
+    }
+
+    private suspend fun resolveSearchUrls(encodedQuery: String): List<String> {
+        val spec = siteDiscovery().searchSpec
+        return buildList {
+            if (spec != null) {
+                val separator = if (spec.actionUrl.contains("?")) "&" else "?"
+                add(spec.actionUrl + separator + spec.parameter + "=" + encodedQuery)
+            }
+            // Legacy routes are fallbacks only; either may disappear without breaking
+            // the provider because search() treats failed candidates as empty.
+            add("$activeDomain/search?q=$encodedQuery")
+            add("$activeDomain/?s=$encodedQuery")
+        }.distinct()
+    }
+
+    private suspend fun siteDiscovery(): SiteDiscovery {
+        val now = System.currentTimeMillis()
+        val cached = siteDiscoveryCache
+        if (cached != null && now - siteDiscoveryAtMillis < SITE_DISCOVERY_TTL_MS) {
+            return cached
+        }
+
+        val discovered = runCatching {
+            val doc = fetchDocument("$activeDomain/")
+            val links = doc.select("a[href]")
+                .mapNotNull { link ->
+                    val href = link.absUrl("href").ifBlank { link.attr("href").trim() }
+                    href.takeIf { it.isNotBlank() }?.let { it to link.text().trim() }
+                }
+
+            val sectionPaths = buildMap {
+                fallbackSections.forEach { (id, section) ->
+                    if (section.path == "/") return@forEach
+                    val expectedKey = stablePathKey(section.path)
+                    val expectedTitle = normalizedLabel(section.title)
+                    val candidate = links.firstOrNull { (href, _) ->
+                        expectedKey.isNotBlank() && stablePathKey(href) == expectedKey
+                    } ?: links.firstOrNull { (_, text) ->
+                        val label = normalizedLabel(text)
+                        expectedTitle.isNotBlank() &&
+                            (label == expectedTitle || label.contains(expectedTitle) || expectedTitle.contains(label))
+                    }
+                    candidate?.first?.let { put(id, it) }
+                }
+            }
+
+            val searchForm = doc.select("form").firstOrNull { form ->
+                form.selectFirst("input[name=s], input[name=q], input[name=search]") != null
+            }
+            val searchInput = searchForm?.selectFirst("input[name=s], input[name=q], input[name=search]")
+            val searchParam = searchInput?.attr("name")?.trim()?.takeIf { it.isNotBlank() }
+            val searchAction = searchForm?.absUrl("action")
+                ?.takeIf { it.isNotBlank() }
+                ?: searchForm?.attr("action")?.trim()?.takeIf { it.isNotBlank() }?.let(::absolute)
+                ?: if (searchParam != null) "$activeDomain/" else null
+
+            SiteDiscovery(
+                sectionPaths = sectionPaths,
+                searchSpec = if (searchAction != null && searchParam != null) {
+                    SearchSpec(searchAction, searchParam)
+                } else {
+                    null
+                },
+            )
+        }.getOrElse {
+            cached ?: SiteDiscovery(emptyMap(), null)
+        }
+
+        siteDiscoveryCache = discovered
+        siteDiscoveryAtMillis = now
+        return discovered
+    }
+
+    private fun stablePathKey(rawUrl: String): String {
+        val path = runCatching { java.net.URI(rawUrl).path }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: rawUrl.substringBefore('?').substringBefore('#')
+        val slug = path.trim('/').substringAfterLast('/').lowercase()
+        return slug
+            .replace(Regex("""-?\d+$"""), "")
+            .trim('-')
+    }
+
+    private fun normalizedLabel(value: String): String =
+        value.lowercase()
+            .replace('ı', 'i')
+            .replace('İ', 'i')
+            .replace('ş', 's')
+            .replace('Ş', 's')
+            .replace('ğ', 'g')
+            .replace('Ğ', 'g')
+            .replace('ü', 'u')
+            .replace('Ü', 'u')
+            .replace('ö', 'o')
+            .replace('Ö', 'o')
+            .replace('ç', 'c')
+            .replace('Ç', 'c')
+            .replace(Regex("""[^a-z0-9]+"""), " ")
+            .trim()
+
     internal fun parseCards(container: Element, fallbackMediaType: ProviderMediaType): List<ProviderItem> {
         val items = mutableListOf<ProviderItem>()
         val elements = container.select("a.poster, article, div.poster, .movie-card, .film-item, a.search-result")
@@ -886,5 +954,6 @@ class HdFilmCehennemiProvider(
         const val MAIN_URL = "https://www.hdfilmcehennemi.nl"
         const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         private const val PLAYBACK_TTL_MILLIS = 10 * 60 * 1000L // 10 minutes
+        private const val SITE_DISCOVERY_TTL_MS = 30 * 60 * 1000L
     }
 }

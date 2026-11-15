@@ -18,7 +18,6 @@ import app.opentv.data.provider.ProviderRepository
 import app.opentv.data.provider.ProviderRuntimeRules
 import app.opentv.data.provider.RemoteListingAdapter
 import app.opentv.data.provider.ddizibox.DiziBoxProvider
-import app.opentv.data.provider.dizipal.DiziPalProvider
 import app.opentv.data.provider.dizimom.DiziMomProvider
 import app.opentv.data.provider.dramadizilerim.DramaDizilerimProvider
 import app.opentv.data.provider.filmmakinesi.FilmMakinesiProvider
@@ -137,7 +136,6 @@ object ServiceLocator {
                     HdFilmCehennemiProvider(providerHttpClient),
                     SinemaCxProvider(providerHttpClient),
                     JetFilmizleProvider(providerHttpClient),
-                    DiziPalProvider(appContext, providerHttpClient),
                     DiziBoxProvider(providerHttpClient),
                     DramaDizilerimProvider(providerHttpClient),
                     DiziMomProvider(providerHttpClient),

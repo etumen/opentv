@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui
@@ -312,12 +312,12 @@ private fun TopNavigationBar(
         ) {
             Image(
                 painter = painterResource(R.drawable.ic_opentv_logo),
-                contentDescription = "OpenTV",
+                contentDescription = "IxirTV",
                 modifier = Modifier.size(28.dp),
             )
             Spacer(Modifier.width(7.dp))
             Text(
-                text = "OpenTV",
+                text = "IxirTV",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,

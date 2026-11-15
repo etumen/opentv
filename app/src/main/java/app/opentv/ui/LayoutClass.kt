@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui
@@ -13,7 +13,7 @@ import androidx.compose.ui.platform.LocalConfiguration
  * Which shell the app draws. Decided once at the root and read anywhere via [LocalLayoutClass],
  * so screens branch on one value instead of each re-deriving "am I on a TV?".
  *
- *  - [TV]: d-pad first, ten-foot sizes, side rails. The original OpenTV layout.
+ *  - [TV]: d-pad first, ten-foot sizes, side rails. The original IxirTV layout.
  *  - [PHONE]: touch first, portrait browsing, bottom navigation.
  *  - [TABLET]: touch, but wide enough for the side-by-side TV layout to fit.
  */

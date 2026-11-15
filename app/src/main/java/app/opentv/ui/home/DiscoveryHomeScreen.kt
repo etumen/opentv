@@ -50,10 +50,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.provider.ProviderItem
 import app.opentv.data.provider.ProviderMediaType
-import app.opentv.data.provider.dizipal.DiziPalProvider
 import app.opentv.ui.LayoutClass
 import app.opentv.ui.LocalLayoutClass
-import app.opentv.ui.vod.DiziPalSessionAnchor
 import app.opentv.ui.vod.PosterCard
 import app.opentv.ui.vod.UnifiedCatalogRules
 import coil.compose.AsyncImage
@@ -97,10 +95,6 @@ fun DiscoveryHomeScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        if (!isTv) {
-            DiziPalSessionAnchor()
-        }
-
         if (loading && shelves.isEmpty()) {
             CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center),
@@ -499,32 +493,4 @@ private const val HERO_ROTATION_MS = 8_000L
 private fun rememberProviderImageModel(
     url: String?,
     providerId: String?,
-): Any? {
-    val context = LocalContext.current
-    return remember(url, providerId, context) {
-        url?.let { imageUrl ->
-            val diziPalAsset =
-                providerId == DiziPalProvider.PROVIDER_ID ||
-                    imageUrl.contains("cdnhipter.xyz", ignoreCase = true) ||
-                    imageUrl.contains("dizipal", ignoreCase = true)
-
-            if (!diziPalAsset) {
-                imageUrl
-            } else {
-                ImageRequest.Builder(context)
-                    .data(imageUrl)
-                    .addHeader("User-Agent", DiziPalProvider.SITE_USER_AGENT)
-                    .addHeader("Referer", DiziPalProvider.FALLBACK_BASE_URL + "/")
-                    .addHeader("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8")
-                    .apply {
-                        runCatching {
-                            CookieManager.getInstance().getCookie(imageUrl)
-                        }.getOrNull()?.takeIf { it.isNotBlank() }?.let { cookie ->
-                            addHeader("Cookie", cookie)
-                        }
-                    }
-                    .build()
-            }
-        }
-    }
-}
+): Any? = remember(url, providerId) { url }

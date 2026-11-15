@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.mobile
@@ -394,7 +394,7 @@ private fun PhoneTopBar(
         Image(
             painter = painterResource(R.drawable.ic_opentv_logo),
             contentDescription = null,
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(34.dp),
         )
         Spacer(Modifier.width(4.dp))
         Wordmark(Modifier.weight(1f))
@@ -499,7 +499,7 @@ private fun NavRail(
             .padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        // Brand: the logo mark alone when collapsed, the mark + "OpenTV" wordmark when open. The
+        // Brand: the logo mark alone when collapsed, the mark + "IxirTV" wordmark when open. The
         // name stays on purpose — it's what people search for.
         Row(
             Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
@@ -512,7 +512,7 @@ private fun NavRail(
             )
             if (expanded) {
                 Spacer(Modifier.width(12.dp))
-                Wordmark(isPhone = false)
+                Wordmark()
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -575,29 +575,19 @@ private fun RailItem(
 }
 
 /**
- * The "OpenTV / MOBILE" wordmark: the upstream name, with what this app is set small underneath
+ * The "IxirTV / MOBILE" wordmark: the upstream name, with what this app is set small underneath
  * — credit to the project it grew from, and plain about being the phone edition.
  */
 @Composable
-private fun Wordmark(modifier: Modifier = Modifier, isPhone: Boolean = true) {
+private fun Wordmark(modifier: Modifier = Modifier) {
     Column(modifier) {
         Text(
-            "OpenTV",
+            "IxirTV",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.ExtraBold,
             maxLines = 1,
         )
-        if (isPhone) {
-            Text(
-                "MOBILE",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                letterSpacing = 3.sp,
-                maxLines = 1,
-                modifier = Modifier.padding(start = 2.dp),
-            )
-        }
     }
 }
 

@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.update
@@ -50,7 +50,7 @@ fun UpdateGate(viewModel: UpdateViewModel = viewModel()) {
             title = { Text("Update available") },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Text("OpenTV ${s.update.versionName} is available. You have ${BuildConfig.VERSION_NAME}.")
+                    Text("IxirTV ${s.update.versionName} is available. You have ${BuildConfig.VERSION_NAME}.")
                     if (s.update.notes.isNotBlank()) {
                         Text(
                             text = s.update.notes,

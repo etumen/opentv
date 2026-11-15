@@ -29,7 +29,7 @@ object ProviderRuntimeRules {
 
     val supportedIds = setOf(
         "fullhdfilmizlesene", "filmmakinesi", "hdfilmcehennemi",
-        "sinemacx", "jetfilmizle", "dizipal", "ddizibox",
+        "sinemacx", "jetfilmizle", "ddizibox",
         "dramadizilerim", "dizimom",
     )
 

@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.home
@@ -80,7 +80,7 @@ import kotlinx.coroutines.launch
  * Approved phone home order: Featured, Continue Watching, Movies, Series, Drama,
  * Explore Genres. Live TV is available exclusively from its own bottom tab.
  *
- * All data originates from real OpenTV providers and catalog architecture without mock data.
+ * All data originates from real IxirTV providers and catalog architecture without mock data.
  */
 @Composable
 fun MobileHomeScreen(
@@ -442,7 +442,7 @@ private fun HeroBanner(
 
             // Title
             Text(
-                text = item?.title ?: "OpenTV",
+                text = item?.title ?: "IxirTV",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontSize = 24.sp,
                     lineHeight = 29.sp,

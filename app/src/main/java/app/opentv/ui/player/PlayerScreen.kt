@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.player
@@ -190,7 +190,7 @@ fun PlayerScreen(
     var panel by remember { mutableStateOf(Panel.NONE) }
     var channelListVisible by remember { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
-    // Offered once per session the first time the user records here while OpenTV isn't exempt from
+    // Offered once per session the first time the user records here while IxirTV isn't exempt from
     // battery optimisation, so the capture survives the screen sleeping. Never blocks recording.
     var showBackgroundPrompt by remember { mutableStateOf(false) }
 
@@ -235,7 +235,7 @@ fun PlayerScreen(
                 url = url,
                 title = channel.shownName,
                 userAgent = channel.playbackUserAgent(
-                    source?.userAgent ?: "OpenTV/0.1 (Android)",
+                    source?.userAgent ?: "IxirTV/0.1 (Android)",
                 ),
                 requestHeaders = channel.playbackRequestHeaders(),
                 isLive = true,

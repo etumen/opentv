@@ -43,6 +43,5 @@ The example domain is intentionally not a real site; do not publish it.
 
 `.github/workflows/provider-health.yml` runs `scripts/provider_health.py` every six hours (00:17, 06:17, 12:17, 18:17 UTC), on configuration changes, and when manually dispatched. The script checks public website reachability, HTTP status, and HTML link presence. It stores a 14-day JSON report as an Actions artifact and prints the results into the Actions job summary.
 
-This is **monitoring, not auto-repair**: it cannot prove actual stream/playback health; DiziPal is discovered through the existing upstream `DiziPalOrijinal` domain list (failed discovery shows `not_checked`); WAF/challenge responses are marked `blocked_or_unavailable` and require human review. No configuration, domain, code or customer data is automatically changed. GitHub's scheduled jobs may be delayed; in inactive public repositories GitHub may disable schedules after 60 days.
 
 The workflow has `contents: read` permission and no stored credentials. The remotely fetched manifest is data-only but does **not** yet have independent signature verification; HTTPS and repository access control remain the trust boundary.

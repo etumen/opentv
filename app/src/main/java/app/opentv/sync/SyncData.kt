@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.sync
@@ -8,7 +8,7 @@ package app.opentv.sync
 import kotlinx.serialization.Serializable
 
 /**
- * The state two OpenTV devices exchange when they sync.
+ * The state two IxirTV devices exchange when they sync.
  *
  * Nothing here is keyed by a local database id — those differ from one install to the next. An
  * item is identified by something stable for the same provider: a channel/movie by its **stream

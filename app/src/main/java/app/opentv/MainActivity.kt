@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv
@@ -220,7 +220,6 @@ object Routes {
     const val PERSON = "person?name={name}"
 
     // One-off VOD payloads stay in memory. Only a short token travels through Navigation:
-    // provider URLs can be huge (DiziPal may return an entire HLS playlist as a data: URI).
     const val VOD_PLAYER = "vod/{token}"
 
     fun player(channelId: Long) = "player/$channelId"
@@ -304,7 +303,6 @@ private fun OpenTvApp(isTelevision: Boolean) {
         ServiceLocator.get(bootContext).providerRegistry.all().isNotEmpty()
     }
 
-    // IPTV setup is only mandatory when there is no native provider either. DiziPal can therefore
     // be the only content source and still open straight into the TV shell.
     val start =
         if (sourcesUi.sources.isEmpty() && !hasNativeProviders) Routes.ADD_SOURCE else Routes.HOME
@@ -402,7 +400,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     },
                     onResume = { key, url, title ->
                         navController.navigate(
-                            Routes.vodPlayer(key, url, title, "OpenTV/0.1 (Android)"),
+                            Routes.vodPlayer(key, url, title, "IxirTV/0.1 (Android)"),
                         )
                     },
                     onAddSource = { navController.navigate(Routes.ADD_SOURCE) },
@@ -487,7 +485,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
                                         key = "cloud:${item.providerId}:${item.id.hashCode()}",
                                         url = stream.url,
                                         title = title,
-                                        ua = stream.headers["User-Agent"] ?: "OpenTV/0.1 (Android)",
+                                        ua = stream.headers["User-Agent"] ?: "IxirTV/0.1 (Android)",
                                         requestHeaders = stream.headers,
                                         referer = stream.headers["Referer"].orEmpty(),
                                         cookie = stream.headers["Cookie"].orEmpty(),
@@ -537,7 +535,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
                                 key = "movie:${movie.id}",
                                 url = movie.streamUrl,
                                 title = movie.displayTitle,
-                                ua = "OpenTV/0.1 (Android)",
+                                ua = "IxirTV/0.1 (Android)",
                             ),
                         )
                     },
@@ -637,7 +635,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
                                 key = key,
                                 url = url,
                                 title = title,
-                                ua = "OpenTV/0.1 (Android)",
+                                ua = "IxirTV/0.1 (Android)",
                                 returnRoute = Routes.seriesDetail(seriesId),
                                 returnRoutePattern = Routes.SERIES_DETAIL,
                             ),
@@ -659,7 +657,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
                                 key = "movie:${movie.id}",
                                 url = movie.streamUrl,
                                 title = movie.displayTitle,
-                                ua = "OpenTV/0.1 (Android)",
+                                ua = "IxirTV/0.1 (Android)",
                                 returnRoute = Routes.movieDetail(movieId),
                                 returnRoutePattern = Routes.MOVIE_DETAIL,
                             ),
@@ -680,7 +678,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     itemId = itemId,
                     onPlay = { details, stream, subtitle ->
                         val userAgent = stream.headers["User-Agent"]
-                            ?: "OpenTV/0.1 (Android)"
+                            ?: "IxirTV/0.1 (Android)"
                         navController.navigate(
                             Routes.vodPlayer(
                                 key = "cloud:$providerId:${itemId.hashCode()}",
@@ -721,7 +719,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     itemId = itemId,
                     onPlayEpisode = { details, episode, stream, subtitle ->
                         val userAgent = stream.headers["User-Agent"]
-                            ?: "OpenTV/0.1 (Android)"
+                            ?: "IxirTV/0.1 (Android)"
                         val title =
                             details.item.title + " · S" + episode.season + " B" + episode.episodeNumber
                         navController.navigate(
@@ -789,7 +787,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     mediaKey = request.mediaKey,
                     streamUrl = request.streamUrl,
                     title = request.title,
-                    userAgent = request.userAgent.ifEmpty { "OpenTV/0.1 (Android)" },
+                    userAgent = request.userAgent.ifEmpty { "IxirTV/0.1 (Android)" },
                     requestHeaders = request.requestHeaders,
                     referer = request.referer,
                     cookie = request.cookie,

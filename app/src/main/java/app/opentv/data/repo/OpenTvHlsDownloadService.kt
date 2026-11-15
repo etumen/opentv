@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.data.repo
@@ -34,7 +34,7 @@ class OpenTvHlsDownloadService : DownloadService(
     ): Notification {
         val active = downloads.firstOrNull { it.state == MediaDownload.STATE_DOWNLOADING }
         val pct = active?.percentDownloaded?.takeIf { it >= 0f }?.toInt()
-        val title = if (active != null) "OpenTV · Video indiriliyor" else "OpenTV · İndirme bekliyor"
+        val title = if (active != null) "IxirTV · Video indiriliyor" else "IxirTV · İndirme bekliyor"
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(title)

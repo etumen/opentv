@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.vod
@@ -353,7 +353,7 @@ fun VodPlayerScreen(
                     PlayerController.Request(
                         url = stream.url,
                         title = title,
-                        userAgent = stream.headers["User-Agent"] ?: "OpenTV/0.1 (Android)",
+                        userAgent = stream.headers["User-Agent"] ?: "IxirTV/0.1 (Android)",
                         requestHeaders = stream.headers,
                         streamMimeType = stream.mimeType,
                         subtitleUrl = resolved.subtitle?.url,

@@ -83,7 +83,7 @@ class FullHdFilmizleseneProvider(
     private val playbackCache = linkedMapOf<String, CachedPlayback>()
 
     private val fallbackSections = linkedMapOf(
-        "latest" to Section("En Çok İzlenen Filmler", "/en-cok-izlenen-filmler-izle-hd/"),
+        "latest" to Section("En Çok İzlenen Filmler", "/yeni-filmler/"),
         "imdb" to Section("IMDB Puanı Yüksek Filmler", "/filmizle/imdb-puani-yuksek-filmler-izle-1/"),
         "family" to Section("Aile Filmleri", "/filmizle/aile-filmleri-hdf-izle/"),
         "action" to Section("Aksiyon Filmleri", "/filmizle/aksiyon-filmleri-hdf-izle/"),

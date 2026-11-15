@@ -26,7 +26,7 @@ class CatalogAggregatorTest {
             ProviderRegistry(
                 listOf(
                     FakeProvider(
-                        id = "dizipal",
+                        id = "series-a",
                         searchItems = listOf(
                             ProviderItem(
                                 providerId = "",
@@ -61,7 +61,7 @@ class CatalogAggregatorTest {
         val reacher = result.items.single()
         assertThat(reacher.title).contains("Reacher")
         assertThat(reacher.year).isEqualTo(2022)
-        assertThat(reacher.sources.map { it.providerId }).containsExactly("dizipal", "other")
+        assertThat(reacher.sources.map { it.providerId }).containsExactly("series-a", "other")
         assertThat(reacher.sources.map { it.itemId })
             .containsExactly("dp-reacher", "other-reacher")
     }

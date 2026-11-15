@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.channels
@@ -167,7 +167,7 @@ fun HomeScreen(
     // The channel whose OK menu (Watch / Record / Schedule) is open.
     var channelMenu by remember { mutableStateOf<ChannelsViewModel.Row?>(null) }
 
-    // First time the user records or schedules while OpenTV isn't exempt from battery optimisation,
+    // First time the user records or schedules while IxirTV isn't exempt from battery optimisation,
     // offer the exemption so the capture survives standby. Once per session; never blocks recording.
     var showBackgroundPrompt by remember { mutableStateOf(false) }
     fun promptBackgroundIfNeeded() {
@@ -299,7 +299,7 @@ fun HomeScreen(
                 url = channel.streamUrl,
                 title = channel.shownName,
                 userAgent = channel.playbackUserAgent(
-                    source?.userAgent ?: "OpenTV/0.1 (Android)",
+                    source?.userAgent ?: "IxirTV/0.1 (Android)",
                 ),
                 requestHeaders = channel.playbackRequestHeaders(),
                 isLive = true,
@@ -833,7 +833,7 @@ fun HomeScreen(
                     RecordActionRow(stringResource(R.string.guide_open_external)) {
                         channelMenu = null
                         recordScope.launch {
-                            val ua = graph.sourceRepository.byId(channel.sourceId)?.userAgent ?: "OpenTV/0.1 (Android)"
+                            val ua = graph.sourceRepository.byId(channel.sourceId)?.userAgent ?: "IxirTV/0.1 (Android)"
                             val intent = Intent(Intent.ACTION_VIEW).apply {
                                 setDataAndType(android.net.Uri.parse(channel.streamUrl), "video/*")
                                 putExtra("title", channel.shownName)

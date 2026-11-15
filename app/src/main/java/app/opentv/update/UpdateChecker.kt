@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.update
@@ -13,7 +13,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * Checks whether a newer OpenTV release has been published, so a sideloaded install can
+ * Checks whether a newer IxirTV release has been published, so a sideloaded install can
  * update itself.
  *
  * Sideloaded apps get no automatic updates — nothing on the device knows to look. Without
@@ -52,7 +52,7 @@ class UpdateChecker(
             val request = Request.Builder()
                 .url("https://api.github.com/repos/$repoSlug/releases/latest")
                 .header("Accept", "application/vnd.github+json")
-                .header("User-Agent", "OpenTV")
+                .header("User-Agent", "IxirTV")
                 .build()
 
             http.newCall(request).execute().use { response ->

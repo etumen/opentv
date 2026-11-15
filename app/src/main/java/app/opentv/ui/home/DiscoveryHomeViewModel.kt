@@ -10,6 +10,9 @@ import app.opentv.data.provider.ProviderCatalogRequest
 import app.opentv.data.provider.ProviderMediaType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -84,18 +87,27 @@ class DiscoveryHomeViewModel(app: Application) : AndroidViewModel(app) {
             ProviderMediaType.SERIES,
         )
 
-        val canonicalItems = buildList {
-            mediaTypes.forEach { mediaType ->
-                addAll(
-                    catalog.catalog(
-                        ProviderCatalogRequest(
+        val canonicalItems = coroutineScope {
+            mediaTypes.map { mediaType ->
+                async {
+                    if (collection.sectionId == null) {
+                        catalog.pager(
                             mediaType = mediaType,
-                            sectionId = collection.sectionId,
-                            page = 1,
-                        ),
-                    ).items,
-                )
-            }
+                            initialProviderBatchSize =
+                                if (mediaType == ProviderMediaType.SERIES) SERIES_HOME_INITIAL_PROVIDERS
+                                else MOVIE_HOME_INITIAL_PROVIDERS,
+                        ).loadInitial().items
+                    } else {
+                        catalog.catalog(
+                            ProviderCatalogRequest(
+                                mediaType = mediaType,
+                                sectionId = collection.sectionId,
+                                page = 1,
+                            ),
+                        ).items
+                    }
+                }
+            }.awaitAll().flatten()
         }.distinctBy { it.id }
 
         return DiscoveryShelf(
@@ -108,5 +120,7 @@ class DiscoveryHomeViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
         private const val TAG = "DiscoveryHome"
         private const val HOME_SHELF_LIMIT = 24
+        private const val MOVIE_HOME_INITIAL_PROVIDERS = 3
+        private const val SERIES_HOME_INITIAL_PROVIDERS = 1
     }
 }

@@ -7,7 +7,7 @@ package app.opentv.data.provider.sinemacx
 
 import android.util.Log
 import app.opentv.data.provider.*
-import app.opentv.data.provider.hdfilmcehennemi.HdFilmCehennemiCodec
+import java.util.Base64
 import java.io.IOException
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
@@ -385,10 +385,19 @@ class SinemaCxProvider(
         return null
     }
 
+    private fun decodeBase64(value: String): ByteArray {
+        val clean = value.replace("\\/", "/").filter {
+            it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' || it == '+' || it == '/' || it == '-' || it == '_'
+        }
+        val padded = clean + "=".repeat((4 - clean.length % 4) % 4)
+        return runCatching { Base64.getDecoder().decode(padded) }
+            .getOrElse { Base64.getUrlDecoder().decode(padded) }
+    }
+
     private fun decodeBase64Url(input: String): String {
         return try {
             val clean = input.replace("\\/", "/").trim()
-            val decoded = HdFilmCehennemiCodec.decodeBase64(clean)
+            val decoded = decodeBase64(clean)
             String(decoded, Charsets.UTF_8).trim()
         } catch (e: Exception) {
             ""

@@ -22,7 +22,6 @@ import app.opentv.data.provider.dizimom.DiziMomProvider
 import app.opentv.data.provider.dramadizilerim.DramaDizilerimProvider
 import app.opentv.data.provider.filmmakinesi.FilmMakinesiProvider
 import app.opentv.data.provider.fullhd.FullHdFilmizleseneProvider
-import app.opentv.data.provider.hdfilmcehennemi.HdFilmCehennemiProvider
 import app.opentv.data.provider.jetfilmizle.JetFilmizleProvider
 import app.opentv.data.provider.sinemacx.SinemaCxProvider
 import app.opentv.data.remote.StalkerApi
@@ -133,7 +132,6 @@ object ServiceLocator {
                 listOf(
                     FullHdFilmizleseneProvider(providerHttpClient),
                     FilmMakinesiProvider(providerHttpClient),
-                    HdFilmCehennemiProvider(providerHttpClient),
                     SinemaCxProvider(providerHttpClient),
                     JetFilmizleProvider(providerHttpClient),
                     DiziBoxProvider(providerHttpClient),

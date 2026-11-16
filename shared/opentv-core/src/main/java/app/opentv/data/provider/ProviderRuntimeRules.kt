@@ -28,7 +28,7 @@ object ProviderRuntimeRules {
     @Volatile private var current = RemoteRuleSet()
 
     val supportedIds = setOf(
-        "fullhdfilmizlesene", "filmmakinesi", "hdfilmcehennemi",
+        "fullhdfilmizlesene", "filmmakinesi",
         "sinemacx", "jetfilmizle", "ddizibox",
         "dramadizilerim", "dizimom",
     )
@@ -37,7 +37,6 @@ object ProviderRuntimeRules {
     val defaultDomains = mapOf(
         "fullhdfilmizlesene" to "www.fullhdfilmizlesene.now",
         "filmmakinesi" to "filmmakinesi.co",
-        "hdfilmcehennemi" to "www.hdfilmcehennemi.nl",
         "sinemacx" to "sinemacc.com",
         "jetfilmizle" to "jetfilmizle.app",
         "ddizibox" to "ddizibox.com",

@@ -29,7 +29,6 @@ use the mobile touch UI. All devices share one provider/data implementation.
 
 ## Verified
 - `:app:compileDebugKotlin` and `:app:assembleDebug` successful.
-- 85 TV app unit tests passed; focused HDFilmCehennemi provider tests passed (12).
 - Samsung S25 Ultra: one APK installed as separate `app.opentv.debug` app;
   MobileMainScreen, dark/red theme, five bottom tabs, catalog/film browsing shown.
 - Existing `app.opentvmobile.debug` remains installed (no overwrite).

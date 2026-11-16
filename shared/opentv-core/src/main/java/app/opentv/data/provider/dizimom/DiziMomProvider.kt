@@ -49,15 +49,13 @@ class DiziMomProvider(
         "series" to Section("Tüm Diziler", "/diziler", showOnHome = true),
         "popular" to Section("Popüler Diziler", "/trend", showOnHome = true),
         "episodes" to Section("Son Eklenen Bölümler", "/tum-bolumler", showOnHome = true),
-        "aksiyon" to Section("Aksiyon", "/tur/aksiyon", showOnHome = false),
-        "animasyon" to Section("Animasyon", "/tur/animasyon", showOnHome = false),
-        "bilim-kurgu" to Section("Bilim Kurgu", "/tur/bilim-kurgu", showOnHome = false),
-        "komedi" to Section("Komedi", "/tur/komedi", showOnHome = false),
-        "korku" to Section("Korku", "/tur/korku", showOnHome = false),
-        "dram" to Section("Dram", "/tur/dram", showOnHome = false),
-        "gerilim" to Section("Gerilim", "/tur/gerilim", showOnHome = false),
-        "suc" to Section("Suç", "/tur/suc", showOnHome = false),
-        "romantik" to Section("Romantik", "/tur/romantik", showOnHome = false),
+        "aksiyon" to Section("Aksiyon", "/diziler?tur=aksiyon", showOnHome = false),
+        "animasyon" to Section("Animasyon", "/diziler?tur=animasyon", showOnHome = false),
+        "bilim-kurgu" to Section("Bilim Kurgu", "/diziler?tur=bilim-kurgu", showOnHome = false),
+        "komedi" to Section("Komedi", "/diziler?tur=komedi", showOnHome = false),
+        "dram" to Section("Dram", "/diziler?tur=dram", showOnHome = false),
+        "suc" to Section("Suç", "/diziler?tur=suc", showOnHome = false),
+        "romantik" to Section("Romantik", "/diziler?tur=romantik", showOnHome = false),
     )
 
     override val catalogSections: List<ProviderCatalogSection>

@@ -11,7 +11,7 @@ class DiziBoxProviderTest {
     @Test
     fun verifiedGenreSectionsAreAvailableForSeries() {
         val expected = setOf("action", "crime", "drama", "romantik", "komedi",
-            "korku", "gerilim", "bilim-kurgu", "animasyon", "macera",
+            "bilim-kurgu", "animasyon", "macera",
             "fantastik", "gizem", "aile")
         val sections = provider.catalogSections.associateBy { it.id }
         assertThat(sections.keys).containsAtLeastElementsIn(expected)

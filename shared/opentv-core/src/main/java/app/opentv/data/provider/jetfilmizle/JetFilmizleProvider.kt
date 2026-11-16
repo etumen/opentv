@@ -208,83 +208,236 @@ class JetFilmizleProvider(
         val streams = mutableListOf<ProviderStream>()
 
         if (!filmId.isNullOrBlank()) {
-            val buttons = doc.select("button.player-source-btn")
-            val sourceIndex = buttons.firstOrNull()?.attr("data-source-index") ?: "0"
-            val playerType = buttons.firstOrNull()?.attr("data-player-type") ?: "dublaj"
+            val sourceButtons = doc.select("button.player-source-btn")
+                .mapNotNull { button ->
+                    val sourceIndex = button.attr("data-source-index").trim().takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+                    val playerType = button.attr("data-player-type").trim().ifBlank { "dublaj" }
+                    sourceIndex to playerType
+                }
+                .distinct()
+                .ifEmpty { listOf("0" to "dublaj") }
 
-            val formBody = FormBody.Builder()
-                .add("film_id", filmId)
-                .add("source_index", sourceIndex)
-                .add("player_type", playerType)
-                .build()
+            for ((sourceIndex, playerType) in sourceButtons) {
+                try {
+                    val formBody = FormBody.Builder()
+                        .add("film_id", filmId)
+                        .add("source_index", sourceIndex)
+                        .add("player_type", playerType)
+                        .build()
 
-            val jetPlayerReq = Request.Builder()
-                .url(absolute("/jetplayer"))
-                .post(formBody)
-                .header("User-Agent", USER_AGENT)
-                .header("Referer", movieUrl)
-                .header("X-Requested-With", "XMLHttpRequest")
-                .build()
+                    val jetPlayerReq = Request.Builder()
+                        .url(absolute("/jetplayer"))
+                        .post(formBody)
+                        .header("User-Agent", USER_AGENT)
+                        .header("Referer", movieUrl)
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .build()
 
-            val playerHtml = executeHttp(jetPlayerReq)
-            val iframeSrc = Jsoup.parse(playerHtml).selectFirst("iframe")?.attr("src")?.trim()
-                ?: Regex("""<iframe[^>]+src=["']([^"']+)["']""").find(playerHtml)?.groupValues?.get(1)
+                    val playerHtml = executeHttp(jetPlayerReq)
+                    val rawIframeSrc = Jsoup.parse(playerHtml).selectFirst("iframe")?.attr("src")?.trim()
+                        ?: Regex("""<iframe[^>]+src=["']([^"']+)["']""").find(playerHtml)?.groupValues?.get(1)
+                    val iframeSrc = normalizeEmbedUrl(rawIframeSrc)
 
-            if (!iframeSrc.isNullOrBlank() && iframeSrc.contains("playerx.info")) {
-                val playerxReq = Request.Builder()
-                    .url(iframeSrc)
-                    .header("User-Agent", USER_AGENT)
-                    .header("Referer", activeDomain + "/")
-                    .build()
-
-                val playerxHtml = executeHttp(playerxReq)
-                val playbackJson = Regex("""initialPlayback\s*=\s*(\{.*?\});""", RegexOption.DOT_MATCHES_ALL).find(playerxHtml)?.groupValues?.get(1)
-                if (playbackJson != null) {
-                    val root = json.parseToJsonElement(playbackJson).jsonObject
-                    val sources = root["item"]?.jsonObject?.get("sources")?.jsonArray
-                    val filePath = sources?.firstOrNull()?.jsonObject?.get("file")?.jsonPrimitive?.content
-
-                    if (!filePath.isNullOrBlank()) {
-                        val streamUrl = if (filePath.startsWith("http")) filePath else "https://playerx.info/$filePath"
-                        streams.add(
-                            ProviderStream(
-                                providerId = id,
-                                url = streamUrl,
-                                label = "JetFilmizle 1080p",
-                                quality = "1080p",
-                                mimeType = "application/vnd.apple.mpegurl",
-                                headers = mapOf(
-                                    "Referer" to "https://playerx.info/",
-                                    "User-Agent" to USER_AGENT,
-                                ),
-                            ),
-                        )
+                    val resolved = when {
+                        iframeSrc.isNullOrBlank() -> emptyList()
+                        iframeSrc.contains("videopark.top", ignoreCase = true) -> resolveVideoPark(iframeSrc, playerType)
+                        iframeSrc.contains("playerx.info", ignoreCase = true) -> resolvePlayerX(iframeSrc, playerType)
+                        else -> emptyList()
                     }
+
+                    if (resolved.isNotEmpty()) {
+                        streams += resolved
+                        val resolvedHost = runCatching { java.net.URI(iframeSrc).host }.getOrNull()
+                        Log.d(TAG, "resolved source index=$sourceIndex type=$playerType host=$resolvedHost")
+                        break
+                    }
+
+                    Log.w(TAG, "source index=$sourceIndex type=$playerType produced no playable stream")
+                } catch (ce: CancellationException) {
+                    throw ce
+                } catch (e: Exception) {
+                    Log.w(TAG, "source index=$sourceIndex type=$playerType failed: " + e.message)
                 }
             }
         }
 
-        // Fallback: check direct iframe in page
         if (streams.isEmpty()) {
             val directIframe = doc.selectFirst("iframe[src*='player'], iframe[data-src*='player']")?.let {
                 it.attr("data-src").ifBlank { it.attr("src") }.trim()
             }
-            if (!directIframe.isNullOrBlank()) {
-                streams.add(
-                    ProviderStream(
-                        providerId = id,
-                        url = directIframe,
-                        label = "JetFilmizle Stream",
-                        headers = mapOf(
-                            "Referer" to movieUrl,
-                            "User-Agent" to USER_AGENT,
-                        ),
-                    ),
-                )
+            val normalized = normalizeEmbedUrl(directIframe)
+            if (!normalized.isNullOrBlank()) {
+                streams += when {
+                    normalized.contains("videopark.top", ignoreCase = true) -> resolveVideoPark(normalized, "dublaj")
+                    normalized.contains("playerx.info", ignoreCase = true) -> resolvePlayerX(normalized, "dublaj")
+                    else -> emptyList()
+                }
             }
         }
 
-        return streams
+        return streams.distinctBy { it.url }
+    }
+
+    private suspend fun resolvePlayerX(iframeSrc: String, playerType: String): List<ProviderStream> {
+        val playerxReq = Request.Builder()
+            .url(iframeSrc)
+            .header("User-Agent", USER_AGENT)
+            .header("Referer", activeDomain + "/")
+            .build()
+
+        val playerxHtml = executeHttp(playerxReq)
+        val playbackJson = Regex(
+            """initialPlayback\s*=\s*(\{.*?\});""",
+            RegexOption.DOT_MATCHES_ALL,
+        ).find(playerxHtml)?.groupValues?.get(1) ?: return emptyList()
+
+        val root = json.parseToJsonElement(playbackJson).jsonObject
+        val sources = root["item"]?.jsonObject?.get("sources")?.jsonArray ?: return emptyList()
+        val filePath = sources.firstOrNull()?.jsonObject?.get("file")?.jsonPrimitive?.content
+            ?.takeIf { it.isNotBlank() } ?: return emptyList()
+        val streamUrl = if (filePath.startsWith("http")) filePath else "https://playerx.info/$filePath"
+
+        return listOf(
+            ProviderStream(
+                providerId = id,
+                url = streamUrl,
+                label = sourceLabel(playerType, "1080p"),
+                quality = "1080p",
+                mimeType = "application/vnd.apple.mpegurl",
+                headers = mapOf(
+                    "Referer" to "https://playerx.info/",
+                    "User-Agent" to USER_AGENT,
+                ),
+            ),
+        )
+    }
+
+    private suspend fun resolveVideoPark(iframeSrc: String, playerType: String): List<ProviderStream> {
+        val videoId = Regex("""[?&]id=([^&#]+)""").find(iframeSrc)?.groupValues?.get(1)
+            ?.takeIf { it.isNotBlank() } ?: return emptyList()
+        val lower = iframeSrc.lowercase()
+
+        return when {
+            "/vip/" in lower -> resolveVideoParkVip(videoId, iframeSrc, playerType)
+            "/apollo/" in lower -> resolveVideoParkApollo(videoId, iframeSrc, playerType)
+            "/go/" in lower -> listOf(
+                ProviderStream(
+                    providerId = id,
+                    url = "$VIDEOPARK_GO_WORKER/v/$videoId",
+                    label = sourceLabel(playerType, "MP4"),
+                    mimeType = "video/mp4",
+                    headers = mapOf(
+                        "Referer" to iframeSrc,
+                        "User-Agent" to USER_AGENT,
+                    ),
+                ),
+            )
+            else -> emptyList()
+        }
+    }
+
+    private suspend fun resolveVideoParkVip(
+        videoId: String,
+        iframeSrc: String,
+        playerType: String,
+    ): List<ProviderStream> {
+        val apiUrl = "$VIDEOPARK_VIP_API?id=" + URLEncoder.encode(videoId, "UTF-8")
+        val body = executeHttp(
+            Request.Builder()
+                .url(apiUrl)
+                .header("User-Agent", USER_AGENT)
+                .header("Referer", iframeSrc)
+                .build(),
+        )
+        val root = json.parseToJsonElement(body).jsonObject
+        val result = mutableListOf<ProviderStream>()
+
+        root["hlsSource"]?.jsonObject?.get("file")?.jsonPrimitive?.content
+            ?.takeIf { it.isNotBlank() }
+            ?.let { url ->
+                result += ProviderStream(
+                    providerId = id,
+                    url = url,
+                    label = sourceLabel(playerType, "HLS"),
+                    quality = "Auto",
+                    mimeType = "application/vnd.apple.mpegurl",
+                    headers = mapOf(
+                        "Referer" to iframeSrc,
+                        "User-Agent" to USER_AGENT,
+                    ),
+                )
+            }
+
+        root["mp4Sources"]?.jsonArray?.forEach { element ->
+            val obj = element.jsonObject
+            val url = obj["file"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() } ?: return@forEach
+            val quality = obj["label"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
+            result += ProviderStream(
+                providerId = id,
+                url = url,
+                label = sourceLabel(playerType, quality ?: "MP4"),
+                quality = quality,
+                mimeType = "video/mp4",
+                headers = mapOf(
+                    "Referer" to iframeSrc,
+                    "User-Agent" to USER_AGENT,
+                ),
+            )
+        }
+
+        return result.distinctBy { it.url }
+    }
+
+    private suspend fun resolveVideoParkApollo(
+        videoId: String,
+        iframeSrc: String,
+        playerType: String,
+    ): List<ProviderStream> {
+        val body = executeHttp(
+            Request.Builder()
+                .url("https://videopark.top/apollo/get_video.php")
+                .post(FormBody.Builder().add("id", videoId).build())
+                .header("User-Agent", USER_AGENT)
+                .header("Referer", iframeSrc)
+                .header("X-Requested-With", "XMLHttpRequest")
+                .build(),
+        )
+        val root = json.parseToJsonElement(body.removePrefix("\uFEFF")).jsonObject
+        val hls = root["hlsUrl"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() } ?: return emptyList()
+        val streamUrl = if (hls.startsWith("http")) hls else "https://videopark.top/apollo/" + hls.trimStart('/')
+
+        return listOf(
+            ProviderStream(
+                providerId = id,
+                url = streamUrl,
+                label = sourceLabel(playerType, "HLS"),
+                quality = "Auto",
+                mimeType = "application/vnd.apple.mpegurl",
+                headers = mapOf(
+                    "Referer" to iframeSrc,
+                    "User-Agent" to USER_AGENT,
+                ),
+            ),
+        )
+    }
+
+    private fun normalizeEmbedUrl(raw: String?): String? {
+        val value = raw?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return when {
+            value.startsWith("//") -> "https:$value"
+            value.startsWith("/") -> absolute(value)
+            else -> value
+        }
+    }
+
+    private fun sourceLabel(playerType: String, suffix: String): String {
+        val language = when (playerType.lowercase()) {
+            "dublaj" -> "Türkçe Dublaj"
+            "altyazili", "altyazi" -> "Türkçe Altyazı"
+            else -> "Film"
+        }
+        return "$language $suffix"
     }
 
     internal fun parseCards(doc: Document): List<ProviderItem> {
@@ -411,6 +564,8 @@ class JetFilmizleProvider(
         const val PROVIDER_ID = "jetfilmizle"
         private const val TAG = "JetFilmizleProvider"
         private const val MAIN_URL = "https://jetfilmizle.app"
+        private const val VIDEOPARK_VIP_API = "https://dplayer.erikkalinina1994.workers.dev/api/video"
+        private const val VIDEOPARK_GO_WORKER = "https://godrive.erikkalinina1994.workers.dev"
         private const val USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }

@@ -77,6 +77,7 @@ import app.opentv.data.provider.ProviderResult
 import app.opentv.data.provider.ProviderStream
 import app.opentv.data.provider.ProviderSubtitle
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 @Composable
 internal fun UnifiedMoviePosterRow(
@@ -233,6 +234,8 @@ fun CloudMovieDetailScreen(
     }.joinToString("  ·  ")
 
     val isTouch = LocalLayoutClass.current.isTouch
+    val currentYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
+    val isUpcoming = item.year?.let { it > currentYear } == true
     val moviePlayButton: @Composable () -> Unit = {
         DetailButton(
             icon = Icons.Filled.PlayArrow,
@@ -305,7 +308,16 @@ fun CloudMovieDetailScreen(
                         label = stringResource(R.string.common_back),
                         onClick = onBack,
                     )
-                    moviePlayButton()
+                    if (isUpcoming) {
+                        DetailButton(
+                            icon = Icons.Filled.PlayArrow,
+                            label = stringResource(R.string.vod_coming_soon),
+                            enabled = false,
+                            onClick = {},
+                        )
+                    } else {
+                        moviePlayButton()
+                    }
                 }
             }
         }
@@ -322,8 +334,17 @@ fun CloudMovieDetailScreen(
                         label = stringResource(R.string.common_back),
                         onClick = onBack,
                     )
-                    moviePlayButton()
-                    movieDownloadButton()
+                    if (isUpcoming) {
+                        DetailButton(
+                            icon = Icons.Filled.PlayArrow,
+                            label = stringResource(R.string.vod_coming_soon),
+                            enabled = false,
+                            onClick = {},
+                        )
+                    } else {
+                        moviePlayButton()
+                        movieDownloadButton()
+                    }
                 }
             }
         }

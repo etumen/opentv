@@ -543,15 +543,18 @@ internal fun DetailButton(
     label: String,
     modifier: Modifier = Modifier,
     primary: Boolean = false,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
     val container = when {
+        !enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
         focused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.92f)
         primary -> Color.White.copy(alpha = 0.96f)
         else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.96f)
     }
     val content = when {
+        !enabled -> Color.White.copy(alpha = 0.62f)
         focused -> Color.White
         primary -> Color.Black
         else -> Color.White
@@ -565,7 +568,7 @@ internal fun DetailButton(
                 if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
                 else Modifier,
             )
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

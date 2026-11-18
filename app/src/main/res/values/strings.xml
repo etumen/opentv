@@ -440,6 +440,7 @@
     <string name="vod_recently_added">Recently added</string>
     <string name="vod_categories">Categories</string>
     <string name="vod_watch_now">Watch now</string>
+    <string name="vod_coming_soon">Coming soon</string>
     <string name="vod_resume">Resume</string>
     <string name="vod_more_like_this">More like this</string>
     <string name="vod_synopsis">Synopsis</string>

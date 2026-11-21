@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.recording
@@ -24,7 +24,7 @@ import java.util.EnumSet
 data class SmbConfig(
     val host: String,
     val share: String,
-    /** Sub-folder within the share, e.g. `OpenTV`. Blank = the share root. */
+    /** Sub-folder within the share, e.g. `IxirTV`. Blank = the share root. */
     val folder: String,
     val username: String,
     val password: String,

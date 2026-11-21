@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.sync
@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Serves this device's watch-history bundle to another OpenTV on the same wifi.
+ * Serves this device's watch-history bundle to another IxirTV on the same wifi.
  *
  * Deliberately the same shape as [app.opentv.pairing.PairingServer]: no cloud, a short-lived
  * server on the LAN, gated by a six-digit code shown on screen, private-network only, and torn
@@ -161,7 +161,7 @@ class SyncServer(private val scope: CoroutineScope) {
     }
 
     private companion object {
-        const val TAG = "OpenTV"
+        const val TAG = "IxirTV"
         const val TIMEOUT_MINUTES = 5L
         const val SOCKET_TIMEOUT_MILLIS = 10_000
         const val MAX_ATTEMPTS = 5

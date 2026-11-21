@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.sync
@@ -15,7 +15,7 @@ import kotlinx.serialization.json.Json
 
 /**
  * Reads local state into a [SyncBundle] and applies a received one. The single place that knows
- * how OpenTV's tables map onto the portable, cross-device bundle, so the LAN server/client and the
+ * how IxirTV's tables map onto the portable, cross-device bundle, so the LAN server/client and the
  * NAS sync all agree on what travels and how it merges.
  *
  * Merge policy (see [SyncBundle]): watch positions are two-way newest-wins; curation (profiles,

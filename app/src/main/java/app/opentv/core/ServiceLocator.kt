@@ -18,12 +18,10 @@ import app.opentv.data.provider.ProviderRepository
 import app.opentv.data.provider.ProviderRuntimeRules
 import app.opentv.data.provider.RemoteListingAdapter
 import app.opentv.data.provider.ddizibox.DiziBoxProvider
-import app.opentv.data.provider.dizipal.DiziPalProvider
 import app.opentv.data.provider.dizimom.DiziMomProvider
 import app.opentv.data.provider.dramadizilerim.DramaDizilerimProvider
 import app.opentv.data.provider.filmmakinesi.FilmMakinesiProvider
 import app.opentv.data.provider.fullhd.FullHdFilmizleseneProvider
-import app.opentv.data.provider.hdfilmcehennemi.HdFilmCehennemiProvider
 import app.opentv.data.provider.jetfilmizle.JetFilmizleProvider
 import app.opentv.data.provider.sinemacx.SinemaCxProvider
 import app.opentv.data.remote.StalkerApi
@@ -134,10 +132,8 @@ object ServiceLocator {
                 listOf(
                     FullHdFilmizleseneProvider(providerHttpClient),
                     FilmMakinesiProvider(providerHttpClient),
-                    HdFilmCehennemiProvider(providerHttpClient),
                     SinemaCxProvider(providerHttpClient),
                     JetFilmizleProvider(providerHttpClient),
-                    DiziPalProvider(appContext, providerHttpClient),
                     DiziBoxProvider(providerHttpClient),
                     DramaDizilerimProvider(providerHttpClient),
                     DiziMomProvider(providerHttpClient),
@@ -200,6 +196,10 @@ object ServiceLocator {
                 api = xtreamApi,
                 http = httpClient,
             )
+        }
+
+        val downloadRepository: app.opentv.data.repo.DownloadRepository by lazy {
+            app.opentv.data.repo.DownloadRepository(appContext, database.downloads(), httpClient)
         }
 
         val playbackPositions get() = database.positions()

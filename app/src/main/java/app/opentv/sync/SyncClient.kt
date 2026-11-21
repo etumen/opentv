@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.sync
@@ -12,7 +12,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * Pulls a watch-history bundle from another OpenTV that is currently sharing on the LAN.
+ * Pulls a watch-history bundle from another IxirTV that is currently sharing on the LAN.
  *
  * Given the address the other device shows ("192.168.0.14:41234") and its six-digit code, this
  * does one plain HTTP GET over the local network and parses the JSON. No retries, no discovery —

@@ -24,7 +24,7 @@ internal data class UnifiedBrowseState(
     val categoryId: String? = null,
     val items: List<ProviderItem> = emptyList(),
     val hasMore: Boolean = false,
-    val loading: Boolean = false,
+    val loading: Boolean = true, // Initial first-frame provider fetch pending
     val loadingMore: Boolean = false,
     val batches: Int = 0,
     val errors: Map<String, String> = emptyMap(),
@@ -48,7 +48,7 @@ class UnifiedCatalogViewModel(app: Application) : AndroidViewModel(app) {
     private fun state(type: ProviderMediaType): MutableStateFlow<UnifiedBrowseState> =
         if (type == ProviderMediaType.MOVIE) _movies else _series
 
-    fun ensureLoaded(type: ProviderMediaType) {
+    fun ensureLoaded(type: ProviderMediaType, fetchInitialItems: Boolean = true) {
         if (type in sectionsByType || jobs[type]?.isActive == true) return
         val flow = state(type)
         flow.value = flow.value.copy(loading = true)
@@ -71,7 +71,9 @@ class UnifiedCatalogViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 sectionsByType[type] = sections
                 flow.value = flow.value.copy(categories = UnifiedCatalogRules.genres(sections))
-                resetAndFetch(type, null)
+                if (fetchInitialItems) {
+                    resetAndFetch(type, null)
+                }
             } finally {
                 flow.value = flow.value.copy(loading = false)
             }
@@ -147,16 +149,17 @@ class UnifiedCatalogViewModel(app: Application) : AndroidViewModel(app) {
         for ((cursor, page, result) in results) {
             val next = when (result) {
                 is ProviderResult.Success -> {
-                    incoming.addAll(result.value.items)
+                    val typedItems = result.value.items.filter { it.mediaType == type }
+                    incoming.addAll(typedItems)
                     val id = "${cursor.providerId}:${cursor.sectionId}"
                     val seen = seenIds.getOrPut(type) { mutableMapOf() }
                         .getOrPut(id) { mutableSetOf() }
-                    val fresh = result.value.items.count { seen.add(it.id) }
+                    val fresh = typedItems.count { seen.add(it.id) }
                     val repeats = repeatedPages.getOrPut(type) { mutableMapOf() }
                     repeats[id] = if (fresh == 0) (repeats[id] ?: 0) + 1 else 0
                     val safe = result.value.nextPage
                         ?.takeIf { it > page && (repeats[id] ?: 0) < 2 }
-                    Log.d("UnifiedCatalog", "type=$type provider=${cursor.providerId} section=${cursor.sectionId} page=$page fetched=${result.value.items.size} unique=$fresh next=$safe")
+                    Log.d("UnifiedCatalog", "type=$type provider=${cursor.providerId} section=${cursor.sectionId} page=$page fetched=${typedItems.size} unique=$fresh next=$safe")
                     safe
                 }
                 is ProviderResult.Failure -> {

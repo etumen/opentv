@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.vod
@@ -59,10 +59,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.data.model.Download
+import app.opentv.ui.downloads.KIND_EPISODE
+import app.opentv.ui.downloads.ProviderDownloadAction
+import app.opentv.ui.LocalLayoutClass
 import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.catalog.CanonicalEpisode
 import app.opentv.data.catalog.UnifiedSeriesDetails
@@ -79,27 +84,34 @@ internal fun CloudSeriesTvControls(
     providers: List<CloudSeriesProvider>,
     selectedProviderId: String?,
     selectedSectionId: String?,
+    onSelectAll: () -> Unit,
     onSelectProvider: (String) -> Unit,
     onSelectSection: (String?) -> Unit,
 ) {
     if (providers.isEmpty()) return
     val selectedProvider = providers.firstOrNull { it.id == selectedProviderId }
-        ?: providers.first()
 
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        item(key = "provider:all") {
+            FilterChip(
+                selected = selectedProvider == null,
+                onClick = onSelectAll,
+                label = { Text("Tümü") },
+            )
+        }
         items(providers, key = { "provider:" + it.id }) { provider ->
             FilterChip(
-                selected = provider.id == selectedProvider.id,
+                selected = provider.id == selectedProvider?.id,
                 onClick = { onSelectProvider(provider.id) },
                 label = { Text(provider.name) },
             )
         }
     }
 
-    LazyRow(
+    if (selectedProvider != null) LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -129,6 +141,7 @@ internal fun CloudSeriesTvControls(
 @Composable
 internal fun CloudSeriesPosterRow(
     shelf: CloudSeriesShelf,
+    horizontalPadding: Dp = 24.dp,
     onOpenSeries: (ProviderItem) -> Unit,
     onLoadMore: () -> Unit,
 ) {
@@ -143,10 +156,10 @@ internal fun CloudSeriesPosterRow(
     }
 
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(shelf.section.title)
+        SectionHeader(shelf.section.title, horizontalPadding)
         LazyRow(
             state = rowState,
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(shelf.items, key = { shelf.providerId + ":" + it.id }) { item ->
@@ -177,6 +190,7 @@ internal fun CloudSeriesPosterRow(
 internal fun UnifiedSeriesPosterRow(
     items: List<CanonicalContent>,
     title: String? = null,
+    horizontalPadding: Dp = 24.dp,
     hasMore: Boolean,
     loadingMore: Boolean,
     onOpenSeries: (CanonicalContent) -> Unit,
@@ -194,10 +208,10 @@ internal fun UnifiedSeriesPosterRow(
     }
 
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(title ?: stringResource(R.string.nav_shows))
+        SectionHeader(title ?: stringResource(R.string.nav_shows), horizontalPadding)
         LazyRow(
             state = rowState,
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(items, key = { "unified:" + it.id }) { item ->
@@ -211,6 +225,10 @@ internal fun UnifiedSeriesPosterRow(
                 PosterCard(
                     title = item.title,
                     posterUrl = item.posterUrl,
+                    fallbackPosterUrls =
+                        item.sources.mapNotNull { it.posterUrl } +
+                            listOfNotNull(item.backdropUrl) +
+                            item.sources.mapNotNull { it.backdropUrl },
                     providerId = providerId,
                     subtitle = subtitle,
                     rating = item.rating,
@@ -234,6 +252,7 @@ internal fun UnifiedSeriesPosterRow(
 @Composable
 internal fun CloudSeriesCategoryGrid(
     items: List<ProviderItem>,
+    horizontalPadding: Dp = 12.dp,
     hasNextPage: Boolean,
     loading: Boolean,
     loadingMore: Boolean,
@@ -269,7 +288,7 @@ internal fun CloudSeriesCategoryGrid(
         columns = GridCells.Adaptive(minSize = 112.dp),
         state = gridState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -327,11 +346,6 @@ fun CloudSeriesDetailScreen(
     val playbackFailedMessage = stringResource(R.string.vod_playback_failed)
 
     BackHandler { onBack() }
-
-    if (providerId == "dizipal" || unified?.content?.sources?.any { it.providerId == "dizipal" } == true) {
-        DiziPalSessionAnchor()
-    }
-
     LaunchedEffect(providerId, itemId) {
         when (val result = viewModel.unifiedDetails(providerId, itemId)) {
             is ProviderResult.Success -> {
@@ -387,6 +401,7 @@ fun CloudSeriesDetailScreen(
         }
     }
     val activeSeason = selectedSeason ?: seasons.keys.firstOrNull()
+    val isTouch = LocalLayoutClass.current.isTouch
     val firstEpisode = seasons.values.firstOrNull()?.firstOrNull()
     val playEpisode: (CanonicalEpisode) -> Unit = { episode ->
         if (resolvingEpisodeId == null) {
@@ -448,7 +463,8 @@ fun CloudSeriesDetailScreen(
                 plot = displayDetails.description,
                 cast = displayDetails.cast.joinToString(", ").takeIf { it.isNotBlank() },
                 director = displayDetails.director,
-                genre = displayItem.genres.joinToString(", ").takeIf { it.isNotBlank() },
+                genre = displayItem.genres.map(UnifiedCatalogRules::sourceClaimLabel)
+                    .joinToString(", ").takeIf { it.isNotBlank() },
                 onOpenPerson = {},
             )
         }
@@ -472,7 +488,11 @@ fun CloudSeriesDetailScreen(
                 )
             }
             item(key = "episodes:" + activeSeason) {
-                SectionHeader(stringResource(R.string.vod_episodes))
+                val episodeCount = seasons[activeSeason].orEmpty().size
+                SectionHeader(
+                    if (isTouch) "${stringResource(R.string.vod_episodes)} ($episodeCount) →"
+                    else stringResource(R.string.vod_episodes),
+                )
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
@@ -485,6 +505,36 @@ fun CloudSeriesDetailScreen(
                             episode = episode,
                             resolving = resolvingEpisodeId == episode.id,
                             onClick = { playEpisode(episode) },
+                            downloadControl = {
+                                if (isTouch) {
+                                    ProviderDownloadAction(
+                                        mediaKey = "cloud-ep:$providerId:${episode.id.hashCode()}",
+                                        compact = true,
+                                        resolveStreams = {
+                                            when (val result = viewModel.episodePlayback(episode)) {
+                                                is ProviderResult.Success -> ProviderResult.Success(result.value.streams)
+                                                is ProviderResult.Failure -> result
+                                            }
+                                        },
+                                        buildDownload = { stream ->
+                                            Download(
+                                                mediaKey = "cloud-ep:$providerId:${episode.id.hashCode()}",
+                                                kind = KIND_EPISODE,
+                                                title = "S${episode.season} B${episode.episodeNumber} · ${episode.title}",
+                                                posterUrl = episode.stillUrl ?: displayItem.posterUrl,
+                                                tag = stream.label,
+                                                seriesTitle = displayItem.title,
+                                                season = episode.season,
+                                                episode = episode.episodeNumber,
+                                                sourceUrl = stream.url,
+                                                systemId = 0,
+                                                createdMillis = 0,
+                                                requestHeaders = stream.headers.takeIf { it.isNotEmpty() },
+                                            )
+                                        },
+                                    )
+                                }
+                            },
                         )
                     }
                 }
@@ -570,6 +620,7 @@ private fun CloudEpisodeCard(
     episode: CanonicalEpisode,
     resolving: Boolean,
     onClick: () -> Unit,
+    downloadControl: @Composable () -> Unit = {},
 ) {
     var focused by remember(episode.id) { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -577,6 +628,7 @@ private fun CloudEpisodeCard(
         label = "episodeCardScale",
     )
     val shape = RoundedCornerShape(14.dp)
+    val isTouch = LocalLayoutClass.current.isTouch
     val episodeMeta = buildList {
         add("S" + episode.season + " · B" + episode.episodeNumber)
         if (episode.sources.size > 1) {
@@ -586,8 +638,9 @@ private fun CloudEpisodeCard(
 
     Box(
         Modifier
-            .width(360.dp)
-            .height(203.dp)
+            // Reveal the next episode on phones; preserve TV card dimensions.
+            .width(if (isTouch) 245.dp else 360.dp)
+            .height(if (isTouch) 138.dp else 203.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .onFocusChanged { focused = it.isFocused }
             .clip(shape)
@@ -642,6 +695,9 @@ private fun CloudEpisodeCard(
                 ),
         )
 
+        if (isTouch) {
+            Box(Modifier.align(Alignment.TopEnd)) { downloadControl() }
+        }
         if (resolving) {
             CircularProgressIndicator(
                 modifier = Modifier

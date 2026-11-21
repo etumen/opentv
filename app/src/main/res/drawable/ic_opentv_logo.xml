@@ -1,23 +1,21 @@
-<!--
-  ~ This file is part of OpenTV.
-  ~ Copyright (C) 2026 The OpenTV Contributors
-  ~ Licensed under the GNU General Public License v3.0 or later.
-  -->
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp"
     android:height="48dp"
     android:viewportWidth="48"
     android:viewportHeight="48">
-    <!-- The screen: a rounded panel in the brand blue. -->
     <path
-        android:fillColor="#5B8DEF"
-        android:pathData="M9,7 L39,7 A7,7 0 0 1 46,14 L46,34 A7,7 0 0 1 39,41 L9,41 A7,7 0 0 1 2,34 L2,14 A7,7 0 0 1 9,7 Z" />
-    <!-- The play mark, so it reads as a player at a glance. -->
+        android:fillColor="#E50914"
+        android:pathData="M11,5 C8.5,4 7,6 7,9 L7,39 C7,42 9.5,44 12,42 L42,27 C45,25.5 45,22.5 42,21 Z" />
+    <path
+        android:fillColor="#07080C"
+        android:pathData="M15,14 L15,34 L34,24 Z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M19,16 L34,24 L19,32 Z" />
-    <!-- A little stand foot, so the panel reads as a TV. -->
+        android:pathData="M18,17 H21 V31 H18 Z" />
     <path
-        android:fillColor="#5B8DEF"
-        android:pathData="M17,43 L31,43 L31,45.5 L17,45.5 Z" />
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:pathData="M24,18 L31,30 M31,18 L24,30" />
 </vector>

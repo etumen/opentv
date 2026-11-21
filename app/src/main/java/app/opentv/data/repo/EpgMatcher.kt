@@ -6,96 +6,109 @@
 package app.opentv.data.repo
 
 import app.opentv.data.parser.ChannelNameNormalizer
+import kotlin.math.abs
 
 /**
  * Joins provider channels to guide channels when nobody gave us a join key.
  *
- * The provider says `UK| BBC ONE FHD`. The guide says `BBC One` (id `bbc1.uk`). The only
- * bridge between them is the name, so both sides are pushed through
- * [ChannelNameNormalizer.groupKeyOf] and matched on the result.
+ * The provider says `UK| BBC ONE FHD`. The guide says `BBC One` (id `bbc1.uk`). Both sides
+ * are normalised through [ChannelNameNormalizer].
  *
- * ## The design rule: prefer no match to a wrong match
- *
- * A missing guide entry reads as "provider doesn't do EPG" and can be fixed with a manual
- * override. A *wrong* one shows EastEnders against a sports channel, and the user reasonably
- * concludes the whole guide is broken. So the fuzzy tier only accepts a prefix match when it
- * is **unambiguous** — exactly one guide channel fits. `bbcone` will claim `BBC One` when
- * that is the only candidate, but if the guide carries `BBC One London` *and* `BBC One
- * Wales` and nothing plain, we refuse to guess between regions.
+ * The design rule remains conservative: prefer no match to a wrong match. Exact-name collisions
+ * are resolved only when programme availability and/or quality metadata leave one defensible
+ * candidate. Otherwise the matcher returns null.
  */
 object EpgMatcher {
 
-    /** One guide channel, pre-normalised. */
     data class Alias(
         val epgId: String,
-        /** Normalised display-name or id: `bbcone`, `bbc1uk`. */
         val key: String,
+        val qualityRank: Int,
+        val populated: Boolean,
     )
 
     class Index internal constructor(
-        private val exact: Map<String, String>,
+        private val exact: Map<String, List<Alias>>,
         private val sortedKeys: List<Alias>,
+        private val hasPopulationInfo: Boolean,
     ) {
-        /** Returns the epg id for a provider channel's group key, or null. */
-        fun match(groupKey: String): String? {
+        fun match(groupKey: String, providerQualityRank: Int = 0): String? {
             if (groupKey.length < MIN_KEY_LENGTH) return null
 
-            exact[groupKey]?.let { return it }
-
-            // Prefix tier: the provider name extends the guide name or vice versa
-            // ("skysportsmainevent" vs "skysportsmainevt"; "bbcone" vs "bbconelondon").
-            // Only accepted when every candidate agrees on a single epg id.
-            var found: String? = null
-            for (alias in sortedKeys) {
-                val hit = (alias.key.length >= MIN_KEY_LENGTH) &&
-                    (alias.key.startsWith(groupKey) || groupKey.startsWith(alias.key))
-                if (!hit) continue
-                if (found == null) {
-                    found = alias.epgId
-                } else if (found != alias.epgId) {
-                    return null // ambiguous — refuse to guess
-                }
+            exact[groupKey]?.let { candidates ->
+                resolveCandidates(candidates, providerQualityRank)?.let { return it }
             }
-            return found
+
+            // Prefix matching stays deliberately strict. First collapse duplicate aliases for the
+            // same EPG id, then accept only when every surviving candidate agrees on one id.
+            val hits = sortedKeys.filter { alias ->
+                alias.key.length >= MIN_KEY_LENGTH &&
+                    (alias.key.startsWith(groupKey) || groupKey.startsWith(alias.key))
+            }
+            if (hits.isEmpty()) return null
+
+            val usable = preferPopulated(hits)
+            val ids = usable.map { it.epgId }.distinct()
+            return ids.singleOrNull()
+        }
+
+        private fun resolveCandidates(candidates: List<Alias>, providerQualityRank: Int): String? {
+            val usable = preferPopulated(candidates)
+            val byId = usable.distinctBy { it.epgId }
+            if (byId.size == 1) return byId.single().epgId
+
+            // HD/SD duplicates in some XMLTV feeds intentionally share the same normalised name.
+            // Prefer the alias whose advertised quality is closest to the provider stream.
+            val bestDistance = byId.minOfOrNull { abs(it.qualityRank - providerQualityRank) }
+                ?: return null
+            val best = byId.filter { abs(it.qualityRank - providerQualityRank) == bestDistance }
+            return best.map { it.epgId }.distinct().singleOrNull()
+        }
+
+        private fun preferPopulated(candidates: List<Alias>): List<Alias> {
+            if (!hasPopulationInfo) return candidates
+            val populated = candidates.filter { it.populated }
+            return if (populated.isNotEmpty()) populated else candidates
         }
     }
 
     /**
-     * Builds the lookup from every `<channel>` element seen across every enabled guide.
+     * Builds the lookup from every <channel> alias seen across enabled guides.
      *
-     * Both the display-name (`BBC One`) and the raw id (`bbc1.uk`) are indexed — providers
-     * that *do* fill in `epg_channel_id` often use the id form, and it costs nothing to
-     * accept either.
+     * [populatedIds] should contain EPG ids that actually have programme rows. When supplied, a
+     * dead duplicate alias can never beat a working one. Passing null preserves the historical
+     * conservative behaviour used by callers/tests that do not know programme availability.
      */
-    fun buildIndex(aliases: Iterable<Pair<String, String>>): Index {
-        val exact = HashMap<String, String>()
-        val ambiguous = HashSet<String>()
+    fun buildIndex(
+        aliases: Iterable<Pair<String, String>>,
+        populatedIds: Set<String>? = null,
+    ): Index {
+        val exact = LinkedHashMap<String, MutableList<Alias>>()
         val all = ArrayList<Alias>()
 
         for ((epgId, name) in aliases) {
             for (candidate in listOf(name, epgId)) {
-                // Full normalise, not bare groupKeyOf: free guides append 'HD' to display
-                // names ('BBC One East HD'), which would otherwise never key-match a
-                // provider's 'BBC ONE EAST'. normalize() strips the quality token.
-                val key = ChannelNameNormalizer.normalize(candidate).groupKey
+                val normalized = ChannelNameNormalizer.normalize(candidate)
+                val key = normalized.groupKey
                 if (key.length < MIN_KEY_LENGTH) continue
-                all += Alias(epgId, key)
-                val existing = exact.putIfAbsent(key, epgId)
-                if (existing != null && existing != epgId) {
-                    // Two different guide channels normalise to the same key. Neither can
-                    // be trusted for exact matching; drop the key rather than pick a side.
-                    ambiguous += key
-                }
+
+                val alias = Alias(
+                    epgId = epgId,
+                    key = key,
+                    qualityRank = normalized.qualityRank,
+                    populated = populatedIds?.contains(epgId) == true,
+                )
+                all += alias
+                exact.getOrPut(key) { ArrayList() }.add(alias)
             }
         }
-        ambiguous.forEach(exact::remove)
 
-        return Index(exact, all)
+        return Index(
+            exact = exact,
+            sortedKeys = all,
+            hasPopulationInfo = populatedIds != null,
+        )
     }
 
-    /**
-     * Below this, keys are too generic to mean anything — `e4` is real, but `tv`, `hd` and
-     * single letters match everything. 2 keeps `e4`/`5usa`-style names alive.
-     */
     private const val MIN_KEY_LENGTH = 2
 }

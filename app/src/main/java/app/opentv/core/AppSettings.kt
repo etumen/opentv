@@ -38,8 +38,15 @@ class AppSettings private constructor(context: Context) {
     private val _channelLayout = MutableStateFlow(readChannelLayout())
     val channelLayout: StateFlow<ChannelLayout> = _channelLayout.asStateFlow()
 
-    /** Whether embedded subtitles/closed captions are shown when a stream carries them. */
-    private val _subtitlesEnabled = MutableStateFlow(prefs.getBoolean(KEY_SUBTITLES, true))
+    /**
+     * Embedded subtitles are globally available on every target. Older installs may have stored
+     * this as false; migrate them to the new always-enabled policy when settings are created.
+     */
+    private val _subtitlesEnabled = MutableStateFlow(true).also {
+        if (!prefs.getBoolean(KEY_SUBTITLES, true)) {
+            prefs.edit().putBoolean(KEY_SUBTITLES, true).apply()
+        }
+    }
     val subtitlesEnabled: StateFlow<Boolean> = _subtitlesEnabled.asStateFlow()
 
     /** Whether the selected channel plays live inside the guide's preview pane. */
@@ -98,6 +105,34 @@ class AppSettings private constructor(context: Context) {
         _hiddenCategories.value = keys.toSet()
     }
 
+    /** Most recently watched Live channels, persisted across mobile launches. */
+    private val _recentChannels = MutableStateFlow(
+        prefs.getString(KEY_RECENT_CHANNELS, "").orEmpty()
+            .split(',').mapNotNull { it.toLongOrNull() },
+    )
+    val recentChannels: StateFlow<List<Long>> = _recentChannels.asStateFlow()
+
+    fun addRecentChannel(id: Long) {
+        val next = (listOf(id) + _recentChannels.value.filterNot { it == id }).take(20)
+        prefs.edit().putString(KEY_RECENT_CHANNELS, next.joinToString(",")).apply()
+        _recentChannels.value = next
+    }
+
+    /** Phone-only ordering. TV's existing curated ordering remains untouched. */
+    enum class ChannelSort { DEFAULT, NAME, NUMBER }
+
+    private val _channelSort = MutableStateFlow(
+        runCatching {
+            ChannelSort.valueOf(prefs.getString(KEY_CHANNEL_SORT, "") ?: "")
+        }.getOrDefault(ChannelSort.DEFAULT),
+    )
+    val channelSort: StateFlow<ChannelSort> = _channelSort.asStateFlow()
+
+    fun setChannelSort(value: ChannelSort) {
+        prefs.edit().putString(KEY_CHANNEL_SORT, value.name).apply()
+        _channelSort.value = value
+    }
+
     fun setHiddenUnlocked(unlocked: Boolean) {
         _hiddenUnlocked.value = unlocked
     }
@@ -119,8 +154,12 @@ class AppSettings private constructor(context: Context) {
     }
 
     fun setSubtitlesEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SUBTITLES, enabled).apply()
-        _subtitlesEnabled.value = enabled
+        // Global OpenTV policy: subtitle capability is never persistently disabled on a device.
+        // A player may still disable text for the current item only.
+        if (!enabled || !_subtitlesEnabled.value) {
+            prefs.edit().putBoolean(KEY_SUBTITLES, true).apply()
+            _subtitlesEnabled.value = true
+        }
     }
 
     fun setGuidePreviewVideo(enabled: Boolean) {
@@ -417,6 +456,8 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_PREVIEW_SOUND = "guide_preview_sound"
         private const val KEY_PIN_HASH = "parental_pin_hash"
         private const val KEY_HIDDEN_CATS = "hidden_categories"
+        private const val KEY_RECENT_CHANNELS = "recent_channels"
+        private const val KEY_CHANNEL_SORT = "channel_sort"
         private const val KEY_ACTIVE_PROFILE = "active_profile_id"
         private const val KEY_RESUME_LAST = "resume_last_channel"
         private const val KEY_CONTENT_LIVE = "content_live"

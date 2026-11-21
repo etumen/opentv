@@ -111,23 +111,46 @@ class EpgRepository(
      * built-in list. Insert-if-absent, so user toggles survive every call.
      */
     suspend fun ensureFeeds() {
-        for (source in sourceDao.enabled()) {
-            if (feedDao.forProvider(source.id) == null) {
-                feedDao.insert(
-                    EpgFeed(
-                        name = "${source.name} (provider guide)",
-                        providerSourceId = source.id,
-                        enabled = true,
-                    ),
-                )
+        val enabledSources = sourceDao.enabled()
+        for (source in enabledSources) {
+            val providerFeed = feedDao.forProvider(source.id)
+            // Only Xtream can derive /xmltv.php. M3U/Stalker need an explicit XMLTV URL;
+            // otherwise a synthetic provider feed only produces a guaranteed 404.
+            val hasProviderGuide = source.kind == app.opentv.data.model.SourceKind.XTREAM ||
+                !source.epgUrl.isNullOrBlank()
+            when {
+                hasProviderGuide && providerFeed == null -> {
+                    feedDao.insert(
+                        EpgFeed(
+                            name = "${source.name} (provider guide)",
+                            providerSourceId = source.id,
+                            enabled = true,
+                        ),
+                    )
+                }
+                !hasProviderGuide && providerFeed?.enabled == true -> {
+                    // This row was auto-created by older builds. Disable it and drop only its
+                    // generated cache; user-added URL feeds are separate rows and untouched.
+                    feedDao.setEnabled(providerFeed.id, false)
+                    programmeDao.deleteForFeed(providerFeed.id)
+                    aliasDao.deleteForFeed(providerFeed.id)
+                }
             }
+        }
+
+        val builtInTurkeyEnabled = enabledSources.any {
+            it.name == SourceRepository.BUILT_IN_TURKEY_NAME ||
+                it.url == SourceRepository.BUILT_IN_TURKEY_URL
         }
         for ((name, url) in BUILT_IN_FEEDS) {
             if (feedDao.byUrl(url) == null) {
-                // Off by default: shipping a switched-on 20 MB download for a country the
-                // user may not live in would be rude. The EPG settings screen makes
-                // enabling one a single click.
-                feedDao.insert(EpgFeed(name = name, url = url, builtIn = true, enabled = false))
+                // The compact Turkey guide is enabled on first insert only when our built-in
+                // Turkey playlist is active. Every other regional guide remains opt-in, and a
+                // user who later disables Turkey EPG is never overridden on subsequent calls.
+                val enabledOnInsert = url == TURKEY_EPG_URL && builtInTurkeyEnabled
+                feedDao.insert(
+                    EpgFeed(name = name, url = url, builtIn = true, enabled = enabledOnInsert),
+                )
             }
         }
     }
@@ -278,16 +301,35 @@ class EpgRepository(
      */
     suspend fun runMatcher(): Pair<Int, Int> {
         val aliases = aliasDao.all()
-        val index = EpgMatcher.buildIndex(aliases.map { it.epgId to it.displayName })
         // Only ids that actually have programmes count as "working" — a match against a
         // channel the guide lists but never fills is a guide that looks broken.
         val populated = programmeDao.channelIdsWithProgrammes().toHashSet()
+        val matcherAliases = buildList {
+            for (alias in aliases) {
+                add(alias.epgId to alias.displayName)
+                val normalized = ChannelNameNormalizer.normalize(alias.displayName)
+                if (
+                    alias.epgId.endsWith(".tr", ignoreCase = true) &&
+                    normalized.baseName.equals("FOX", ignoreCase = true)
+                ) {
+                    val currentName = listOf("NOW", normalized.qualityLabel)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" ")
+                    add(alias.epgId to currentName)
+                }
+            }
+        }
+        val index = EpgMatcher.buildIndex(
+            aliases = matcherAliases,
+            populatedIds = populated,
+        )
 
         val channels = channelDao.allForMatching()
         var matched = 0
 
         for (channel in channels) {
-            val newMatch = index.match(channel.groupKey)
+            val providerQualityRank = ChannelNameNormalizer.normalize(channel.name).qualityRank
+            val newMatch = index.match(channel.groupKey, providerQualityRank)
             if (newMatch != channel.matchedEpgId) {
                 channelDao.setMatchedEpgId(channel.id, newMatch)
             }
@@ -375,7 +417,10 @@ class EpgRepository(
             "AUS" to "Australia — epgshare01",
         )
 
+        private const val TURKEY_EPG_URL = "https://epgshare01.online/epgshare01/epg_ripper_TR1.xml.gz"
+
         val BUILT_IN_FEEDS: List<Pair<String, String>> = listOf(
+            "Turkey - epgshare01" to TURKEY_EPG_URL,
             "UK — Freeview (free-to-air)" to
                 "https://raw.githubusercontent.com/dp247/Freeview-EPG/master/epg.xml",
             "UK — epgshare01 (Sky lineup)" to

@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui
@@ -36,7 +36,7 @@ import app.opentv.R
 import app.opentv.core.isIgnoringBatteryOptimizations
 
 /**
- * A once-per-session nudge shown the first time the user records or schedules while OpenTV still
+ * A once-per-session nudge shown the first time the user records or schedules while IxirTV still
  * isn't exempt from battery optimisation. It doesn't block the recording — that has already
  * started — it just offers to grant the exemption so the capture survives standby, the way a
  * set-top box does. Once granted (or once shown this session) it stays out of the way.
@@ -45,7 +45,7 @@ object RecordingBackgroundPrompt {
 
     @Volatile private var shownThisSession = false
 
-    /** True at most once per app session, and only while OpenTV still isn't Doze-exempt. */
+    /** True at most once per app session, and only while IxirTV still isn't Doze-exempt. */
     fun shouldShow(context: Context): Boolean =
         !shownThisSession && !context.isIgnoringBatteryOptimizations()
 

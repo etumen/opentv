@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- OpenTV UI translation. Auto-assembled; English fallback for any gap. -->
+<!-- IxirTV UI translation. Auto-assembled; English fallback for any gap. -->
 <resources>
-    <string name="app_name">OpenTV</string>
+    <string name="app_name">IxirTV</string>
     <string name="common_done">Tamam</string>
     <string name="common_cancel">İptal</string>
     <string name="common_back">Geri</string>
@@ -18,7 +18,7 @@
     <string name="common_try_again">Tekrar dene</string>
     <string name="cloud_sources_count">%1$d kaynak</string>
     <string name="nav_home">Ana Sayfa</string>
-    <string name="nav_live_tv">Super TV</string>
+    <string name="nav_live_tv">Canlı TV</string>
     <string name="nav_movies">Filmler</string>
     <string name="nav_shows">Diziler</string>
     <string name="nav_asian_drama">Drama</string>
@@ -96,12 +96,12 @@
     <string name="rec_notification_one">1 program kaydediliyor</string>
     <string name="rec_notification_many">%1$d program kaydediliyor</string>
     <string name="rec_channel_name">Kayıt</string>
-    <string name="rec_channel_desc">OpenTV kayıt yaparken gösterilir</string>
+    <string name="rec_channel_desc">IxirTV kayıt yaparken gösterilir</string>
     <string name="rec_error_nothing">Hiçbir şey kaydedilmedi</string>
     <string name="rec_error_usb_no_folder">USB klasörü seçilmedi. Kayıt ayarlarını açıp sürücünüzde bir klasör seçin.</string>
     <string name="rec_error_usb_unavailable">USB sürücü kullanılamıyor. Sürücüyü yeniden takıp Kayıt ayarlarından klasörü tekrar seçin.</string>
     <string name="rec_background_prompt_title">Uygulamadan çıkınca kayıt devam etsin mi?</string>
-    <string name="rec_background_prompt_body">Ekran kapandığında veya OpenTV\'den çıktığınızda Android bu kaydı durdurabilir. Kayıtların bekleme modunda bile devam etmesi için OpenTV\'nin pil optimizasyonunu yok saymasına izin verin — tıpkı bir set üstü kutu gibi.</string>
+    <string name="rec_background_prompt_body">Ekran kapandığında veya IxirTV\'den çıktığınızda Android bu kaydı durdurabilir. Kayıtların bekleme modunda bile devam etmesi için IxirTV\'nin pil optimizasyonunu yok saymasına izin verin — tıpkı bir set üstü kutu gibi.</string>
     <string name="rec_background_prompt_allow">İzin ver</string>
     <string name="rec_background_prompt_not_now">Şimdi değil</string>
     <string name="player_rewind">Geri sar</string>
@@ -219,7 +219,7 @@
     <string name="recset_usb_change">Klasörü değiştir</string>
     <string name="recset_usb_saving_to">Kaydediliyor: %1$s</string>
     <string name="recset_usb_none">Henüz klasör seçilmedi</string>
-    <string name="recset_usb_hint">exFAT veya FAT32 ile biçimlendirilmiş bir USB sürücü veya harici depolama takın, ardından üzerinde bir klasör seçin. Kayıtlar doğrudan bu klasöre yazılır ve yine OpenTV içinden oynatılıp silinebilir.</string>
+    <string name="recset_usb_hint">exFAT veya FAT32 ile biçimlendirilmiş bir USB sürücü veya harici depolama takın, ardından üzerinde bir klasör seçin. Kayıtlar doğrudan bu klasöre yazılır ve yine IxirTV içinden oynatılıp silinebilir.</string>
     <string name="recset_usb_need_folder">USB\'ye kaydetmeden önce bir klasör seçin.</string>
     <string name="recset_usb_no_picker">Bu cihazda klasör seçici kullanılamıyor.</string>
     <string name="recset_nas_connection">NAS bağlantısı</string>
@@ -251,9 +251,9 @@
     <string name="recset_background_allowed">İzin verildi</string>
     <string name="recset_background_not_allowed">İzin verilmedi</string>
     <string name="recset_background_fix">Düzelt</string>
-    <string name="recset_background_desc">OpenTV\'nin pil optimizasyonunu yok saymasına izin verilmedikçe, cihaz uyku moduna geçtiğinde veya OpenTV\'den çıktığınızda Android kayıtları durdurabilir. İzin vermek, kayıtların bekleme modunda bile bir set üstü kutu gibi devam etmesini sağlar.</string>
+    <string name="recset_background_desc">IxirTV\'nin pil optimizasyonunu yok saymasına izin verilmedikçe, cihaz uyku moduna geçtiğinde veya IxirTV\'den çıktığınızda Android kayıtları durdurabilir. İzin vermek, kayıtların bekleme modunda bile bir set üstü kutu gibi devam etmesini sağlar.</string>
     <string name="recset_background_on_title">Arka planda kayıt açık</string>
-    <string name="recset_background_on_desc">OpenTV\'den çıktığınızda veya TV uyku moduna geçtiğinde kayıtlar devam edecektir.</string>
+    <string name="recset_background_on_desc">IxirTV\'den çıktığınızda veya TV uyku moduna geçtiğinde kayıtlar devam edecektir.</string>
     <string name="recset_background_toast">Arka planda kayıt etkinleştirildi — kayıtlar arka planda devam edecek.</string>
     <string name="epg_updating">Güncelleniyor…</string>
     <string name="epg_update_now">Rehberi şimdi güncelle</string>
@@ -262,7 +262,7 @@
     <string name="epg_name_optional">Ad (isteğe bağlı)</string>
     <string name="epg_xmltv_url">XMLTV URL (.xml veya .xml.gz)</string>
     <string name="epg_add_guide">Rehber ekle</string>
-    <string name="sync_desc">\"İzlemeye devam et\" bilgisini iki OpenTV cihazı arasında kendi Wi-Fi\'niz üzerinden kopyalayın — hiçbir şey evinizden çıkmaz, hesap gerekmez.</string>
+    <string name="sync_desc">\"İzlemeye devam et\" bilgisini iki IxirTV cihazı arasında kendi Wi-Fi\'niz üzerinden kopyalayın — hiçbir şey evinizden çıkmaz, hesap gerekmez.</string>
     <string name="sync_share_from_here">Buradan paylaş</string>
     <string name="sync_receive">Al</string>
     <string name="sync_ready_to_share">Paylaşıma hazır</string>
@@ -287,7 +287,7 @@
     <string name="sync_nas_uploaded">Bu cihaz NAS\'a kaydedildi. Henüz başka bir cihaz burada senkronize olmadı.</string>
     <string name="sync_nas_failed">NAS\'ınıza ulaşılamadı. Açık olduğundan ve Kayıt ayarlarındaki bilgilerin doğru olduğundan emin olun.</string>
     <string name="sync_nas_auto">Uygulama açıldığında otomatik senkronize et</string>
-    <string name="about_title">OpenTV Hakkında</string>
+    <string name="about_title">IxirTV Hakkında</string>
     <string name="about_version">Sürüm</string>
     <string name="about_update_available">Güncelleme mevcut: %1$s — yüklemek için istemi görün.</string>
     <string name="about_up_to_date">En son sürümü kullanıyorsunuz.</string>
@@ -302,7 +302,7 @@
     <string name="about_what_is_title">Bu nedir</string>
     <string name="about_what_is_body">Android TV, Fire TV ve telefonlar için ücretsiz, açık kaynaklı bir IPTV oynatıcısı. Yalnızca bir oynatıcıdır — kanal sağlamaz; zaten ödeme yaptığınız hizmete bağlanırsınız. Girdiğiniz hiçbir bilgi, kendi sağlayıcınızla konuşmak dışında cihazınızdan çıkmaz.</string>
     <string name="about_built_open_title">Açık şekilde geliştirildi</string>
-    <string name="about_built_open_body">OpenTV açık bir şekilde geliştirilir; kodun büyük bir kısmını insan yönetiminde yapay zekâ yazar — bu açıkça belirtilir, gizlenmez. Açık kaynak olduğu için tek bir kişinin ayrılması projeyi sona erdiremez: herkes her satırı okuyabilir, derleyebilir ve geliştirmeye devam edebilir.</string>
+    <string name="about_built_open_body">IxirTV açık bir şekilde geliştirilir; kodun büyük bir kısmını insan yönetiminde yapay zekâ yazar — bu açıkça belirtilir, gizlenmez. Açık kaynak olduğu için tek bir kişinin ayrılması projeyi sona erdiremez: herkes her satırı okuyabilir, derleyebilir ve geliştirmeye devam edebilir.</string>
     <string name="about_support_title">Projeyi destekleyin</string>
     <string name="about_scan_to_donate">Bağış yapmak için tarayın</string>
     <string name="about_licence_links_title">Lisans ve bağlantılar</string>
@@ -313,7 +313,7 @@
     <string name="onboarding_default_provider_name">Sağlayıcım</string>
     <string name="onboarding_default_playlist_name">Oynatma listem</string>
     <string name="onboarding_add_provider_title">Sağlayıcınızı ekleyin</string>
-    <string name="onboarding_add_provider_desc">OpenTV bir oynatıcıdır. Kanal sağlamaz — zaten ödeme yaptığınız hizmete bağlanırsınız.</string>
+    <string name="onboarding_add_provider_desc">IxirTV bir oynatıcıdır. Kanal sağlamaz — zaten ödeme yaptığınız hizmete bağlanırsınız.</string>
     <string name="onboarding_xtream_login">Xtream Codes girişi</string>
     <string name="onboarding_m3u_url">M3U oynatma listesi URL\'si</string>
     <string name="onboarding_stalker_portal">Stalker portalı</string>
@@ -333,7 +333,7 @@
     <string name="onboarding_working">İşleniyor…</string>
     <string name="onboarding_save_load">Kaydet ve yükle</string>
     <string name="onboarding_use_phone">Telefonumu kullan</string>
-    <string name="onboarding_privacy_note">Sağlayıcı bilgileriniz yalnızca bu cihazda saklanır. OpenTV\'nin hesap sistemi ve kendi sunucusu yoktur — buraya yazdığınız hiçbir şey sağlayıcınız dışında hiçbir yere gönderilmez.</string>
+    <string name="onboarding_privacy_note">Sağlayıcı bilgileriniz yalnızca bu cihazda saklanır. IxirTV\'nin hesap sistemi ve kendi sunucusu yoktur — buraya yazdığınız hiçbir şey sağlayıcınız dışında hiçbir yere gönderilmez.</string>
     <string name="pairing_stopped">Eşleştirme durduruldu</string>
     <string name="pairing_type_here">Bunun yerine burada yazın</string>
     <string name="pairing_got_it">Alındı — sağlayıcınıza bağlanılıyor…</string>
@@ -387,6 +387,7 @@
     <string name="vod_recently_added">Son eklenenler</string>
     <string name="vod_categories">Kategoriler</string>
     <string name="vod_watch_now">Şimdi izle</string>
+    <string name="vod_coming_soon">Yakında</string>
     <string name="vod_resume">Devam et</string>
     <string name="vod_more_like_this">Buna benzer</string>
     <string name="vod_synopsis">Özet</string>
@@ -447,7 +448,7 @@
 
     <!-- Türkçe dosyada eksik kalan varsayılan İngilizce metinler -->
     <string name="common_edit">Düzenle</string>
-    <string name="exit_title">OpenTV\'den çıkılsın mı?</string>
+    <string name="exit_title">IxirTV\'den çıkılsın mı?</string>
     <string name="exit_body">TV\'nizin ana ekranına döneceksiniz.</string>
     <string name="exit_confirm">Çık</string>
     <string name="exit_cancel">Kal</string>
@@ -461,10 +462,59 @@
     <string name="recset_pw_hide">Parolayı gizle</string>
     <string name="about_sponsor_github">GitHub Sponsors</string>
     <string name="about_donate_paypal">PayPal ile bağış yap</string>
-    <string name="about_support_body">OpenTV ücretsizdir ve her zaman ücretsiz kalacaktır — hiçbir özellik ücretli değildir. İşinize yarıyorsa ve katkıda bulunmak isterseniz, GitHub Sponsors üzerinden destek olmak veya tek seferlik bağış yapmak güncellemelerin devam etmesine yardımcı olur. Yeni özellikler, düzeltmeler ve destek boş zamanlarda geliştiriliyor. Tamamen isteğe bağlıdır ve gerçekten takdir edilir.</string>
+    <string name="about_support_body">IxirTV ücretsizdir ve her zaman ücretsiz kalacaktır — hiçbir özellik ücretli değildir. İşinize yarıyorsa ve katkıda bulunmak isterseniz, GitHub Sponsors üzerinden destek olmak veya tek seferlik bağış yapmak güncellemelerin devam etmesine yardımcı olur. Yeni özellikler, düzeltmeler ve destek boş zamanlarda geliştiriliyor. Tamamen isteğe bağlıdır ve gerçekten takdir edilir.</string>
     <string name="player_trying_alternative_stream">Alternatif yayın deneniyor…</string>
     <string name="player_all_streams_unavailable">Yayın şu anda kullanılamıyor.</string>
     <string name="about_sporb_disabled">SporB kapalı</string>
     <string name="about_sporb_activation_failed">SporB açılamadı. Lütfen tekrar deneyin.</string>
     <string name="about_sporb_disable_failed">SporB kapatılamadı.</string>
+    <string name="home_featured">Öne Çıkanlar</string>
+
+    <string name="home_explore_genres">Türlere Göre Keşfet</string>
+
+    <string name="home_drama">Drama</string>
+
+    <string name="home_see_all">Tümünü Gör</string>
+
+    <string name="home_watch_now">İzle</string>
+
+    <string name="home_detail">Detay</string>
+
+    <string name="nav_drama">Drama</string>
+
+    <string name="nav_downloads">İndirilenler</string>
+
+    <string name="phone_refresh">Kanalları ve kitaplığı yenile</string>
+
+    <string name="mobile_nav_live_tv">Canlı TV</string>
+    <string name="dl_delete">Sil</string>
+    <string name="dl_delete_confirm">“%1$s” bu cihazdan silinsin mi?</string>
+    <string name="dl_download">İndir</string>
+    <string name="dl_downloaded">İndirildi</string>
+    <string name="dl_downloading">İndiriliyor %%%1$d</string>
+    <string name="dl_empty">Henüz indirilen bir şey yok. Çevrimdışı izlemek için bir film ya da dizi açıp İndir\'e dokunun.</string>
+    <string name="dl_failed">İndirme başarısız</string>
+    <string name="dl_failed_space">Yer kalmadı</string>
+    <string name="dl_no_space">Yeterli boş alan yok — en az 1.5 GB gerekiyor.</string>
+    <string name="dl_no_space_sized">%1$s gerekiyor ancak yalnızca %2$s boş.</string>
+    <string name="dl_paused">Duraklatıldı — ağ bekleniyor</string>
+    <string name="dl_queued">Sırada</string>
+    <string name="dl_queued_toast">“%1$s” sıraya eklendi — indirmeler tek tek yapılır.</string>
+    <string name="dl_retrying">Yeniden deneniyor…</string>
+    <string name="dl_season">Sezonu indir</string>
+    <string name="dl_started">“%1$s” indiriliyor. İndirme sürerken bazı sağlayıcılar başka bir şey izlemenize izin vermez.</string>
+    <string name="dl_used">%1$s kullanılıyor · %2$s boş</string>
+    <string name="cloud_search_title">Sağlayıcı sonuçları</string>
+<string name="player_audio_current">Ses: %1$s</string>
+<string name="player_audio_unknown">Bilinmiyor</string>
+<string name="player_subtitles_tr_available">Türkçe altyazı var</string>
+<string name="phone_search_all">Tüm kanallarda ara</string>
+<string name="phone_clear">Temizle</string>
+<string name="phone_live_categories">Kategoriler</string>
+<string name="phone_live_recent">Son izlenenler</string>
+<string name="phone_live_recent_empty">İzlediğiniz kanallar en yeniden başlayarak burada görünür.</string>
+<string name="phone_sort_provider">Sağlayıcı sırası</string>
+<string name="phone_sort_name">A–Z</string>
+<string name="phone_sort_number">Numaraya göre</string>
+<string name="phone_live_filter_categories">Kategorileri filtrele</string>
 </resources>

@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.recording
@@ -61,7 +61,7 @@ class RecordingAlarmReceiver : BroadcastReceiver() {
                 if (!isTailWatchable(rec)) return@launch
                 // In-app (foreground) switch: the nav graph is watching this.
                 RecordingSignals.requestWatch(id, System.currentTimeMillis())
-                // Screen-off / another-app switch: a full-screen intent brings OpenTV forward.
+                // Screen-off / another-app switch: a full-screen intent brings IxirTV forward.
                 notifySwitch(app, rec)
             } finally {
                 pending.finish()

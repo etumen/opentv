@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.settings
@@ -262,7 +262,7 @@ private fun TmdbKeySection(settings: AppSettings) {
 }
 
 /**
- * The UI languages OpenTV ships translations for, each labelled with its own endonym. The tag is
+ * The UI languages IxirTV ships translations for, each labelled with its own endonym. The tag is
  * both the stored language tag and the resource qualifier (values-<tag>), so adding a language is
  * just a new `values-xx/strings.xml` plus a line here.
  */

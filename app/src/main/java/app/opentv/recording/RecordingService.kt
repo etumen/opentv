@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.recording
@@ -218,7 +218,7 @@ class RecordingService : Service() {
     }
 
     /**
-     * The user swiped OpenTV out of recents. That must NOT kill an in-progress recording — the
+     * The user swiped IxirTV out of recents. That must NOT kill an in-progress recording — the
      * whole point of a foreground capture is that it keeps going when you leave the app. So while
      * any capture is still running we deliberately do not [stopSelf]; we re-assert foreground so
      * the OS keeps the process (and its wake lock) alive, and let each capture retire the service
@@ -245,7 +245,7 @@ class RecordingService : Service() {
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OpenTV:recording").apply {
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "IxirTV:recording").apply {
             setReferenceCounted(false)
             acquire(MAX_WAKE_MILLIS)
         }
@@ -269,7 +269,7 @@ class RecordingService : Service() {
             else -> getString(R.string.rec_notification_many, count)
         }
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("OpenTV")
+            .setContentTitle("IxirTV")
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_opentv_logo)
             .setOngoing(true)
@@ -293,7 +293,7 @@ class RecordingService : Service() {
     }
 
     companion object {
-        private const val TAG = "OpenTV"
+        private const val TAG = "IxirTV"
         private const val CHANNEL_ID = "recordings"
         private const val NOTIFICATION_ID = 4210
         private const val BUFFER_BYTES = 64 * 1024

@@ -1,12 +1,13 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.channels
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -59,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -121,6 +124,7 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val graph = remember { ServiceLocator.get(context) }
+    val isPhone = !isTelevision
     val settings = remember { graph.settings }
     val previewEnabled by settings.guidePreviewVideo.collectAsState()
     val channelLayout by settings.channelLayout.collectAsState()
@@ -132,6 +136,9 @@ fun HomeScreen(
 
     val categories by viewModel.visibleCategoryGroups.collectAsState()
     val rows by viewModel.rows.collectAsState()
+    val recentChannelIds by settings.recentChannels.collectAsState()
+    val phoneSort by settings.channelSort.collectAsState()
+    var phoneRecentsOnly by rememberSaveable { mutableStateOf(false) }
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val favouritesOnly by viewModel.favouritesOnly.collectAsState()
     val sources by viewModel.sources.collectAsState()
@@ -160,7 +167,7 @@ fun HomeScreen(
     // The channel whose OK menu (Watch / Record / Schedule) is open.
     var channelMenu by remember { mutableStateOf<ChannelsViewModel.Row?>(null) }
 
-    // First time the user records or schedules while OpenTV isn't exempt from battery optimisation,
+    // First time the user records or schedules while IxirTV isn't exempt from battery optimisation,
     // offer the exemption so the capture survives standby. Once per session; never blocks recording.
     var showBackgroundPrompt by remember { mutableStateOf(false) }
     fun promptBackgroundIfNeeded() {
@@ -215,7 +222,7 @@ fun HomeScreen(
     // once — the thing that used to lock up cheap sticks.
     val previewScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     val previewController = remember {
-        PlayerController(context, previewScope, graph.httpClient, subtitlesEnabled = false, preview = true)
+        PlayerController(context, previewScope, graph.httpClient, preview = true)
             .also { it.player.volume = 0f }
     }
     DisposableEffect(Unit) {
@@ -292,7 +299,7 @@ fun HomeScreen(
                 url = channel.streamUrl,
                 title = channel.shownName,
                 userAgent = channel.playbackUserAgent(
-                    source?.userAgent ?: "OpenTV/0.1 (Android)",
+                    source?.userAgent ?: "IxirTV/0.1 (Android)",
                 ),
                 requestHeaders = channel.playbackRequestHeaders(),
                 isLive = true,
@@ -301,7 +308,60 @@ fun HomeScreen(
         )
     }
 
-    Row(Modifier.fillMaxSize()) {
+    val phoneRows = remember(rows, isPhone, recentChannelIds, phoneRecentsOnly, phoneSort) {
+        if (!isPhone) rows
+        else {
+            val filtered = if (phoneRecentsOnly) {
+                rows.filter { row -> row.variants.any { it.id in recentChannelIds } }
+                    .sortedBy { row ->
+                        recentChannelIds.indexOfFirst { id -> row.variants.any { it.id == id } }
+                    }
+            } else rows
+            when (phoneSort) {
+                AppSettings.ChannelSort.DEFAULT -> filtered
+                AppSettings.ChannelSort.NAME -> filtered.sortedBy { it.primary.shownName.lowercase(Locale.getDefault()) }
+                AppSettings.ChannelSort.NUMBER -> filtered.sortedBy { it.number }
+            }
+        }
+    }
+    if (isPhone) {
+        PhoneLiveLayout(
+            rows = phoneRows,
+            sources = sources,
+            selectedSource = selectedSource,
+            categories = categories,
+            selectedCategory = selectedCategory,
+            favouritesOnly = favouritesOnly,
+            recentsOnly = phoneRecentsOnly,
+            sort = phoneSort,
+            onSort = settings::setChannelSort,
+            onSelectSource = { phoneRecentsOnly = false; viewModel.selectSource(it) },
+            onSelectCategory = { phoneRecentsOnly = false; viewModel.selectCategory(it) },
+            onSelectFavourites = { phoneRecentsOnly = false; viewModel.selectFavourites() },
+            onSelectRecents = {
+                viewModel.selectSource(null)
+                phoneRecentsOnly = true
+            },
+            onQuery = viewModel::search,
+            onPlay = { requestLive(it.primary) },
+            onLongPress = { channelMenu = it },
+            onToggleFavourite = viewModel::toggleFavourite,
+            emptyContent = {
+                when {
+                    phoneRecentsOnly -> Box(Modifier.fillMaxSize().padding(24.dp),
+                        contentAlignment = Alignment.Center) {
+                        Text(stringResource(R.string.phone_live_recent_empty))
+                    }
+                    favouritesOnly -> NoFavouritesState()
+                    isSyncing || channelsPresent == null || channelsPresent == true ->
+                        LoadingState(isSyncing)
+                    hasSources -> ChannelsErrorState(onRetry = onRefresh, onEditProvider = onAddSource)
+                    else -> EmptyState(onAddSource)
+                }
+            },
+        )
+    } else Row(Modifier.fillMaxSize()) {
+        // ---- Categories
 
         // ---- Category rail -----------------------------------------------------------------
         // Width animates to 0 while focus is in the guide (see onFocusRow) so the grid gets the
@@ -462,6 +522,36 @@ fun HomeScreen(
                         false
                     }
                 }
+                if (classicLiveList) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        item(key = "live-filter-all") {
+                            val allSelected = !favouritesOnly && selectedCategory == null
+                            LiveTvFilterPill(
+                                label = stringResource(R.string.guide_all_channels),
+                                selected = allSelected,
+                                onClick = { viewModel.selectCategory(null) },
+                            )
+                        }
+                        item(key = "live-filter-favourites") {
+                            LiveTvFilterPill(
+                                label = stringResource(R.string.guide_favourites),
+                                selected = favouritesOnly,
+                                onClick = viewModel::selectFavourites,
+                            )
+                        }
+                        items(categories, key = { "live-filter-" + it.key }) { group ->
+                            LiveTvFilterPill(
+                                label = group.label,
+                                selected = !favouritesOnly && selectedCategory == group.key,
+                                onClick = { viewModel.selectCategory(group.key) },
+                            )
+                        }
+                    }
+                }
                 if (classicLiveList || channelLayout == AppSettings.ChannelLayout.LIST) {
                     ChannelList(
                         rows = rows,
@@ -472,7 +562,7 @@ fun HomeScreen(
                         onFocusRow = onFocusChannel,
                         onToggleFavourite = { viewModel.toggleFavourite(it) },
                         onExitLeftFromChannel = onExitLeftChannel,
-                        modifier = Modifier.weight(1f).padding(start = 12.dp, end = 12.dp),
+                        modifier = Modifier.weight(1f).padding(start = 48.dp, end = 48.dp),
                     )
                 } else {
                     GuideGrid(
@@ -743,7 +833,7 @@ fun HomeScreen(
                     RecordActionRow(stringResource(R.string.guide_open_external)) {
                         channelMenu = null
                         recordScope.launch {
-                            val ua = graph.sourceRepository.byId(channel.sourceId)?.userAgent ?: "OpenTV/0.1 (Android)"
+                            val ua = graph.sourceRepository.byId(channel.sourceId)?.userAgent ?: "IxirTV/0.1 (Android)"
                             val intent = Intent(Intent.ACTION_VIEW).apply {
                                 setDataAndType(android.net.Uri.parse(channel.streamUrl), "video/*")
                                 putExtra("title", channel.shownName)
@@ -897,6 +987,39 @@ private fun QualityChip(label: String, selected: Boolean, onClick: () -> Unit) {
             .background(bg)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
+    )
+}
+
+@Composable
+private fun LiveTvFilterPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val background = when {
+        focused -> MaterialTheme.colorScheme.primary
+        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val foreground = if (focused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        color = foreground,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .onFocusChanged { focused = it.isFocused }
+            .clip(RoundedCornerShape(8.dp))
+            .background(background)
+            .then(
+                if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                else Modifier,
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 9.dp),
     )
 }
 

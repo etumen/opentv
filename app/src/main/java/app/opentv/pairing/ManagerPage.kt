@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.pairing
@@ -26,7 +26,7 @@ object ManagerPage {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <meta name="robots" content="noindex, nofollow">
-        <title>OpenTV — manage channels</title>
+        <title>IxirTV — manage channels</title>
         <style>
           :root { --bg:#07080c; --surface:#12141d; --surface2:#181b26; --line:#2a2f3d;
                   --text:#e8eaf0; --muted:#a8aec0; --accent:#7c93ff; --accent2:#3a447a;
@@ -112,7 +112,7 @@ object ManagerPage {
         <body>
           <div class="wrap">
             <header>
-              <h1>OpenTV — manage channels</h1>
+              <h1>IxirTV — manage channels</h1>
               <p class="hint">Changes apply to your TV the moment you make them.</p>
             </header>
 
@@ -148,7 +148,7 @@ object ManagerPage {
                 <label class="field"><span>Server (IP address)</span>
                   <input id="recHost" placeholder="192.168.0.214" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
                 <label class="field"><span>Share</span>
-                  <input id="recShare" placeholder="OpenTV" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+                  <input id="recShare" placeholder="IxirTV" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
                 <label class="field"><span>Folder (optional)</span>
                   <input id="recFolder" placeholder="(leave blank)" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
                 <label class="field"><span>Username</span>
@@ -177,8 +177,8 @@ object ManagerPage {
             </section>
 
             <p class="privacy">
-              This page is served by your television, over your own network — there is no OpenTV
-              account and no OpenTV server. Nothing you change here leaves your home.
+              This page is served by your television, over your own network — there is no IxirTV
+              account and no IxirTV server. Nothing you change here leaves your home.
             </p>
           </div>
 

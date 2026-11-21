@@ -1,12 +1,15 @@
 package app.opentv.ui.home
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.opentv.core.ServiceLocator
 import app.opentv.data.catalog.CanonicalContent
 import app.opentv.data.provider.ProviderCatalogRequest
 import app.opentv.data.provider.ProviderMediaType
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -14,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class DiscoveryShelf(
     val id: String,
@@ -53,12 +57,23 @@ class DiscoveryHomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _loading.value = true
             try {
-                val loaded = coroutineScope {
-                    collections.map { collection ->
-                        async { loadCollection(collection) }
-                    }.awaitAll()
+                val loaded = mutableListOf<DiscoveryShelf>()
+                collections.forEach { collection ->
+                    val shelf = try {
+                        withContext(Dispatchers.Default) {
+                            loadCollection(collection)
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Discovery collection failed: ${collection.id}", e)
+                        null
+                    }
+                    if (shelf != null && shelf.items.isNotEmpty()) {
+                        loaded += shelf
+                        _shelves.value = loaded.toList()
+                    }
                 }
-                _shelves.value = loaded.filter { it.items.isNotEmpty() }
                 _loaded.value = true
             } finally {
                 _loading.value = false
@@ -66,27 +81,36 @@ class DiscoveryHomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private suspend fun loadCollection(collection: Collection): DiscoveryShelf = coroutineScope {
+    private suspend fun loadCollection(collection: Collection): DiscoveryShelf {
         val mediaTypes = listOf(
             ProviderMediaType.MOVIE,
             ProviderMediaType.SERIES,
         )
 
-        val canonicalItems = mediaTypes.map { mediaType ->
-            async {
-                catalog.catalog(
-                    ProviderCatalogRequest(
-                        mediaType = mediaType,
-                        sectionId = collection.sectionId,
-                        page = 1,
-                    ),
-                ).items
-            }
-        }.awaitAll()
-            .flatten()
-            .distinctBy { it.id }
+        val canonicalItems = coroutineScope {
+            mediaTypes.map { mediaType ->
+                async {
+                    if (collection.sectionId == null) {
+                        catalog.pager(
+                            mediaType = mediaType,
+                            initialProviderBatchSize =
+                                if (mediaType == ProviderMediaType.SERIES) SERIES_HOME_INITIAL_PROVIDERS
+                                else MOVIE_HOME_INITIAL_PROVIDERS,
+                        ).loadInitial().items
+                    } else {
+                        catalog.catalog(
+                            ProviderCatalogRequest(
+                                mediaType = mediaType,
+                                sectionId = collection.sectionId,
+                                page = 1,
+                            ),
+                        ).items
+                    }
+                }
+            }.awaitAll().flatten()
+        }.distinctBy { it.id }
 
-        DiscoveryShelf(
+        return DiscoveryShelf(
             id = collection.id,
             title = collection.title,
             items = canonicalItems.take(HOME_SHELF_LIMIT),
@@ -94,6 +118,9 @@ class DiscoveryHomeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
+        private const val TAG = "DiscoveryHome"
         private const val HOME_SHELF_LIMIT = 24
+        private const val MOVIE_HOME_INITIAL_PROVIDERS = 3
+        private const val SERIES_HOME_INITIAL_PROVIDERS = 1
     }
 }

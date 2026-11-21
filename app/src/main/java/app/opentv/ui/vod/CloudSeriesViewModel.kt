@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.vod
@@ -35,6 +35,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class CloudSeriesProvider(
     val id: String,
@@ -353,7 +355,10 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
             _loadingUnifiedCatalog.value = true
             _lastError.value = null
             try {
-                val pager = unifiedCatalog.pager(ProviderMediaType.SERIES)
+                val pager = unifiedCatalog.pager(
+                    mediaType = ProviderMediaType.SERIES,
+                    initialProviderBatchSize = 1,
+                )
                 unifiedPager = pager
                 val page = pager.loadInitial()
                 _unifiedCatalogItems.value = page.items
@@ -437,12 +442,14 @@ class CloudSeriesViewModel(app: Application) : AndroidViewModel(app) {
 
         searchJob = viewModelScope.launch {
             delay(250)
-            val result = unifiedCatalog.search(
-                ProviderSearchRequest(
-                    query = trimmed,
-                    mediaType = ProviderMediaType.SERIES,
-                ),
-            )
+            val result = withContext(Dispatchers.Default) {
+                unifiedCatalog.search(
+                    ProviderSearchRequest(
+                        query = trimmed,
+                        mediaType = ProviderMediaType.SERIES,
+                    ),
+                )
+            }
             _searchResults.value = result.items
             result.failures.values.firstOrNull()?.let { _lastError.value = it }
         }

@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui
@@ -60,6 +60,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import app.opentv.core.AppSettings
 import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -122,11 +125,9 @@ fun MainScreen(
         buildList {
             add(Tab.HOME)
             if (moviesEnabled) add(Tab.MOVIES)
-            if (seriesEnabled) {
-                add(Tab.SHOWS)
-                add(Tab.ASIAN_DRAMA)
-            }
+            if (seriesEnabled) add(Tab.SHOWS)
             if (liveEnabled) add(Tab.LIVE)
+            if (seriesEnabled) add(Tab.ASIAN_DRAMA)
             add(Tab.RECORDINGS)
         }
     }
@@ -172,10 +173,12 @@ fun MainScreen(
             .background(MaterialTheme.colorScheme.background),
     ) {
         TopNavigationBar(
-            tabs = visibleTabs,
+            tabs = visibleTabs.filterNot { it == Tab.RECORDINGS },
             current = tab,
             onSelect = { tab = it },
             onOpenSearch = onOpenSearch,
+            onOpenRecordings = { tab = Tab.RECORDINGS },
+            recordingsSelected = tab == Tab.RECORDINGS,
             onOpenSettings = onOpenSettings,
             onOpenProfiles = onOpenProfiles,
             activeProfileName = activeProfileName,
@@ -283,33 +286,39 @@ private fun TopNavigationBar(
     current: Tab,
     onSelect: (Tab) -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenRecordings: () -> Unit,
+    recordingsSelected: Boolean,
     onOpenSettings: () -> Unit,
     onOpenProfiles: () -> Unit,
     activeProfileName: String,
 ) {
+    val focusRequesters = remember(tabs.size) { List(tabs.size + 4) { FocusRequester() } }
+    fun leftOf(index: Int): FocusRequester = if (index == 0) focusRequesters[index] else focusRequesters[index - 1]
+    fun rightOf(index: Int): FocusRequester = if (index == focusRequesters.lastIndex) focusRequesters[index] else focusRequesters[index + 1]
+
     Row(
         Modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(60.dp)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
             .focusGroup()
-            .padding(horizontal = 20.dp, vertical = 7.dp),
+            .padding(horizontal = 48.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(9.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(
-            modifier = Modifier.padding(end = 12.dp),
+            modifier = Modifier.padding(end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Image(
                 painter = painterResource(R.drawable.ic_opentv_logo),
-                contentDescription = "OpenTV",
-                modifier = Modifier.size(32.dp),
+                contentDescription = "IxirTV",
+                modifier = Modifier.size(28.dp),
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(7.dp))
             Text(
-                text = "OpenTV",
-                style = MaterialTheme.typography.titleLarge,
+                text = "IxirTV",
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -320,34 +329,60 @@ private fun TopNavigationBar(
             icon = Icons.Filled.Search,
             label = stringResource(R.string.nav_search),
             selected = false,
+            focusRequester = focusRequesters[0],
+            leftFocus = leftOf(0),
+            rightFocus = rightOf(0),
             onClick = onOpenSearch,
         )
 
-        tabs.forEach { tab ->
+        tabs.forEachIndexed { tabIndex, tab ->
+            val focusIndex = tabIndex + 1
             TopNavItem(
                 icon = tab.icon,
                 label = stringResource(tab.labelRes),
                 selected = current == tab,
                 showIcon = false,
+                focusRequester = focusRequesters[focusIndex],
+                leftFocus = leftOf(focusIndex),
+                rightFocus = rightOf(focusIndex),
                 onClick = { onSelect(tab) },
             )
         }
 
         Spacer(Modifier.weight(1f))
 
+        val recordingsIndex = tabs.size + 1
+        val settingsIndex = tabs.size + 2
+        val profileIndex = tabs.size + 3
         TopNavItem(
-            icon = Icons.Filled.Person,
-            label = activeProfileName,
-            selected = false,
+            icon = Icons.Filled.FiberManualRecord,
+            label = stringResource(R.string.nav_recordings),
+            selected = recordingsSelected,
             compact = true,
-            onClick = onOpenProfiles,
+            focusRequester = focusRequesters[recordingsIndex],
+            leftFocus = leftOf(recordingsIndex),
+            rightFocus = rightOf(recordingsIndex),
+            onClick = onOpenRecordings,
         )
         TopNavItem(
             icon = Icons.Filled.Settings,
             label = stringResource(R.string.nav_settings),
             selected = false,
             compact = true,
+            focusRequester = focusRequesters[settingsIndex],
+            leftFocus = leftOf(settingsIndex),
+            rightFocus = rightOf(settingsIndex),
             onClick = onOpenSettings,
+        )
+        TopNavItem(
+            icon = Icons.Filled.Person,
+            label = activeProfileName,
+            selected = false,
+            compact = true,
+            focusRequester = focusRequesters[profileIndex],
+            leftFocus = leftOf(profileIndex),
+            rightFocus = rightOf(profileIndex),
+            onClick = onOpenProfiles,
         )
     }
 }
@@ -359,11 +394,14 @@ private fun TopNavItem(
     selected: Boolean,
     compact: Boolean = false,
     showIcon: Boolean = true,
+    focusRequester: FocusRequester,
+    leftFocus: FocusRequester,
+    rightFocus: FocusRequester,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.05f else 1f,
+        targetValue = if (focused) 1.04f else 1f,
         label = "topNavScale",
     )
     val background = when {
@@ -381,8 +419,14 @@ private fun TopNavItem(
         androidx.compose.ui.graphics.Color.Transparent
     }
 
+    val itemModifier = if (compact) Modifier.size(44.dp) else Modifier
     Row(
-        Modifier
+        itemModifier
+            .focusProperties {
+                left = leftFocus
+                right = rightFocus
+            }
+            .focusRequester(focusRequester)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -393,24 +437,25 @@ private fun TopNavItem(
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(
-                horizontal = if (compact) 11.dp else 16.dp,
-                vertical = 9.dp,
+                horizontal = if (compact) 0.dp else 12.dp,
+                vertical = if (compact) 0.dp else 8.dp,
             ),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
         if (showIcon) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
                 tint = foreground,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(if (compact) 20.dp else 18.dp),
             )
         }
         if (!compact) {
             if (showIcon) Spacer(Modifier.width(8.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = foreground,
                 fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,

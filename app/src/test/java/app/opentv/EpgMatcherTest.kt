@@ -101,4 +101,50 @@ class EpgMatcherTest {
         assertThat(idx.match(keyOf("UK| CHANNEL 4 hevc"))).isEqualTo("channel4.uk")
         assertThat(idx.match(keyOf("UK| SKY ATLANTIC ᴴᴰ"))).isEqualTo("skyatlantic.uk")
     }
+
+    @Test
+    fun `dead quality duplicate yields to populated alias`() {
+        val idx = EpgMatcher.buildIndex(
+            aliases = listOf(
+                "KANAL.7.HD.tr" to "KANAL 7 HD",
+                "KANAL.7.tr" to "KANAL 7",
+            ),
+            populatedIds = setOf("KANAL.7.HD.tr"),
+        )
+
+        assertThat(idx.match(keyOf("Kanal 7"))).isEqualTo("KANAL.7.HD.tr")
+    }
+
+    @Test
+    fun `populated quality duplicates follow provider quality`() {
+        val idx = EpgMatcher.buildIndex(
+            aliases = listOf(
+                "TRT.1.HD.tr" to "TRT 1 HD",
+                "TRT.1.tr" to "TRT 1",
+            ),
+            populatedIds = setOf("TRT.1.HD.tr", "TRT.1.tr"),
+        )
+
+        assertThat(idx.match(keyOf("TRT 1"), providerQualityRank = 0)).isEqualTo("TRT.1.tr")
+        assertThat(
+            idx.match(
+                keyOf("TRT 1 HD"),
+                providerQualityRank = ChannelNameNormalizer.normalize("TRT 1 HD").qualityRank,
+            ),
+        ).isEqualTo("TRT.1.HD.tr")
+    }
+
+    @Test
+    fun `equally plausible populated collision is still refused`() {
+        val idx = EpgMatcher.buildIndex(
+            aliases = listOf(
+                "cnn.us" to "CNN",
+                "cnn.int" to "CNN",
+            ),
+            populatedIds = setOf("cnn.us", "cnn.int"),
+        )
+
+        assertThat(idx.match(keyOf("CNN"))).isNull()
+    }
+
 }

@@ -1,6 +1,6 @@
 /*
- * This file is part of OpenTV.
- * Copyright (C) 2026 The OpenTV Contributors
+ * This file is part of IxirTV.
+ * Copyright (C) 2026 The IxirTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
  */
 package app.opentv.ui.player
@@ -8,6 +8,11 @@ package app.opentv.ui.player
 import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import app.opentv.ui.LocalLayoutClass
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -140,11 +145,9 @@ fun PlayerScreen(
     val graph = remember { ServiceLocator.get(context) }
     val settings = remember { graph.settings }
     val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
-    val subtitlesDefault by settings.subtitlesEnabled.collectAsState()
     val controller = remember {
         PlayerController(
             context, scope, graph.streamingHttpClient,
-            subtitlesEnabled = settings.subtitlesEnabled.value,
             // Opt-in shallow DVR so the transport's pause/rewind actually holds on a live stream.
             dvr = settings.livePauseEnabled.value,
         )
@@ -187,7 +190,7 @@ fun PlayerScreen(
     var panel by remember { mutableStateOf(Panel.NONE) }
     var channelListVisible by remember { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
-    // Offered once per session the first time the user records here while OpenTV isn't exempt from
+    // Offered once per session the first time the user records here while IxirTV isn't exempt from
     // battery optimisation, so the capture survives the screen sleeping. Never blocks recording.
     var showBackgroundPrompt by remember { mutableStateOf(false) }
 
@@ -216,6 +219,7 @@ fun PlayerScreen(
     // The channel list you were browsing, for channel up/down and the in-player list. Snapshotted
     // on entry so it doesn't shift under you mid-session.
     val queue = remember { PlaybackQueue.items }
+    val touch = LocalLayoutClass.current.isTouch
 
     fun reveal() {
         controlsVisible = true
@@ -231,7 +235,7 @@ fun PlayerScreen(
                 url = url,
                 title = channel.shownName,
                 userAgent = channel.playbackUserAgent(
-                    source?.userAgent ?: "OpenTV/0.1 (Android)",
+                    source?.userAgent ?: "IxirTV/0.1 (Android)",
                 ),
                 requestHeaders = channel.playbackRequestHeaders(),
                 isLive = true,
@@ -244,6 +248,7 @@ fun PlayerScreen(
         currentId = channel.id
         paused = false
         settings.lastChannelId = channel.id
+        if (touch) settings.addRecentChannel(channel.id)
         scope.launch {
             playbackCandidates = graph.catalogRepository.playbackCandidates(channel)
                 .ifEmpty { listOf(channel) }
@@ -344,14 +349,21 @@ fun PlayerScreen(
         onBack()
     }
 
-    // Apply the saved captions default once the stream's tracks arrive. Only auto-selects when
-    // nothing is chosen yet, so it never overrides a track the user picked by hand.
-    LaunchedEffect(tracks) {
-        val hasText = tracks.groups.any { it.type == C.TRACK_TYPE_TEXT }
-        val textChosen = tracks.groups.any { g ->
-            g.type == C.TRACK_TYPE_TEXT && (0 until g.length).any { g.isTrackSelected(it) }
+    // Apply the global Turkish-first policy once per tuned channel. This intentionally runs
+    // even when Media3 already picked a default track, because providers often mark Turkish only
+    // in the label. A later manual user choice is left alone until the channel actually changes.
+    var preferredAudioAppliedForId by remember { mutableStateOf<Long?>(null) }
+    var preferredSubtitleAppliedForId by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(tracks, currentId) {
+        val id = currentId ?: return@LaunchedEffect
+        if (preferredAudioAppliedForId != id && tracks.groups.any { it.type == C.TRACK_TYPE_AUDIO }) {
+            controller.selectPreferredTurkishAudio()
+            preferredAudioAppliedForId = id
         }
-        if (subtitlesDefault && hasText && !textChosen) controller.setSubtitlesEnabled(true)
+        if (preferredSubtitleAppliedForId != id && tracks.groups.any { it.type == C.TRACK_TYPE_TEXT }) {
+            controller.selectPreferredSubtitle(fallbackToFirst = true)
+            preferredSubtitleAppliedForId = id
+        }
     }
 
     // Auto-hide the bar after a few seconds — but never while paused or with a picker open.
@@ -451,9 +463,12 @@ fun PlayerScreen(
             }
             .focusRequester(rootFocus)
             .focusable()
-            .pointerInput(Unit) {
-                detectTapGestures { if (controlsVisible) controlsVisible = false else reveal() }
-            },
+            .then(
+                if (touch) Modifier
+                else Modifier.pointerInput(Unit) {
+                    detectTapGestures { if (controlsVisible) controlsVisible = false else reveal() }
+                },
+            ),
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -471,6 +486,26 @@ fun PlayerScreen(
             },
             update = { it.resizeMode = resizeMode },
         )
+
+        if (touch) {
+            ImmersiveSystemBars(hidden = !controlsVisible || inPip)
+        }
+
+        // Phone gestures sit under controls to avoid intercepting button clicks.
+        PlayerGestureLayer(
+            enabled = touch && !inPip,
+            dragsEnabled = !channelListVisible && panel == Panel.NONE,
+            onTap = {
+                when {
+                    channelListVisible -> channelListVisible = false
+                    controlsVisible -> controlsVisible = false
+                    else -> reveal()
+                }
+            },
+        ) { direction ->
+            zapBy(-direction)
+            reveal()
+        }
 
         // The channel number as you type it, top-right, until it resolves.
         if (numberEntry.isNotEmpty() && !inPip) {
@@ -546,6 +581,40 @@ fun PlayerScreen(
             else -> ""
         }
 
+        if (touch) {
+            AnimatedVisibility(
+                visible = controlsVisible && !inPip,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.TopCenter),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth()
+                        .background(Brush.verticalGradient(
+                            listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent),
+                        ))
+                        .windowInsetsPadding(
+                            PlayerChromeInsets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top),
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = { controller.stop(); onBack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null, tint = Color.White)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (queue.isNotEmpty()) {
+                        IconButton(onClick = { channelListVisible = true; interaction++ }) {
+                            Icon(Icons.AutoMirrored.Filled.List,
+                                contentDescription = stringResource(R.string.common_channels),
+                                tint = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+
         AnimatedVisibility(
             visible = controlsVisible && !inPip,
             enter = fadeIn(),
@@ -560,7 +629,8 @@ fun PlayerScreen(
                     // bar / display cutout in landscape). Zero on a TV, so the 10-foot layout is
                     // unchanged; the gradient above stays full-bleed to the screen edge.
                     .windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
+                        (if (touch) PlayerChromeInsets else WindowInsets.safeDrawing)
+                            .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
                     )
                     .padding(horizontal = 28.dp, vertical = 20.dp),
             ) {
@@ -593,7 +663,12 @@ fun PlayerScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.then(
+                        if (touch) Modifier.horizontalScroll(rememberScrollState()) else Modifier,
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (controller.isSeekable) {
                         BarChip(Icons.Filled.FastRewind, stringResource(R.string.player_rewind), false) {
                             controller.seekBackward(); interaction++
